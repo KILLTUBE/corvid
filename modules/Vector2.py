@@ -1,6 +1,5 @@
 from math import pow, sqrt
 
-
 class Vector2:
     def __init__(self, a: float = float(0.0), b: float = float(0.0)):
         self.x = float(a)
@@ -36,7 +35,7 @@ class Vector2:
         return False
 
     def __str__(self):
-        return str(self.x) + " " + str(self.y)
+        return f"{self.x} {self.y}"
 
     def dot(self, rhs):
         return (self.x * rhs.x) + (self.y * rhs.y)
