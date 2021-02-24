@@ -13,11 +13,29 @@ from tempfile import gettempdir
 from vmf_tool.parser import parse
 from .AssetExporter import *
 
-def convertSide(side: Side, matSize):
+class vertexTable:
+    def __init__(self):
+        self.table = {}
+    
+    def add(self, vert: Vector3):
+        index = str(int(vert.len()))
+        if index in self.table:
+            for point in self.table[index]:
+                if point == vert:
+                    return point
+            self.table[index].append(vert)
+            return vert
+        else:
+            self.table[index] = []
+            self.table[index].append(vert)
+            return vert
+
+def convertSide(side: Side, matSize, table: vertexTable):
     res = ""
-    points: list[Vector3] = side.points
+    points = []
     # get uv points
-    for point in points:
+    for point in side.points:
+        points.append(table.add(point))
         side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
     uvs: list[Vector2] = side.uvs
 
@@ -27,7 +45,7 @@ def convertSide(side: Side, matSize):
     count = len(points)
     rows = int(count / 2)
 
-    if side.material.startswith.lower().strip().startswith("liquids"):
+    if side.material.lower().strip().startswith("liquids"):
         side.material = "clip"
 
     res += (
@@ -75,17 +93,19 @@ def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, power: i
     return res
 
 
-def convertDisplacement(side: Side, matSize) -> str:
+def convertDisplacement(side: Side, matSize, table: vertexTable):
     res = ""
-    points: list[Vector3] = side.points
+    points = []
     # get uv points
-    for point in points:
+    for point in side.points:
+        points.append(table.add(point))
         side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
 
     if len(points) != 4:
+        print(f"Displacement has {len(points)}. Displacements can have 4 points only. Side id: {side.id}\n")
         for point in points:
             print(point)
-        exit()
+        return ""
     uvs: list[Vector2] = side.uvs
     disp: dict = side.dispinfo
     power: int = int(disp["power"])
@@ -167,9 +187,9 @@ def convertDisplacement(side: Side, matSize) -> str:
             uv = (col["uv"] * side.texSize) * 1
             lm = col["uv"] * (side.lightmapScale)
             if disp["row"][j]["alphas"][i] == 0:
-                res += f"    v {pos} c 255 255 255 255 t {uv} {lm}\n"
+                res += f"    v {pos} c 255 255 255 0 t {uv} {lm}\n"
             else:
-                color = "255 255 255 " + str(255 - disp["row"][j]["alphas"][i])
+                color = "255 255 255 " + str(disp["row"][j]["alphas"][i])
                 res += f"    v {pos} c {color} t {uv} {lm}\n"
         res += "   )\n"
     res += ("  }\n" +
@@ -197,7 +217,7 @@ def convertBrush(brush, world=True):
         "toolsblocklight": "shadowcaster",
         "toolshint": "hint",
         "toolsskip": "skip",
-        "toolsskybox": "sky_chechnya"
+        "toolsskybox": "sky"
     }
 
     res = " {\n"
@@ -244,7 +264,7 @@ def convertLight(entity):
         "intensity": "1"
     })
 
-def convertSpotLight(entity):
+def convertSpotLight(entity, BO3=False):
     if "_light" in entity:
         _color = entity["_light"].split(" ")
     else:
@@ -261,23 +281,36 @@ def convertSpotLight(entity):
         radius = (int(entity["_fifty_percent_distance"]) * 2 + int(entity["_zero_percent_distance"])) / 2
     else:
         radius = 250
-    res = convertEntity({
-        "classname": "light",
-        "origin": entity["origin"],
-        "_color": color,
-        "radius": radius,
-        "intensity": "1",
-        "target": "spotlight_" + entity["id"],
-        "fov_outer": entity["_cone"],
-        "fov_inner": entity["_inner_cone"],
-    })
-
-    res += convertEntity({
-        "classname": "info_null",
-        "origin": origin + Vector3(0, 0, -float(_color[3])),
-        "targetname": "spotlight_" + entity["id"]
-    })
-
+    
+    if not BO3:
+        res = convertEntity({
+            "classname": "light",
+            "origin": entity["origin"],
+            "_color": color,
+            "radius": radius,
+            "intensity": "1",
+            "target": "spotlight_" + entity["id"],
+            "fov_outer": entity["_cone"],
+            "fov_inner": entity["_inner_cone"],
+        })
+        res += convertEntity({
+            "classname": "info_null",
+            "origin": origin + Vector3(0, 0, -float(_color[3])),
+            "targetname": "spotlight_" + entity["id"]
+        })
+    else:
+        angles = entity["angles"].split(" ")
+        angles = entity["pitch"] + " " + angles[1] + " 0"
+        res = convertEntity({
+            "classname": "light",
+            "origin": entity["origin"],
+            "_color": color,
+            "PRIMARY_TYPE": "PRIMARY_SPOT",
+            "angles": angles,
+            "radius": radius,
+            "fov_outer": entity["_cone"],
+            "fov_inner": entity["_inner_cone"],
+        })
     return res
 
 def convertRope(entity):
@@ -287,8 +320,8 @@ def convertRope(entity):
             "classname": "rope",
             "origin": entity["origin"],
             "target": entity["NextKey"] if "NextKey" in entity else entity["id"],
-            "length_scale": float(entity["Slack"]) / 125,
-            "width": entity["Width"]
+            "length_scale": float(entity["Slack"]) / 128,
+            "width": float(entity["Width"]) * 3
         })
         if "targetname" in entity:
             res += convertEntity({
@@ -313,6 +346,12 @@ def convertRope(entity):
     return res
 
 def convertProp(entity):
+    if "model" not in entity:
+        return convertEntity({
+            "classname": "info_null",
+            "original_classname": entity["classname"]
+        })
+
     return convertEntity({
         "classname": "dyn_model" if entity["classname"].startswith("prop_physics") else "misc_model",
         "model": splitext(basename(entity["model"].lower()))[0],
@@ -354,7 +393,7 @@ def convertSpawner(entity):
 
     return res
 
-def exportMap(vmfString):
+def exportMap(vmfString, BO3=False):
     mapData = readMap(vmfString)
 
     # create temporary directories to extract assets
@@ -388,28 +427,39 @@ def exportMap(vmfString):
     mdlMatData = copyTextures(mdlMaterials, gamePath, True)
 
     # create GDT files
-    worldMats = createMaterialGdt(matData["vmts"])
+    worldMats = createMaterialGdt(matData["vmts"], BO3)
     open(f"{copyDir}/converted/source_data/_corvid_worldmaterials.gdt", "w").write(worldMats["gdt"])
-    open(f"{copyDir}/converted/bin/_corvid_worldmaterials.bat", "w").write(worldMats["bat"])
-    modelMats = createMaterialGdt(mdlMatData["vmts"])
+    if not BO3:
+        open(f"{copyDir}/converted/bin/_corvid_worldmaterials.bat", "w").write(worldMats["bat"])
+    modelMats = createMaterialGdt(mdlMatData["vmts"], BO3)
     open(f"{copyDir}/converted/source_data/_corvid_modelmaterials.gdt", "w").write(modelMats["gdt"])
-    open(f"{copyDir}/converted/bin/_corvid_modelmaterials.bat", "w").write(modelMats["bat"])
-    models = createModelGdt(mapData["models"])
+    if not BO3:
+        open(f"{copyDir}/converted/bin/_corvid_modelmaterials.bat", "w").write(modelMats["bat"])
+    models = createModelGdt(mapData["models"], BO3)
     open(f"{copyDir}/converted/source_data/_corvid_models.gdt", "w").write(models["gdt"])
-    open(f"{copyDir}/converted/bin/_corvid_models.bat", "w").write(models["bat"])
+    if not BO3:
+        open(f"{copyDir}/converted/bin/_corvid_models.bat", "w").write(models["bat"])
+    # create GDT files for images for Bo3
+    if BO3:
+        worldImages = createImageGdt(matData)
+        open(f"{copyDir}/converted/source_data/_corvid_worldimages.gdt", "w").write(worldImages)
+        modelImages = createImageGdt(mdlMatData)
+        open(f"{copyDir}/converted/source_data/_corvid_modelimages.gdt", "w").write(modelImages)
 
     # convert the textures
-    convertImages(matData, "matTex", "texture_assets/corvid")
-    convertImages(mdlMatData, "mdlTex", "texture_assets/corvid")
+    # convertImages(matData, "matTex", "texture_assets/corvid", "tif" if BO3 else "tga")
+    # convertImages(mdlMatData, "mdlTex", "texture_assets/corvid", "tif" if BO3 else "tga")
 
     # convert the models
-    convertModels(mapData["models"])
+    # convertModels(mapData["models"], BO3)
     
     # generate map geometry
     mapPatches = ""
     mapBrushes = ""
     mapEnts = ""
     worldSpawnSettings = ""
+
+    table = vertexTable()
 
     for brush in mapData["worldBrushes"]:
         if not brush.hasDisp:
@@ -418,10 +468,10 @@ def exportMap(vmfString):
             if side.material.startswith("tools"):
                 continue
             if side.hasDisp:
-                mapPatches += convertDisplacement(side, matSizes)
+                mapPatches += convertDisplacement(side, matSizes, table)
             if brush.hasDisp:
                 continue
-            mapPatches += convertSide(side, matSizes)
+            mapPatches += convertSide(side, matSizes, table)
 
     for brush in mapData["entityBrushes"]:
         if not brush.hasDisp:
@@ -430,10 +480,10 @@ def exportMap(vmfString):
             if side.material.startswith("tools"):
                 continue
             if side.hasDisp:
-                mapPatches += convertDisplacement(side, matSizes)
+                mapPatches += convertDisplacement(side, matSizes, table)
             if brush.hasDisp:
                 continue
-            mapPatches += convertSide(side, matSizes)
+            mapPatches += convertSide(side, matSizes, table)
 
     for entity in mapData["entities"]:
         if entity["classname"].startswith("prop_"):
@@ -441,7 +491,7 @@ def exportMap(vmfString):
         elif entity["classname"] == "light":
             mapEnts += convertLight(entity)
         elif entity["classname"] == "light_spot":
-            mapEnts += convertSpotLight(entity)
+            mapEnts += convertSpotLight(entity, BO3)
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
             mapEnts += convertRope(entity)
         elif entity["classname"] == "env_cubemap":
