@@ -1,8 +1,6 @@
-from typing import Coroutine
 from .Vector3 import Vector3
 from .Side import Side
 from math import pi as PI, isnan
-from hashlib import md5
 from os.path import basename
 import re
 
