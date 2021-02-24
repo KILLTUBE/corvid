@@ -25,6 +25,8 @@ def parseSinglets(sin: str):
 
 class Side:
     def __init__(self, data):
+        self.id = data["id"]
+
         p = re.split(r"[(|)| ]", data["plane"])
 
         self.p1: Vector3 = Vector3(p[1], p[2], p[3])
@@ -119,8 +121,6 @@ class Side:
             result["row"].append({
                 "normals": parseTriplets(data["normals"]["row" + str(i)]),
                 "distances": parseSinglets(data["distances"]["row" + str(i)]),
-                "offsets": parseTriplets(data["offsets"]["row" + str(i)]),
-                "offset_normals": parseTriplets(data["offset_normals"]["row" + str(i)]),
                 "alphas": parseSinglets(data["alphas"]["row" + str(i)])
             })
         return result
