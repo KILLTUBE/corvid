@@ -1,5 +1,5 @@
 from modules.MapExporter import exportMap
 
-file = open("maps/de_inferno_d.vmf")
-res = exportMap(file)
-open("inferno.map", "w").write(res)
+file = open("maps/de_mirage_d.vmf")
+res = exportMap(file, True)
+open("mirage.map", "w").write(res)
