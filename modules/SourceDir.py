@@ -16,7 +16,7 @@ class SourceDir:
         elif isdir(path):
             self.dirs.append(path)
         else:
-            print("\"{path}\" is an invalid path.")
+            print(f"\"{path}\" is an invalid path.")
     
     def copy(self, src, dest, silent=False):
         src = Path(src).as_posix()
