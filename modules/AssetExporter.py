@@ -1,3 +1,4 @@
+from modules.Vector2 import Vector2
 from modules.vdfutils import parse_vdf
 from os.path import basename, splitext, dirname
 from shutil import copy, copyfile
@@ -42,44 +43,49 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
         res["vmts"][name] = vmt
         shader = list(vmt)[0]
         mat = vmt[shader]
-        baseTexture = mat["$basetexture"].strip()
-        name = basename(baseTexture)
-        dir.copy(f"materials/{baseTexture}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
+        if "$basetexture" in mat:
+            baseTexture = mat["$basetexture"].strip()
+            name = splitext(basename(baseTexture))[0]
+            dir.copy(f"materials/{baseTexture}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
         if not mdl: # we don't need to get the dimensions of model textures
-            res["sizes"][file.strip()] = getTexSize(f"{tempDir}/{vtfDir}/{name}.vtf")
-        if "$translucent" in mat or "$alpha" in mat or "$alphatest" in mat:
-            res["colorMapsAlpha"].append(name)
-        else:
-            res["colorMaps"].append(name)
+            if "$basetexture" in mat:
+                res["sizes"][file.strip()] = getTexSize(f"{tempDir}/{vtfDir}/{name}.vtf")
+            else:
+                res["sizes"][file.strip()] = Vector2(512, 512)
+        if "$basetexture" in mat:
+            if "$translucent" in mat or "$alpha" in mat or "$alphatest" in mat:
+                res["colorMapsAlpha"].append(name)
+            else:
+                res["colorMaps"].append(name)
         if "$bumpmap" in mat:
             bumpMap = mat["$bumpmap"].strip()
-            name: str = basename(bumpMap)
+            name: str = splitext(basename(bumpMap))[0]
             dir.copy(f"materials/{bumpMap}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
             res["normalMaps"].append(name)
         if "$envmapmask" in mat:
             envMap: str = mat["$envmapmask"].strip()
-            name = basename(envMap)
+            name = splitext(basename(envMap))[0]
             dir.copy(f"materials/{envMap}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
             res["envMaps"].append(name)
         if "$blendmodulatetexture" in mat:
             revealMap: str = mat["$blendmodulatetexture"].strip()
-            name = basename(revealMap)
+            name = splitext(basename(revealMap))[0]
             dir.copy(f"materials/{revealMap}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
             res["revealMaps"].append(name)
         if "$basetexture2" in mat:
             basetexture2 = mat["$basetexture2"].strip()
-            name: str = basename(basetexture2)
+            name: str = splitext(basename(basetexture2))[0]
             dir.copy(f"materials/{basetexture2}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
             res["colorMaps"].append(name)
             res["sizes"][file.strip() + "_"] = getTexSize(f"{tempDir}/{vtfDir}/{name}.vtf")
         if "$bumpmap2" in mat:
             bumpMap2 = mat["$bumpmap2"].strip()
-            name: str = basename(bumpMap2)
+            name: str = splitext(basename(bumpMap2))[0]
             dir.copy(f"materials/{bumpMap2}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
             res["normalMaps"].append(name)
         if "$envmapmask2" in mat:
             envMap2: str = mat["$envmapmask2"].strip()
-            name = basename(envMap2)
+            name = splitext(basename(envMap2))[0]
             dir.copy(f"materials/{envMap2}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
             res["envMaps"].append(name)
         if "$basealphaenvmapmask" in mat:
@@ -243,9 +249,7 @@ def createMaterialGdt(vmts: dict, BO3=False):
     gdt = Gdt()
     textureDir = "texture_assets\\\\corvid\\\\"
     ext, _ext = ".tga", "_.tga"
-    if BO3:
-        textureDir = "i_"
-        ext, _ext = "", ""
+
     for name, vmt in vmts.items():
         shader = list(vmt)[0]
         mat = vmt[shader]
@@ -259,7 +263,10 @@ def createMaterialGdt(vmts: dict, BO3=False):
         else:
             data["materialType"] = "world phong"
         
-        data["colorMap"] = textureDir + uniqueName(mat["$basetexture"].strip()) + ext
+        if "$basetexture" in mat:
+            data["colorMap"] = textureDir + uniqueName(mat["$basetexture"].strip()) + ext
+        else:
+            data["colorMap"] = textureDir + "noColorMap" + ext
 
         if "$bumpmap" in mat and "$ssbump" not in mat:
             data["normalMap"] = textureDir + uniqueName(mat["$bumpmap"].strip()) + ext
@@ -315,8 +322,111 @@ def createMaterialGdt(vmts: dict, BO3=False):
         "bat": gdt.toBat()
     }
 
-def createMaterialGdtBo3(vmt: dict):
+def createMaterialGdtBo3(vmts: dict):
     gdt = Gdt()
+    for name, vmt in vmts.items():
+        shader = list(vmt)[0]
+        mat = vmt[shader]
+        data = {}
+
+        # these are default values and should stay the same unless the material requires more than a color map and a normal map
+        data["materialCategory"] = "Geometry"
+        data["materialType"] = "lit"
+
+        data["colorMap"] = "i_" + uniqueName(mat["$basetexture"].strip())
+        data["usage"] = "tools" # probably not a good idea
+
+        if "$bumpmap" in mat and "$ssbump" not in mat:
+            data["normalMap"] = "i_" + uniqueName(mat["$bumpmap"].strip())
+        if "$envmapmask" in mat:
+            data["cosinePowerMap"] = "i_" + uniqueName(mat["$envmapmask"].strip())
+            data["materialCategory"] = "Geometry Plus"
+            data["materialType"] = "lit_plus"
+        if "$basealphaenvmapmask" in mat and "$envmapmask" not in mat:
+            data["cosinePowerMap"] = "i_" + uniqueName(mat["$basetexture"].strip()) + "_"
+            data["materialCategory"] = "Geometry Plus"
+            data["materialType"] = "lit_plus"
+        if "$normalmapalphaenvmapmask" in mat and "$envmapmask" not in mat and "$bumpmap" in mat:
+            data["cosinePowerMap"] = "i_" + uniqueName(mat["$bumpmap"].strip()) + "_"
+            data["materialCategory"] = "Geometry Plus"
+            data["materialType"] = "lit_plus"
+
+        if "$surfaceprop" in mat:
+            surfaceprop = surfaceType(mat["$surfaceprop"].strip())
+            data["surfaceType"] = surfaceprop["surface"]
+            if "cosinePowerMap" not in data:
+                data["glossSurfaceType"] = surfaceprop["gloss"]
+            else:
+                data["glossSurfaceType"] = "<custom>"
+        else:
+            data["surfaceType"] = "<none>"
+            data["glossSurfaceType"] = "<full>" if not "cosinePowerMap" in data else "<custom>"
+        
+        # gotta change the material type for things like alphatest, translucency and back face culling
+        # that's one of the major differences between the old and new asset pipeline from what I can tell
+
+        if "$translucent" in mat:
+            if data["materialType"] == "lit_plus":
+                data["materialType"] = "lit_transparent_plus"
+            else:
+                data["materialType"] = "lit_transparent"
+
+        if "$alpha" in mat or "$alphatest" in mat:
+            if data["materialType"] == "lit_plus":
+                data["materialType"] = "lit_alphatest_plus"
+            else:
+                data["materialType"] = "lit_alphatest"
+        
+        if "$nocull" in mat:
+            if data["materialType"] == "lit_transparent_plus":
+                data["materialType"] = "lit_transparent_nocull_plus"
+            elif data["materialType"] == "lit_transparent":
+                data["materialType"] = "lit_transparent_nocull"
+            elif data["materialType"] == "lit_plus":
+                data["materialType"] = "lit_nocull_plus"
+            else:
+                data["materialType"] = "lit_nocull"
+        
+        if "$basetexture2" in mat:
+            data2 = {}
+            data2["materialCategory"] = "Decal"
+            data2["materialType"] = "lit_decal_reveal"
+
+            data2["colorMap"] = "i_" + uniqueName(mat["$basetexture2"].strip())
+            data2["usage"] = "tools" # probably not a good idea
+                    
+            if "$bumpmap2" in mat and "$ssbump2" not in mat:
+                data2["normalMap"] = "i_" + uniqueName(mat["$bumpmap2"].strip())
+            if "$blendmodulatetexture" in mat:
+                data2["alphaRevealMap"] = "i_" + uniqueName(mat["$blendmodulatetexture"].strip())
+            if "$envmapmask2" in mat:
+                data2["cosinePowerMap2"] = "i_" + uniqueName(mat["$envmapmask2"].strip())
+                data2["materialType"] = "lit_decal_reveal_plus"
+            if "$basealphaenvmapmask2" in mat and "$envmapmask2" not in mat:
+                data2["cosinePowerMap2"] = "i_" + uniqueName(mat["$basetexture2"].strip()) + "_"
+                data2["materialType"] = "lit_decal_reveal_plus"
+            if "$normalmapalphaenvmapmask2" in mat and "$envmapmask2" not in mat and "$bumpmap2" in mat:
+                data2["cosinePowerMap"] = "i_" + uniqueName(mat["$bumpmap2"].strip()) + "_"
+                data2["materialType"] = "lit_decal_reveal_plus"
+
+            if "$surfaceprop2" in mat:
+                surfaceprop = surfaceType(mat["$surfaceprop2"].strip())
+                data2["surfaceType"] = surfaceprop["surface"]
+                if "cosinePowerMap" not in data:
+                    data2["glossSurfaceType"] = surfaceprop["gloss"]
+                else:
+                    data2["glossSurfaceType"] = "<custom>"
+            else:
+                data2["surfaceType"] = "<none>"
+                data2["glossSurfaceType"] = "<full>" if not "cosinePowerMap" in data2 else "<custom>"
+            
+            gdt.add(name.strip() + "_", "material", data2)
+        
+        gdt.add(name.strip(), "material", data)
+    
+    return {
+        "gdt": gdt.toStr()
+    }
 
 def createModelGdt(models, BO3=False):
     gdt = Gdt()
@@ -324,7 +434,7 @@ def createModelGdt(models, BO3=False):
         name = splitext(basename(model))[0].lower()
         gdt.add(name, "xmodel", {
             "collisionLOD" if not BO3 else "BulletCollisionLOD": "High",
-            "filename": f"corvid\\\\{name}." + "xmodel_export" if not BO3 else "xmodel_bin",
+            "filename": f"corvid\\\\{name}." + ("xmodel_export" if not BO3 else "xmodel_bin"),
             "type": "rigid",
             "physicsPreset": "default"
         })
@@ -335,7 +445,14 @@ def createModelGdt(models, BO3=False):
 
 def createImageGdt(images):
     gdt = Gdt()
+    images["colorMaps"] = list(dict.fromkeys(images["colorMaps"]))
+    images["colorMapsAlpha"] = list(dict.fromkeys(images["colorMapsAlpha"]))
+    images["normalMaps"] = list(dict.fromkeys(images["normalMaps"]))
+    images["envMaps"] = list(dict.fromkeys(images["envMaps"]))
+    images["envMapsAlpha"] = list(dict.fromkeys(images["envMapsAlpha"]))
+    images["revealMaps"] = list(dict.fromkeys(images["revealMaps"]))
     for file in images["colorMaps"]:
+        file = uniqueName(file)
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -346,6 +463,7 @@ def createImageGdt(images):
             "streamable": "1"
         })
     for file in images["colorMapsAlpha"]:
+        file = uniqueName(file)
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -356,6 +474,7 @@ def createImageGdt(images):
             "streamable": "1"
         })
     for file in images["normalMaps"]:
+        file = uniqueName(file)
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -366,6 +485,7 @@ def createImageGdt(images):
             "streamable": "1"
         })
     for file in images["envMaps"]:
+        file = uniqueName(file)
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -376,6 +496,7 @@ def createImageGdt(images):
             "streamable": "1"
         })
     for file in images["envMapsAlpha"]:
+        file = uniqueName(file)
         gdt.add(f"i_{file}_", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -386,6 +507,7 @@ def createImageGdt(images):
             "streamable": "1"
         })
     for file in images["revealMaps"]:
+        file = uniqueName(file)
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
