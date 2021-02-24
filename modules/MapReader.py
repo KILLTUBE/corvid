@@ -25,6 +25,8 @@ def readMap(vmf):
     for entity in mapData.entities:
         if entity.classname.startswith("prop"):
             entities.append(entity)
+            if "model" not in entity:
+                continue
             mdlName = entity.model.lower()
             if mdlName not in models:
                 models.append(mdlName)
