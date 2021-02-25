@@ -78,6 +78,6 @@ class Vector3:
     def isLegal(self, sides):
         for side in sides:
             facing = (self - side.center()).normalize()
-            if facing.dot(side.normal().normalize()) < -0.01:
+            if facing.dot(side.normal().normalize()) < -0.001:
                 return False
         return True
