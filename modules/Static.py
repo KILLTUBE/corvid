@@ -28,7 +28,7 @@ def getPlaneIntersectıon(side1: Side, side2: Side, side3: Side) -> Vector3:
         )
     )
     # can't intersect parallel planes
-    if (determinant <= 0.01 and determinant >= -0.01) or (isnan(determinant)):
+    if (determinant <= 0.001 and determinant >= -0.001) or (isnan(determinant)):
         return None
     else:
         return (
