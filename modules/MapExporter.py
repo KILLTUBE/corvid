@@ -1,16 +1,12 @@
 from modules.SourceDir import SourceDir
-from modules.AssetConverter import convertImages, convertModels
 from .Side import Side
 from .MapReader import readMap
 from .Vector2 import Vector2
 from .Vector3 import Vector3
 from .Gdt import Gdt
-from os.path import basename, splitext, dirname
+from os.path import basename, splitext
 from os import makedirs
-from sys import exit
-from pprint import pprint
 from tempfile import gettempdir
-from vmf_tool.parser import parse
 from .AssetExporter import *
 
 class vertexTable:
@@ -393,7 +389,7 @@ def convertSpawner(entity):
 
     return res
 
-def exportMap(vmfString, BO3=False):
+def exportMap(vmfString, vpkFiles=[], dirs=[], BO3=False, RemoveClips=False, RemoveProbes=False, RemoveLights=False, RemoveSkybox=False, skipMats=False, skipModels=False):
     mapData = readMap(vmfString)
 
     # create temporary directories to extract assets
@@ -413,8 +409,13 @@ def exportMap(vmfString, BO3=False):
 
     # load &/ define the paks and folders where the assets will be grabbed from
     gamePath = SourceDir()
-    gamePath.add("C:/stuff/Steam/steamapps/common/Counter-Strike Global Offensive/csgo/pak01_dir.vpk")
-    gamePath.add("C:/stuff/Steam/steamapps/common/Half-Life 2/hl2")
+    for vpkFile in vpkFiles:
+        gamePath.add(vpkFile)
+    for dir in dirs:
+        gamePath.add(dir)
+
+    # gamePath.add("C:/stuff/Steam/steamapps/common/Counter-Strike Global Offensive/csgo/pak01_dir.vpk")
+    # gamePath.add("C:/stuff/Steam/steamapps/common/Half-Life 2/hl2")
 
     # extract world materials and textures
     materials = copyMaterials(mapData["materials"], gamePath)
