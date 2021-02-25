@@ -1,4 +1,4 @@
-from math import pi, pow, sqrt, sin, cos
+from math import pi, pow, sqrt
 
 class Vector3:
     def __init__(self, a: float = float(0.0), b: float = float(0.0), c: float = float(0.0)):
@@ -81,5 +81,3 @@ class Vector3:
             if facing.dot(side.normal().normalize()) < -0.01:
                 return False
         return True
-
-
