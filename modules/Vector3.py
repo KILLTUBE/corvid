@@ -70,7 +70,7 @@ class Vector3:
             self.z + ((rhs.z - self.z) * alpha)
         )
 
-    def round(self, digits):
+    def round(self, digits=0):
         return Vector3(
             round(self.x, digits), round(self.y, digits), round(self.z, digits)
         )
