@@ -38,7 +38,6 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
         vmtDir, vtfDir = "mdlMats", "mdlTex"
     for file in mats:
         name = basename(file)
-        print(name)
         vmt = parse_vdf(fixVmt(open(f"{tempDir}/{vmtDir}/{name}.vmt").read()))
         res["vmts"][name] = vmt
         shader = list(vmt)[0]
@@ -126,7 +125,7 @@ def copyModelMaterials(models, dir: SourceDir):
                     
     for mat, surface_prop in materials:
         name = basename(mat)
-        if dir.copy(f"materials/{mat}.vmt", f"{tempDir}/mdlMats/{name}.vmt"):
+        if dir.copy(f"materials/{mat}.vmt", f"{tempDir}/mdlMats/{name}.vmt", True):
             # unlike CoD, the surface type of a model isn't defined in the material so we have to copy that value
             # from the model and paste it in the materials it uses
             try:
@@ -264,7 +263,10 @@ def createMaterialGdt(vmts: dict, BO3=False):
             data["materialType"] = "world phong"
         
         if "$basetexture" in mat:
-            data["colorMap"] = textureDir + uniqueName(mat["$basetexture"].strip()) + ext
+            if "$translucent" in mat or "$alpha" in mat or "$alphatest" in mat:
+                data["colorMap"] = textureDir + uniqueName(mat["$basetexture"].strip()) + ".dds"
+            else:
+                data["colorMap"] = textureDir + uniqueName(mat["$basetexture"].strip()) + ext
         else:
             data["colorMap"] = textureDir + "noColorMap" + ext
 
