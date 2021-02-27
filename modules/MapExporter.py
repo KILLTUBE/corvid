@@ -267,12 +267,12 @@ def convertLight(entity):
     else:
         _color = [0, 0, 0, 500]
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
-    color = Vector3(_color[0], _color[1], _color[2]) / 255
+    color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
     return convertEntity({
         "classname": "light",
         "origin": entity["origin"],
         "_color": color,
-        "radius": 250,
+        "radius": _color[3],
         "intensity": "1"
     })
 
@@ -282,7 +282,7 @@ def convertSpotLight(entity, BO3=False):
     else:
         _color = [0, 0, 0, 500]
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
-    color = Vector3(_color[0], _color[1], _color[2]) / 255
+    color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
     _origin = entity["origin"].split(" ")
     origin = Vector3(_origin[0], _origin[1], _origin[2])
     if "_fifty_percent_distance" in entity and "_zero_percent_distance" not in entity:
@@ -543,7 +543,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
             color = Vector3(_color[0], _color[1], _color[2]) / 255
             worldSpawnSettings += f' "_color" "{color}"\n'
             _light = entity["_light"].split(" ")
-            light = Vector3(_light[0], _light[1], _light[2]) / 255
+            light = (Vector3(_light[0], _light[1], _light[2]) / 255).round(3)
             worldSpawnSettings += f' "suncolor" "{light}"\n'
             angles = entity["angles"].split(" ")
             pitch = entity["pitch"]
