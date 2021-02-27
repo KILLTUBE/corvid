@@ -61,5 +61,6 @@ def readMap(vmf):
         "entityBrushes": entityBrushes,
         "entities": entities,
         "materials": materials,
-        "models": models
+        "models": models,
+        "sky": mapData.world.skyname if "skyname" in mapData else "sky"
     }
