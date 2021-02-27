@@ -279,6 +279,8 @@ def convertLight(entity):
 def convertSpotLight(entity, BO3=False):
     if "_light" in entity:
         _color = entity["_light"].split(" ")
+        if len(_color) == 3:
+            _color.append(500)
     else:
         _color = [0, 0, 0, 500]
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
