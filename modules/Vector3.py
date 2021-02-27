@@ -70,9 +70,9 @@ class Vector3:
             self.z + ((rhs.z - self.z) * alpha)
         )
 
-    def round(self):
+    def round(self, digits):
         return Vector3(
-            round(self.x), round(self.y), round(self.z)
+            round(self.x, digits), round(self.y, digits), round(self.z, digits)
         )
 
     def isLegal(self, sides):
