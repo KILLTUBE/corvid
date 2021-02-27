@@ -195,7 +195,23 @@ def convertDisplacement(side: Side, matSize, table: vertexTable):
     return res
 
 
-def convertBrush(brush, world=True):
+def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=False):
+    if RemoveClips:
+        clipmats = ["tools/toolsclip", "tools/toolsplayerclip", "tools/toolsnpcclip", "tools/toolsgrenadeclip"]
+        if brush.sides[0].material in clipmats:
+            return ""
+
+    if RemoveSkybox:
+        if brush.sides[0].material in ["tools/toolsskybox", "tools/toolsskybox2d"]:
+            return ""
+
+    # BO3 doesn't need hint/skip brushes or portals for optimization
+    if BO3:
+        if brush.entity == "func_areaportal" or brush.entity == "func_areaportalwindow":
+            return ""
+        if brush.sides[0].material == "tools/toolshint" or brush.sides[0].material == "tools/toolsskip":
+            return ""
+
     classnames = ["func_detail", "func_brush", "func_illusionary", "func_breakable", "func_breakable_surf", "func_door", "func_door_rotating",
                   "func_ladder", "func_door", "func_movelinear", "func_lod", "func_lookdoor", "func_physbox", "func_physbox_multiplayer",
                   "func_rotating", "func_tank", "func_tankairboatgun", "func_tankapcrocket", "func_tanklaser", "func_tankmortar",
@@ -209,7 +225,6 @@ def convertBrush(brush, world=True):
         "toolsinvisibleladder": "clip",
         "toolsnpcclip": "clip",
         "toolsgrenadeclip": "clip_missile",
-        "toolsblack": "global_black",
         "toolsareaportal": "portal_nodraw",
         "toolsblocklight": "shadowcaster",
         "toolshint": "hint",
@@ -401,7 +416,8 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         makedirs(f"{copyDir}/mdlMats")
         makedirs(f"{copyDir}/matTex")
         makedirs(f"{copyDir}/mdlTex")
-        makedirs(f"{copyDir}/converted/bin")
+        if not BO3:
+            makedirs(f"{copyDir}/converted/bin")
         makedirs(f"{copyDir}/converted/model_export/corvid")
         makedirs(f"{copyDir}/converted/source_data")
         makedirs(f"{copyDir}/converted/texture_assets/corvid")
@@ -417,24 +433,28 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         print(f"Mounting {dir}...")
         gamePath.add(dir)
 
-    # gamePath.add("C:/stuff/Steam/steamapps/common/Counter-Strike Global Offensive/csgo/pak01_dir.vpk")
-    # gamePath.add("C:/stuff/Steam/steamapps/common/Half-Life 2/hl2")
-
     # extract world materials and textures
+    # can't skip exporting these becasue the textures (or the base textures of those materaials) are needed to get the UV of brush faces
+    print("Reading materials...")
     materials = copyMaterials(mapData["materials"], gamePath)
+    print("Reading texture data...")
     matData = copyTextures(materials, gamePath)
     matSizes = matData["sizes"]
 
     # extract models, model materials and textures
     if not skipModels:
+        print("Extracting models...")
         copyModels(mapData["models"], gamePath)
         mdlMaterials = copyModelMaterials(mapData["models"], gamePath)
         mdlMatData = copyTextures(mdlMaterials, gamePath, True)
 
     # create GDT files
-    worldMats = createMaterialGdt(matData["vmts"], BO3)
-    open(f"{copyDir}/converted/source_data/_corvid_worldmaterials.gdt", "w").write(worldMats["gdt"])
-    if not BO3:
+    if not skipMats or not skipModels:
+        print("Creating GDT files....")
+    if not skipMats:
+        worldMats = createMaterialGdt(matData["vmts"], BO3)
+        open(f"{copyDir}/converted/source_data/_corvid_worldmaterials.gdt", "w").write(worldMats["gdt"])
+    if not BO3 and not skipMats:
         open(f"{copyDir}/converted/bin/_corvid_worldmaterials.bat", "w").write(worldMats["bat"])
     if not skipModels:
         modelMats = createMaterialGdt(mdlMatData["vmts"], BO3)
@@ -456,13 +476,18 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
             open(f"{copyDir}/converted/source_data/_corvid_modelimages.gdt", "w").write(modelImages)
 
     # convert the textures
-    convertImages(matData, "matTex", "texture_assets/corvid", "tif" if BO3 else "tga")
-    convertImages(mdlMatData, "mdlTex", "texture_assets/corvid", "tif" if BO3 else "tga")
+    if not skipMats:
+        print("Converting textures...")
+        convertImages(matData, "matTex", "texture_assets/corvid", "tif" if BO3 else "tga")
+        convertImages(mdlMatData, "mdlTex", "texture_assets/corvid", "tif" if BO3 else "tga")
 
     # convert the models
-    convertModels(mapData["models"], BO3)
+    if not skipModels:
+        print("Converting models...")
+        convertModels(mapData["models"], BO3)
     
     # generate map geometry
+    print("Generating .map file...")
     mapPatches = ""
     mapBrushes = ""
     mapEnts = ""
@@ -472,7 +497,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
 
     for brush in mapData["worldBrushes"]:
         if not brush.hasDisp:
-            mapBrushes += convertBrush(brush)
+            mapBrushes += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3)
         for side in brush.sides:
             if side.material.startswith("tools"):
                 continue
@@ -484,7 +509,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
 
     for brush in mapData["entityBrushes"]:
         if not brush.hasDisp:
-            mapBrushes += convertBrush(brush, False)
+            mapBrushes += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3)
         for side in brush.sides:
             if side.material.startswith("tools"):
                 continue
@@ -497,17 +522,23 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     for entity in mapData["entities"]:
         if entity["classname"].startswith("prop_"):
             mapEnts += convertProp(entity)
-        elif entity["classname"] == "light":
+        elif entity["classname"] == "light" and not RemoveLights:
             mapEnts += convertLight(entity)
-        elif entity["classname"] == "light_spot":
+        elif entity["classname"] == "light_spot" and not RemoveLights:
             mapEnts += convertSpotLight(entity, BO3)
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
             mapEnts += convertRope(entity)
-        elif entity["classname"] == "env_cubemap":
+        elif entity["classname"] == "env_cubemap" and not RemoveProbes:
             mapEnts += convertCubemap(entity)
         elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
             mapEnts += convertSpawner(entity)
-        elif entity["classname"] == "light_environment":
+        elif entity["classname"] == "light_environment" and not BO3:
+            # There are better ways to handle these I think. Gotta come back to this eventually.
+            worldSpawnSettings += (' "reflection_ignore_portals" "1"\n'
+               + ' "sunlight" "1"\n'
+               + ' "sundiffusecolor" "0.75 0.82 0.85"\n'
+               + ' "diffusefraction" ".2"\n'
+               + ' "ambient" ".116"\n')
             _color = entity["_ambient"].split(" ")
             color = Vector3(_color[0], _color[1], _color[2]) / 255
             worldSpawnSettings += f' "_color" "{color}"\n'
@@ -521,11 +552,6 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     res = ("iwmap 4\n"
            + "{\n"
            + ' "classname" "worldspawn"\n'
-           + ' "reflection_ignore_portals" "1"\n'
-           + ' "sunlight" "1"\n'
-           + ' "sundiffusecolor" "0.75 0.82 0.85"\n'
-           + ' "diffusefraction" ".2"\n'
-           + ' "ambient" ".116"\n'
            + worldSpawnSettings
            + mapBrushes
            + mapPatches
