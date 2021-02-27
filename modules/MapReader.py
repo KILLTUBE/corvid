@@ -38,7 +38,7 @@ def readMap(vmf):
                     matName = side.material.lower()
                     if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
                         materials.append(matName)
-                entityBrushes.append(Brush(sides))
+                entityBrushes.append(Brush(sides, entity.classname))
         elif "solid" in entity:
             if isinstance(entity.solid, str):
                 entities.append(entity)
@@ -49,7 +49,7 @@ def readMap(vmf):
                     matName = side.material.lower()
                     if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
                         materials.append(matName)
-                entityBrushes.append(Brush(sides))
+                entityBrushes.append(Brush(sides, entity.classname))
         else:
             entities.append(entity)
     
