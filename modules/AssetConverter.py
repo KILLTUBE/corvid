@@ -1,5 +1,5 @@
 import os
-from os.path import basename, splitext, exists
+from os.path import basename, splitext, exists, dirname
 os.environ["NO_BPY"] = "1"
 from PIL import Image
 from SourceIO.source1.vtf.VTFWrapper import VTFLib
@@ -13,6 +13,7 @@ tempDir = gettempdir() + "/corvid"
 
 def convertImage(src, dest, format="rgba"):
     if not exists(src):
+        print(f"{src} could not be found")
         return False
     format = format.upper()
     image = VTFLib.VTFLib()
@@ -20,11 +21,24 @@ def convertImage(src, dest, format="rgba"):
     width = image.width()
     height = image.height()
     rgba = Image.frombuffer("RGBA", (width, height), image.convert_to_rgba8888().contents)
-    # image.image_format().name => compression format as a string. might come in handy if I decide to convert the color maps to dds in the future.
     if format == "RGBA":
         rgba.save(dest)
     elif format == "RGB":
         rgba.convert("RGB").save(dest)
+        # convert color maps with no alpha channel to DDS if the texture is being converted for older Cod titles
+        if dest.endswith(".tga"):
+            name = splitext(basename(dest))[0]
+            imageDir = f"{tempDir}/converted/texture_assets/corvid"
+            fmt = image.image_format().name
+            formats = {
+                "ImageFormatDXT1": "-dxt1c",
+                "ImageFormatDXT1OneBitAlpha": "-dxt1a",
+                "ImageFormatDXT3": "-dxt3",
+                "ImageFormatDXT5": "-dxt5"
+            }
+            fmt = formats[fmt] if fmt in formats else "-dxt5"
+            call(["bin/nvdxt.exe", "-file", f"{imageDir}/{name}.tga", "-output", f"{imageDir}/{name}.dds", fmt])
+            os.remove(dest) # remove the tga file
     elif len(format) == 1:
         rgba.getchannel(format).save(dest)
 
