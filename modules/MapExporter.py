@@ -8,6 +8,7 @@ from os.path import basename, splitext
 from os import makedirs
 from tempfile import gettempdir
 from .AssetExporter import *
+from .AssetConverter import convertImages, convertModels
 
 class vertexTable:
     def __init__(self):
@@ -389,7 +390,7 @@ def convertSpawner(entity):
 
     return res
 
-def exportMap(vmfString, vpkFiles=[], dirs=[], BO3=False, RemoveClips=False, RemoveProbes=False, RemoveLights=False, RemoveSkybox=False, skipMats=False, skipModels=False):
+def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False, RemoveProbes=False, RemoveLights=False, RemoveSkybox=False, skipMats=False, skipModels=False):
     mapData = readMap(vmfString)
 
     # create temporary directories to extract assets
@@ -410,8 +411,10 @@ def exportMap(vmfString, vpkFiles=[], dirs=[], BO3=False, RemoveClips=False, Rem
     # load &/ define the paks and folders where the assets will be grabbed from
     gamePath = SourceDir()
     for vpkFile in vpkFiles:
+        print(f"Mounting {vpkFile}...")
         gamePath.add(vpkFile)
-    for dir in dirs:
+    for dir in gameDirs:
+        print(f"Mounting {dir}...")
         gamePath.add(dir)
 
     # gamePath.add("C:/stuff/Steam/steamapps/common/Counter-Strike Global Offensive/csgo/pak01_dir.vpk")
@@ -423,36 +426,41 @@ def exportMap(vmfString, vpkFiles=[], dirs=[], BO3=False, RemoveClips=False, Rem
     matSizes = matData["sizes"]
 
     # extract models, model materials and textures
-    copyModels(mapData["models"], gamePath)
-    mdlMaterials = copyModelMaterials(mapData["models"], gamePath)
-    mdlMatData = copyTextures(mdlMaterials, gamePath, True)
+    if not skipModels:
+        copyModels(mapData["models"], gamePath)
+        mdlMaterials = copyModelMaterials(mapData["models"], gamePath)
+        mdlMatData = copyTextures(mdlMaterials, gamePath, True)
 
     # create GDT files
     worldMats = createMaterialGdt(matData["vmts"], BO3)
     open(f"{copyDir}/converted/source_data/_corvid_worldmaterials.gdt", "w").write(worldMats["gdt"])
     if not BO3:
         open(f"{copyDir}/converted/bin/_corvid_worldmaterials.bat", "w").write(worldMats["bat"])
-    modelMats = createMaterialGdt(mdlMatData["vmts"], BO3)
-    open(f"{copyDir}/converted/source_data/_corvid_modelmaterials.gdt", "w").write(modelMats["gdt"])
-    if not BO3:
+    if not skipModels:
+        modelMats = createMaterialGdt(mdlMatData["vmts"], BO3)
+        open(f"{copyDir}/converted/source_data/_corvid_modelmaterials.gdt", "w").write(modelMats["gdt"])
+    if not BO3 and not skipModels:
         open(f"{copyDir}/converted/bin/_corvid_modelmaterials.bat", "w").write(modelMats["bat"])
-    models = createModelGdt(mapData["models"], BO3)
-    open(f"{copyDir}/converted/source_data/_corvid_models.gdt", "w").write(models["gdt"])
-    if not BO3:
+    if not skipModels:
+        models = createModelGdt(mapData["models"], BO3)
+        open(f"{copyDir}/converted/source_data/_corvid_models.gdt", "w").write(models["gdt"])
+    if not BO3 and not skipModels:
         open(f"{copyDir}/converted/bin/_corvid_models.bat", "w").write(models["bat"])
     # create GDT files for images for Bo3
     if BO3:
-        worldImages = createImageGdt(matData)
-        open(f"{copyDir}/converted/source_data/_corvid_worldimages.gdt", "w").write(worldImages)
-        modelImages = createImageGdt(mdlMatData)
-        open(f"{copyDir}/converted/source_data/_corvid_modelimages.gdt", "w").write(modelImages)
+        if not skipMats:
+            worldImages = createImageGdt(matData)
+            open(f"{copyDir}/converted/source_data/_corvid_worldimages.gdt", "w").write(worldImages)
+        if not skipModels:
+            modelImages = createImageGdt(mdlMatData)
+            open(f"{copyDir}/converted/source_data/_corvid_modelimages.gdt", "w").write(modelImages)
 
     # convert the textures
-    # convertImages(matData, "matTex", "texture_assets/corvid", "tif" if BO3 else "tga")
-    # convertImages(mdlMatData, "mdlTex", "texture_assets/corvid", "tif" if BO3 else "tga")
+    convertImages(matData, "matTex", "texture_assets/corvid", "tif" if BO3 else "tga")
+    convertImages(mdlMatData, "mdlTex", "texture_assets/corvid", "tif" if BO3 else "tga")
 
     # convert the models
-    # convertModels(mapData["models"], BO3)
+    convertModels(mapData["models"], BO3)
     
     # generate map geometry
     mapPatches = ""
