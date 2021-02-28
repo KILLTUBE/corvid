@@ -1,8 +1,6 @@
 from modules.Vector2 import Vector2
 from modules.vdfutils import parse_vdf
 from os.path import basename, splitext, dirname
-from shutil import copy, copyfile
-from glob import glob
 from .Static import fixVmt, uniqueName
 from .Gdt import Gdt
 from tempfile import gettempdir
