@@ -38,7 +38,6 @@ class App:
         self.vmfPath["font"] = ft
         self.vmfPath["fg"] = "#333333"
         self.vmfPath["justify"] = "left"
-        self.vmfPath["text"] = ""
         self.vmfPath.place(x=80,y=10,width=571,height=30)
 
         chooseVmfDialog=tk.Button(root)
@@ -67,7 +66,6 @@ class App:
         vpkScrollbar = tk.Scrollbar(self.vpkList)
         vpkScrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
         self.vpkList["yscrollcommand"] = vpkScrollbar.set
-        # self.vpkList.insert(0, "C:/stuff/Steam/steamapps/common/Counter-Strike Global Offensive/csgo/pak01_dir.vpk")
 
         gameDirLabel=tk.Label(root)
         gameDirLabel["font"] = ft
@@ -86,7 +84,6 @@ class App:
         gameDirScrollbar = tk.Scrollbar(self.gameDirList)
         gameDirScrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
         self.gameDirList["yscrollcommand"] = gameDirScrollbar.set
-        # self.gameDirList.insert(0, "C:/stuff/Steam/steamapps/common/Half-Life 2/hl2")
 
         deleteVpkButton=tk.Button(root)
         deleteVpkButton["bg"] = "#f0f0f0"
@@ -267,8 +264,6 @@ class App:
         checkSkipModels.place(x=230,y=350,width=78,height=30)
         checkSkipModels["offvalue"] = False
         checkSkipModels["onvalue"] = True
-
-        print("Ready")
 
     def chooseVmfDialog_command(self):
         file = filedialog.askopenfile(mode="r", filetypes=[("Source Engine map file", "*.vmf")])
