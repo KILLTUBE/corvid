@@ -8,10 +8,11 @@ from tempfile import gettempdir
 from .Static import uniqueName
 from subprocess import call
 from PyCoD import Model
+import cube2sphere
 
 tempDir = gettempdir() + "/corvid"
 
-def convertImage(src, dest, format="rgba"):
+def convertImage(src, dest, format="rgba", dds=False):
     if not exists(src):
         print(f"{src} could not be found")
         return False
@@ -26,7 +27,7 @@ def convertImage(src, dest, format="rgba"):
     elif format == "RGB":
         rgba.convert("RGB").save(dest)
         # convert color maps with no alpha channel to DDS if the texture is being converted for older Cod titles
-        if dest.endswith(".tga"):
+        if dds:
             name = splitext(basename(dest))[0]
             imageDir = f"{tempDir}/converted/texture_assets/corvid"
             fmt = image.image_format().name
@@ -49,8 +50,9 @@ def convertImages(images, src, dest, ext="tga"):
     images["envMaps"] = list(dict.fromkeys(images["envMaps"]))
     images["envMapsAlpha"] = list(dict.fromkeys(images["envMapsAlpha"]))
     images["revealMaps"] = list(dict.fromkeys(images["revealMaps"]))
+    dds = True if ext == "tga" else False
     for file in images["colorMapsAlpha"]:
-        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgba")
+        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgba", dds)
     for file in images["normalMaps"]:
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgb")
     for file in images["envMaps"]:
