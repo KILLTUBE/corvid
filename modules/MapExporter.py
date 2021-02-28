@@ -195,7 +195,7 @@ def convertDisplacement(side: Side, matSize, table: vertexTable):
     return res
 
 
-def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=False):
+def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=False, sky=""):
     if RemoveClips:
         clipmats = ["tools/toolsclip", "tools/toolsplayerclip", "tools/toolsnpcclip", "tools/toolsgrenadeclip"]
         if brush.sides[0].material in clipmats:
@@ -229,7 +229,7 @@ def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=F
         "toolsblocklight": "shadowcaster",
         "toolshint": "hint",
         "toolsskip": "skip",
-        "toolsskybox": "sky"
+        "toolsskybox": sky
     }
 
     res = " {\n"
@@ -313,14 +313,12 @@ def convertSpotLight(entity, BO3=False):
             "targetname": "spotlight_" + entity["id"]
         })
     else:
-        angles = entity["angles"].split(" ")
-        angles = entity["pitch"] + " " + angles[1] + " 0"
         res = convertEntity({
             "classname": "light",
             "origin": entity["origin"],
             "_color": color,
             "PRIMARY_TYPE": "PRIMARY_SPOT",
-            "angles": angles,
+            "angles": entity["angles"],
             "radius": radius,
             "fov_outer": entity["_cone"],
             "fov_inner": entity["_inner_cone"],
@@ -408,8 +406,6 @@ def convertSpawner(entity):
     return res
 
 def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False, RemoveProbes=False, RemoveLights=False, RemoveSkybox=False, skipMats=False, skipModels=False):
-    mapData = readMap(vmfString)
-
     # create temporary directories to extract assets
     copyDir = gettempdir() + "/corvid"
     try:
@@ -425,6 +421,8 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         makedirs(f"{copyDir}/converted/texture_assets/corvid")
     except:
         pass
+    mapData = readMap(vmfString)
+
 
     # load &/ define the paks and folders where the assets will be grabbed from
     gamePath = SourceDir()
@@ -499,7 +497,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
 
     for brush in mapData["worldBrushes"]:
         if not brush.hasDisp:
-            mapBrushes += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3)
+            mapBrushes += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapData["sky"])
         for side in brush.sides:
             if side.material.startswith("tools"):
                 continue
