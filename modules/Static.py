@@ -1,7 +1,7 @@
 from .Vector3 import Vector3
 from .Side import Side
 from math import pi as PI, isnan
-from os.path import basename
+from os.path import basename, splitext
 import re
 
 def deg2rad(deg: float):
@@ -40,7 +40,7 @@ def getPlaneIntersectıon(side1: Side, side2: Side, side3: Side) -> Vector3:
 # some texture files have longer names than waw's limit.
 # removing the characters from the middle of the file is a dirty but nice way to solve this issue.
 def uniqueName(name: str):
-    name = basename(name).strip()
+    name = splitext(basename(name).strip())[0]
     return name[:14] + name[-14:] if len(name) > 28 else name
 
 # some vmt files are written so badly, we have to fix them make sure they will be parsed correctly
