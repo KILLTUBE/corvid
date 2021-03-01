@@ -4,7 +4,8 @@ from .Static import getPlaneIntersectıon
 
 
 class Brush:
-    def __init__(self, sides: list, entity: str = "world"):
+    def __init__(self, sides: list, entity: str = "world", id="0"):
+        self.id = id
         self.sides: list[Side] = sides
         self.hasDisp: bool = False
         # only after all the sides are defined can the intersection points be calculated
