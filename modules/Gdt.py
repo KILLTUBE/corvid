@@ -1,18 +1,18 @@
 class Gdt:
     def __init__(self):
-        self.entries = []
+        self.entries = {}
     
     def add(self, name: str, type: str, data: dict, comment: str = ""):
-        self.entries.append({
+        self.entries[name] = {
             "name": name,
             "type": type,
             "data": data,
             "comment": comment
-        })
+        }
     
     def toStr(self):
         res = "{\n"
-        for entry in self.entries:
+        for entry in list(self.entries.values()):
             if entry["comment"] != "":
                 res += f' // {entry["comment"]}\n'
             res += f' "{entry["name"]}" ( "{entry["type"]}.gdf" )\n'
@@ -31,3 +31,8 @@ class Gdt:
             res += f"@echo Converting {name}, {i+1} of {count}\n"
             res += f'@converter -nopause -single "{type}" {name}\n'
         return res
+    
+    def __add__(self, other: 'Gdt'):
+        gdt = Gdt()
+        gdt.entries = {**self.entries, **other.entries}
+        return Gdt
