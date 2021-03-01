@@ -1,3 +1,4 @@
+from modules.Brush import Brush
 from modules.SourceDir import SourceDir
 from .Side import Side
 from .MapReader import readMap
@@ -9,6 +10,7 @@ from os import makedirs
 from tempfile import gettempdir
 from .AssetExporter import *
 from .AssetConverter import convertImages, convertModels
+from shutil import rmtree
 
 class vertexTable:
     def __init__(self):
@@ -44,14 +46,14 @@ def convertSide(side: Side, matSize, table: vertexTable):
 
     if side.material.lower().strip().startswith("liquids"):
         side.material = "clip"
-
+    res += f"// Side {side.id}\n"
     res += (
-        " {\n" +
-        "  mesh\n" +
-        "  {\n" +
-        "   " + basename(side.material).lower().strip() + "\n" +
-        "   lightmap_gray\n" +
-        "   " + str(rows) + " 2 " + str(side.lightmapScale) + " 8\n"
+        "{\n" +
+        "mesh\n" +
+        "{\n" +
+        "" + basename(side.material).lower().strip() + "\n" +
+        "lightmap_gray\n" +
+        "" + str(rows) + " 2 " + str(side.lightmapScale) + " 8\n"
     )
 
     for i in range(rows):
@@ -66,15 +68,15 @@ def convertSide(side: Side, matSize, table: vertexTable):
             "lm": str(uvs[count - i - 1] * side.lightmapScale)
         }
         res += (
-            "   (\n" +
-            f'    v {p1["pos"]} t {p1["uv"]} {p1["lm"]}\n' +
-            f'    v {p2["pos"]} t {p2["uv"]} {p2["lm"]}\n' +
-            "   )\n"
+            "(\n" +
+            f'v {p1["pos"]} t {p1["uv"]} {p1["lm"]}\n' +
+            f'v {p2["pos"]} t {p2["uv"]} {p2["lm"]}\n' +
+            ")\n"
         )
 
     res += (
-        "  }\n" +
-        " }\n"
+        "}\n" +
+        "}\n"
     )
     return res
 
@@ -133,19 +135,20 @@ def convertDisplacement(side: Side, matSize, table: vertexTable):
 
     alpha = False
 
+    res += f"// Side {side.id}\n"
     res += (
-        " {\n" +
-        "  mesh\n" +
-        "  {\n" +
-        "   " + basename(side.material).lower().strip() + "\n" +
-        "   lightmap_gray\n"
-        "   " + str(len(rows[0])) + " " + str(len(rows[0])
+        "{\n" +
+        "mesh\n" +
+        "{\n" +
+        "" + basename(side.material).lower().strip() + "\n" +
+        "lightmap_gray\n"
+        "" + str(len(rows[0])) + " " + str(len(rows[0])
                                               ) + " " + str(side.lightmapScale) + " 8\n"
     )
 
     for i in range(numVerts):
         row = rows[i]
-        res += "   (\n"
+        res += "(\n"
         for j in range(numVerts):
             if disp["row"][j]["alphas"][i] != 0 and alpha != True:
                 alpha = True
@@ -154,10 +157,10 @@ def convertDisplacement(side: Side, matSize, table: vertexTable):
                    (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
             uv = (col["uv"] * side.texSize) * 1
             lm = col["uv"] * (side.lightmapScale)
-            res += f"    v {pos} t {uv} {lm}\n"
-        res += "   )\n"
-    res += ("  }\n" +
-            " }\n")
+            res += f"v {pos} t {uv} {lm}\n"
+        res += ")\n"
+    res += ("}\n" +
+            "}\n")
 
     if not alpha:
         return res
@@ -165,18 +168,18 @@ def convertDisplacement(side: Side, matSize, table: vertexTable):
         return res
 
     res += (
-        " {\n" +
-        "  mesh\n" +
-        "  {\n" +
-        "   " + basename(side.material).lower().strip() + "_\n" +
-        "   lightmap_gray\n" +
-        "   " + str(len(rows[0])) + " " + str(len(rows[0])
+        "{\n" +
+        "mesh\n" +
+        "{\n" +
+        "" + basename(side.material).lower().strip() + "_\n" +
+        "lightmap_gray\n" +
+        "" + str(len(rows[0])) + " " + str(len(rows[0])
                                               ) + " " + str(side.lightmapScale) + " 8\n"
     )
 
     for i in range(numVerts):
         row = rows[i]
-        res += "   (\n"
+        res += "(\n"
         for j in range(numVerts):
             col = row[j]
             pos = (col["pos"] + Vector3(0, 0, disp["elevation"]) +
@@ -184,80 +187,89 @@ def convertDisplacement(side: Side, matSize, table: vertexTable):
             uv = (col["uv"] * side.texSize) * 1
             lm = col["uv"] * (side.lightmapScale)
             if disp["row"][j]["alphas"][i] == 0:
-                res += f"    v {pos} c 255 255 255 0 t {uv} {lm}\n"
+                res += f"v {pos} c 255 255 255 0 t {uv} {lm}\n"
             else:
                 color = "255 255 255 " + str(disp["row"][j]["alphas"][i])
-                res += f"    v {pos} c {color} t {uv} {lm}\n"
-        res += "   )\n"
-    res += ("  }\n" +
-            " }\n")
+                res += f"v {pos} c {color} t {uv} {lm}\n"
+        res += ")\n"
+    res += ("}\n" +
+            "}\n")
 
     return res
 
-
-def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=False, sky=""):
-    if RemoveClips:
-        clipmats = ["tools/toolsclip", "tools/toolsplayerclip", "tools/toolsnpcclip", "tools/toolsgrenadeclip"]
-        if brush.sides[0].material in clipmats:
-            return ""
-
-    if RemoveSkybox:
-        if brush.sides[0].material in ["tools/toolsskybox", "tools/toolsskybox2d"]:
-            return ""
-
-    # BO3 doesn't need hint/skip brushes or portals for optimization
-    if BO3:
-        if brush.entity == "func_areaportal" or brush.entity == "func_areaportalwindow":
-            return ""
-        if brush.sides[0].material == "tools/toolshint" or brush.sides[0].material == "tools/toolsskip":
-            return ""
-
-    classnames = ["func_detail", "func_brush", "func_illusionary", "func_breakable", "func_breakable_surf", "func_door", "func_door_rotating",
+def convertBrush(brush: Brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=False, sky="", matSize={}, table= vertexTable()):
+    brushRes = ""
+    patchRes = ""
+    if not brush.hasDisp:
+        allowedClassnames = ["func_detail", "func_brush", "func_illusionary", "func_breakable", "func_breakable_surf", "func_door", "func_door_rotating",
                   "func_ladder", "func_door", "func_movelinear", "func_lod", "func_lookdoor", "func_physbox", "func_physbox_multiplayer",
                   "func_rotating", "func_tank", "func_tankairboatgun", "func_tankapcrocket", "func_tanklaser", "func_tankmortar",
                   "func_tankphyscannister", "func_tankpulselaser", "func_tankrocket", "func_tanktrain", "func_trackautochange", "func_trackchange",
-                  "func_tracktrain", "func_traincontrols", "func_wall", "func_wall_toggle", "func_water_analog"]
-    tools = {
-        "toolsnodraw": "caulk",
-        "toolsclip": "clip",
-        "toolsplayerclip": "clip",
-        "toolsinvisible": "clip",
-        "toolsinvisibleladder": "clip",
-        "toolsnpcclip": "clip",
-        "toolsgrenadeclip": "clip_missile",
-        "toolsareaportal": "portal_nodraw",
-        "toolsblocklight": "shadowcaster",
-        "toolshint": "hint",
-        "toolsskip": "skip",
-        "toolsskybox": sky
-    }
+                  "func_tracktrain", "func_traincontrols", "func_wall", "func_wall_toggle", "func_water_analog", "func_bomb_target"]
+        if brush.entity not in allowedClassnames:
+            return ""
+        allowedTools = {
+            "toolsnodraw": "caulk",
+            "toolsnodrawwood": "caulk",
+            "toolsnodrawroof": "caulk",
+            "toolsnodrawstone": "caulk",
+            "toolsnodrawinvisible": "caulk",
+            "toolsnodrawnoshadow": "caulk",
+            "toolsnodrawmetal": "caulk",
+            "toolsnodrawportalable": "caulk",
+            "toolsclip": "clip",
+            "toolsplayerclip": "clip",
+            "toolsinvisible": "clip",
+            "toolsnpcclip": "clip",
+            "toolsgrenadeclip": "clip_missile",
+            "toolsareaportal": "portal_nodraw",
+            "toolsblocklight": "shadowcaster",
+            "toolshint": "hint",
+            "toolsskip": "skip",
+            "toolsskybox": sky
+        }
+        brushRes += f"// Brush {brush.id}\n"
+        brushRes += "{\n"
+        if brush.entity == "func_detail":
+            brushRes += "contents detail;\n"
+        elif brush.entity == "func_illusionary":
+            brushRes += "contents nonColliding;"
+        else:
+            if not world:
+                brushRes += "contents detail;"
+        material = ""
 
-    res = " {\n"
-    if not world:
-        res += "  contents detail;\n"
-    else:
-        pass  # do nothing. structural brushes and portals don't need to be specified like detail brushes
-
-    material = ""
+        for side in brush.sides:
+            if side.material.startswith("tools"):
+                mat = basename(side.material)
+                if mat not in allowedTools:
+                    brushRes = ""
+                    break
+                else:
+                    material = allowedTools[mat]
+            else:
+                material = "caulk"
+            brushRes += f"( {side.p1} ) ( {side.p2} ) ( {side.p3} ) {material} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+        
+        brushRes += "}\n" if brushRes != "" else ""
+    # create patches from textured faces
 
     for side in brush.sides:
         if side.material.startswith("tools"):
-            mat = basename(side.material)
-            if mat not in tools:
-                return ""
-            else:
-                material = tools[mat]
-        else:
-            material = "caulk"
-        res += f"  ( {side.p1} ) ( {side.p2} ) ( {side.p3} ) {material} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+            continue
+        if side.hasDisp:
+            patchRes += convertDisplacement(side, matSize, table)
+        if brush.hasDisp:
+            continue
+        patchRes += convertSide(side, matSize, table)
 
-    res += " }\n"
-    return res
+    return brushRes + patchRes
 
-def convertEntity(entity):
-    res = "{\n"
+def convertEntity(entity, id=False):
+    res = f"// Entity {id}\n" if isinstance(id, str) else ""
+    res += "{\n"
     for key, value in entity.items():
-        res += f' "{key}" "{value}"\n'
+        res += f'"{key}" "{value}"\n'
     res += "}\n"
     return res
 
@@ -274,7 +286,7 @@ def convertLight(entity):
         "_color": color,
         "radius": _color[3],
         "intensity": "1"
-    })
+    }, entity["id"])
 
 def convertSpotLight(entity, BO3=False):
     if "_light" in entity:
@@ -306,7 +318,7 @@ def convertSpotLight(entity, BO3=False):
             "target": "spotlight_" + entity["id"],
             "fov_outer": entity["_cone"],
             "fov_inner": entity["_inner_cone"],
-        })
+        }, entity["id"])
         res += convertEntity({
             "classname": "info_null",
             "origin": origin + Vector3(0, 0, -float(_color[3])),
@@ -322,7 +334,7 @@ def convertSpotLight(entity, BO3=False):
             "radius": radius,
             "fov_outer": entity["_cone"],
             "fov_inner": entity["_inner_cone"],
-        })
+        }, entity["id"])
     return res
 
 def convertRope(entity):
@@ -334,19 +346,19 @@ def convertRope(entity):
             "target": entity["NextKey"] if "NextKey" in entity else entity["id"],
             "length_scale": float(entity["Slack"]) / 128,
             "width": float(entity["Width"]) * 3
-        })
+        }, entity["id"])
         if "targetname" in entity:
             res += convertEntity({
                 "classname": "info_null",
                 "origin": entity["origin"],
                 "targetname": entity["targetname"] if "targetname" in entity else entity["id"]
-            });
+            }, entity["id"]);
     else:
         res += convertEntity({
             "classname": "info_null",
             "origin": entity["origin"],
             "targetname": entity["targetname"]
-        })
+        }, entity["id"])
         if "NextKey" in entity:
             res += convertEntity({
                 "classname": "rope",
@@ -354,7 +366,7 @@ def convertRope(entity):
                 "target": entity["NextKey"],
                 "length_scale": float(entity["Slack"]) / 125,
                 "width": entity["width"] if "width" in entity else "1"
-            })
+            }, entity["id"])
     return res
 
 def convertProp(entity):
@@ -362,7 +374,7 @@ def convertProp(entity):
         return convertEntity({
             "classname": "info_null",
             "original_classname": entity["classname"]
-        })
+        }, entity["id"])
 
     return convertEntity({
         "classname": "dyn_model" if entity["classname"].startswith("prop_physics") else "misc_model",
@@ -371,13 +383,13 @@ def convertProp(entity):
         "angles": entity["angles"],
         "spawnflags": "16" if entity["classname"].startswith("prop_physics") else "",
         "modelscale": entity["uniformscale"] if "uniformscale" in entity else entity["modelscale"] if "modelscale" in entity else "1"
-    })
+    }, entity["id"])
 
 def convertCubemap(entity):
     return convertEntity({
         "classname": "reflection_probe",
         "origin": entity["origin"]
-    })
+    }, entity["id"])
 
 def convertSpawner(entity):
     spawners = {
@@ -395,19 +407,20 @@ def convertSpawner(entity):
         "classname": classname,
         "origin": entity["origin"],
         "angles": entity["angles"]
-    })
+    }, entity["id"])
 
     if classname == "info_player_start":
         res += convertEntity({
             "classname": "mp_global_intermission",
             "origin": entity["origin"]
-        })
+        }, entity["id"])
 
     return res
 
 def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False, RemoveProbes=False, RemoveLights=False, RemoveSkybox=False, skipMats=False, skipModels=False):
     # create temporary directories to extract assets
     copyDir = gettempdir() + "/corvid"
+    rmtree(copyDir)
     try:
         makedirs(f"{copyDir}/mdl")
         makedirs(f"{copyDir}/mat")
@@ -488,36 +501,17 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     
     # generate map geometry
     print("Generating .map file...")
-    mapPatches = ""
-    mapBrushes = ""
+    mapGeo = ""
     mapEnts = ""
     worldSpawnSettings = ""
 
     table = vertexTable()
 
     for brush in mapData["worldBrushes"]:
-        if not brush.hasDisp:
-            mapBrushes += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapData["sky"])
-        for side in brush.sides:
-            if side.material.startswith("tools"):
-                continue
-            if side.hasDisp:
-                mapPatches += convertDisplacement(side, matSizes, table)
-            if brush.hasDisp:
-                continue
-            mapPatches += convertSide(side, matSizes, table)
+        mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapData["sky"], matSizes, table)
 
     for brush in mapData["entityBrushes"]:
-        if not brush.hasDisp:
-            mapBrushes += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3)
-        for side in brush.sides:
-            if side.material.startswith("tools"):
-                continue
-            if side.hasDisp:
-                mapPatches += convertDisplacement(side, matSizes, table)
-            if brush.hasDisp:
-                continue
-            mapPatches += convertSide(side, matSizes, table)
+        mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapData["sky"], matSizes, table)
 
     for entity in mapData["entities"]:
         if entity["classname"].startswith("prop_"):
@@ -540,7 +534,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
                + ' "diffusefraction" ".2"\n'
                + ' "ambient" ".116"\n')
             _color = entity["_ambient"].split(" ")
-            color = Vector3(_color[0], _color[1], _color[2]) / 255
+            color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
             worldSpawnSettings += f' "_color" "{color}"\n'
             _light = entity["_light"].split(" ")
             light = (Vector3(_light[0], _light[1], _light[2]) / 255).round(3)
@@ -553,8 +547,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
            + "{\n"
            + ' "classname" "worldspawn"\n'
            + worldSpawnSettings
-           + mapBrushes
-           + mapPatches
+           + mapGeo
            + "}\n"
            + mapEnts
            )
