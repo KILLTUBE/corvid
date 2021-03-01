@@ -52,16 +52,22 @@ def convertImages(images, src, dest, ext="tga"):
     images["revealMaps"] = list(dict.fromkeys(images["revealMaps"]))
     dds = True if ext == "tga" else False
     for file in images["colorMapsAlpha"]:
+        print(f"Converting {file}.vtf...")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgba", dds)
     for file in images["normalMaps"]:
+        print(f"Converting {file}.vtf...")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgb")
     for file in images["envMaps"]:
+        print(f"Converting {file}.vtf...")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgb")
     for file in images["envMapsAlpha"]:
+        print(f"Converting {file}.vtf...")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}_.{ext}", "a")
     for file in images["revealMaps"]:
+        print(f"Converting {file}.vtf...")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "g")
     for file in images["colorMaps"]:
+        print(f"Converting {file}.vtf...")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgb")
 
 def getTexSize(src):
@@ -75,6 +81,7 @@ def convertModels(models, BO3=False):
     convertDir = f"{tempDir}/converted/model_export/corvid"
     for model in models:
         model = splitext(basename(model))[0]
+        print(f"Converting {model}.mdl...")
         call(["bin/mdl2xmodel.exe", f"{mdlDir}/{model}", convertDir])
         if BO3:
             codModel.LoadFile_Raw(f"{convertDir}/{model}.xmodel_export")
