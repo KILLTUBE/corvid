@@ -287,7 +287,7 @@ class App:
 
     def deleteDirButton_command(self):
         for dir in self.gameDirList.curselection():
-            self.vpkList.delete(dir)
+            self.gameDirList.delete(dir)
 
     def clearConsoleButton_command(self):
         self.consoleTextBox.delete(0.0, tkinter.constants.END)
@@ -360,11 +360,14 @@ class App:
             pass
         convertedDir = gettempdir() + "/corvid/converted/"
         convertedFiles = listdir(convertedDir)
-        print(f"Moving all converted files to \"{outputDir}\"...")
-        for file in convertedFiles:
-            shutil.move(os.path.join(convertedDir, file), outputDir)
+        print(f"Moving all converted assets to \"{outputDir}\"...")
+        try:
+            for file in convertedFiles:
+                shutil.move(os.path.join(convertedDir, file), outputDir)
+        except:
+            pass
         # create the .map file
-        print(f"Writing \"{vmfName}\" in \"{outputDir}\"")
+        print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
         open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res)
         end = time.time()
         print(f"Conversion finished in {round(end - start)} seconds")
