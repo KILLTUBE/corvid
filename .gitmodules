@@ -4,3 +4,6 @@
 [submodule "SourceIO"]
 	path = SourceIO
 	url = https://github.com/REDxEYE/SourceIO
+[submodule "vrProjector"]
+	path = vrProjector
+	url = https://github.com/bhautikj/vrProjector.git
