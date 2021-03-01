@@ -5,6 +5,7 @@ from .Brush import Brush
 from vmf_tool.parser import parse
 def readMap(vmf):
     mapData = parse(vmf)
+    print(mapData.world.skyname.lower())
     worldBrushes = []
     entityBrushes = []
     entities = []
@@ -19,7 +20,7 @@ def readMap(vmf):
             matName = side.material.lower()
             if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
                 materials.append(matName)
-        worldBrushes.append(Brush(sides))
+        worldBrushes.append(Brush(sides, "world", solid.id))
     
 
     for entity in mapData.entities:
@@ -38,7 +39,7 @@ def readMap(vmf):
                     matName = side.material.lower()
                     if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
                         materials.append(matName)
-                entityBrushes.append(Brush(sides, entity.classname))
+                entityBrushes.append(Brush(sides, entity.classname, solid.id))
         elif "solid" in entity:
             if isinstance(entity.solid, str):
                 entities.append(entity)
@@ -49,7 +50,7 @@ def readMap(vmf):
                     matName = side.material.lower()
                     if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
                         materials.append(matName)
-                entityBrushes.append(Brush(sides, entity.classname))
+                entityBrushes.append(Brush(sides, entity.classname, solid.id))
         else:
             entities.append(entity)
     
@@ -62,5 +63,5 @@ def readMap(vmf):
         "entities": entities,
         "materials": materials,
         "models": models,
-        "sky": mapData.world.skyname if "skyname" in mapData else "sky"
+        "sky": mapData.world.skyname.lower() if "skyname" in mapData.world else "sky"
     }
