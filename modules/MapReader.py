@@ -5,7 +5,6 @@ from .Brush import Brush
 from vmf_tool.parser import parse
 def readMap(vmf):
     mapData = parse(vmf)
-    print(mapData.world.skyname.lower())
     worldBrushes = []
     entityBrushes = []
     entities = []

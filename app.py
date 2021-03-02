@@ -264,7 +264,8 @@ class App:
         checkSkipModels.place(x=230,y=350,width=78,height=30)
         checkSkipModels["offvalue"] = False
         checkSkipModels["onvalue"] = True
-
+        self.vpkList.insert(0, "C:/stuff/Steam/steamapps/common/Counter-Strike Global Offensive/csgo/pak01_dir.vpk")
+        self.gameDirList.insert(0, "C:/stuff/Steam/steamapps/common/Half-Life 2/hl2")
     def chooseVmfDialog_command(self):
         file = filedialog.askopenfile(mode="r", filetypes=[("Source Engine map file", "*.vmf")])
         if file is not None:
@@ -352,12 +353,18 @@ class App:
         print(f"Opening VMF file \"{vmfPath}\"...")
         vmfFile = open(vmfPath)
         print("Reading VMF file...")
-        res = exportMap(vmfFile, vpkFiles, gameDirs, self.BO3.get(), self.removeClips.get(), self.removeProbes.get(), self.removeLights.get(), self.removeSkybox.get(), self.skipMats.get(), self.skipModels.get())
+        BO3 = self.BO3.get()
+        res = exportMap(vmfFile, vpkFiles, gameDirs, BO3, self.removeClips.get(), self.removeProbes.get(), self.removeLights.get(), self.removeSkybox.get(), self.skipMats.get(), self.skipModels.get(), vmfName)
         # prepare the necessary stuff to move and write files
         try:
-            makedirs(outputDir + "/map_source")
+            makedirs(f"{outputDir}/map_source")
         except:
             pass
+        if BO3:
+            try:
+                makedirs(f"{outputDir}/map_source/_prefabs/_{vmfName}")
+            except:
+                pass
         convertedDir = gettempdir() + "/corvid/converted/"
         convertedFiles = listdir(convertedDir)
         print(f"Moving all converted assets to \"{outputDir}\"...")
@@ -367,8 +374,17 @@ class App:
         except:
             pass
         # create the .map file
-        print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
-        open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res)
+        if self.BO3.get():
+            print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
+            open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res["main"])
+            print(f"Writing \"{vmfName}_entities.map\" in \"{outputDir}/map_source/_prefabs/_{vmfName}\"")
+            open(f"{outputDir}/map_source/_prefabs/_{vmfName}/{vmfName}_entities.map", "w").write(res["entities"])
+            for i in range(len(res["geo"])):
+                print(f"Writing \"{vmfName}_geo_{i}.map\" in \"{outputDir}/map_source/_prefabs/_{vmfName}\"")
+                open(f"{outputDir}/map_source/_prefabs/_{vmfName}/{vmfName}_geo_{i}.map", "w").write(res["geo"][i])
+        else:
+            print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
+            open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res)
         end = time.time()
         print(f"Conversion finished in {round(end - start)} seconds")
 
