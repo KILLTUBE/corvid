@@ -197,76 +197,67 @@ def convertDisplacement(side: Side, matSize, table: vertexTable):
 
     return res
 
-def convertBrush(brush: Brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=False, sky="", matSize={}, table= vertexTable()):
-    brushRes = ""
-    patchRes = ""
-    if not brush.hasDisp:
-        allowedClassnames = ["func_detail", "func_brush", "func_illusionary", "func_breakable", "func_breakable_surf", "func_door", "func_door_rotating",
+def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=False, sky="sky"):
+    if RemoveClips:
+        clipmats = ["tools/toolsclip", "tools/toolsplayerclip", "tools/toolsnpcclip", "tools/toolsgrenadeclip"]
+        if brush.sides[0].material in clipmats:
+            return ""
+
+    if RemoveSkybox:
+        if brush.sides[0].material in ["tools/toolsskybox", "tools/toolsskybox2d"]:
+            return ""
+
+    # BO3 doesn't need hint/skip brushes or portals for optimization
+    if BO3:
+        if brush.entity == "func_areaportal" or brush.entity == "func_areaportalwindow":
+            return ""
+        if brush.sides[0].material == "tools/toolshint" or brush.sides[0].material == "tools/toolsskip":
+            return ""
+
+    classnames = ["func_detail", "func_brush", "func_illusionary", "func_breakable", "func_breakable_surf", "func_door", "func_door_rotating",
                   "func_ladder", "func_door", "func_movelinear", "func_lod", "func_lookdoor", "func_physbox", "func_physbox_multiplayer",
                   "func_rotating", "func_tank", "func_tankairboatgun", "func_tankapcrocket", "func_tanklaser", "func_tankmortar",
                   "func_tankphyscannister", "func_tankpulselaser", "func_tankrocket", "func_tanktrain", "func_trackautochange", "func_trackchange",
-                  "func_tracktrain", "func_traincontrols", "func_wall", "func_wall_toggle", "func_water_analog", "func_bomb_target"]
-        if brush.entity not in allowedClassnames:
-            return ""
-        allowedTools = {
-            "toolsnodraw": "caulk",
-            "toolsnodrawwood": "caulk",
-            "toolsnodrawroof": "caulk",
-            "toolsnodrawstone": "caulk",
-            "toolsnodrawinvisible": "caulk",
-            "toolsnodrawnoshadow": "caulk",
-            "toolsnodrawmetal": "caulk",
-            "toolsnodrawportalable": "caulk",
-            "toolsclip": "clip",
-            "toolsplayerclip": "clip",
-            "toolsinvisible": "clip",
-            "toolsnpcclip": "clip",
-            "toolsgrenadeclip": "clip_missile",
-            "toolsareaportal": "portal_nodraw",
-            "toolsblocklight": "shadowcaster",
-            "toolshint": "hint",
-            "toolsskip": "skip",
-            "toolsskybox": sky
-        }
-        brushRes += f"// Brush {brush.id}\n"
-        brushRes += "{\n"
-        if brush.entity == "func_detail":
-            brushRes += "contents detail;\n"
-        elif brush.entity == "func_illusionary":
-            brushRes += "contents nonColliding;"
-        else:
-            if not world:
-                brushRes += "contents detail;"
-        material = ""
+                  "func_tracktrain", "func_traincontrols", "func_wall", "func_wall_toggle", "func_water_analog"]
+    tools = {
+        "toolsnodraw": "caulk",
+        "toolsclip": "clip",
+        "toolsplayerclip": "clip",
+        "toolsinvisible": "clip",
+        "toolsinvisibleladder": "clip",
+        "toolsnpcclip": "clip",
+        "toolsgrenadeclip": "clip_missile",
+        "toolsareaportal": "portal_nodraw",
+        "toolsblocklight": "shadowcaster",
+        "toolshint": "hint",
+        "toolsskip": "skip",
+        "toolsskybox": sky
+    }
 
-        for side in brush.sides:
-            if side.material.startswith("tools"):
-                mat = basename(side.material)
-                if mat not in allowedTools:
-                    brushRes = ""
-                    break
-                else:
-                    material = allowedTools[mat]
-            else:
-                material = "caulk"
-            brushRes += f"( {side.p1} ) ( {side.p2} ) ( {side.p3} ) {material} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
-        
-        brushRes += "}\n" if brushRes != "" else ""
-    # create patches from textured faces
+    res = " {\n"
+    if not world:
+        res += "  contents detail;\n"
+    else:
+        pass  # do nothing. structural brushes and portals don't need to be specified like detail brushes
+
+    material = ""
 
     for side in brush.sides:
         if side.material.startswith("tools"):
-            continue
-        if side.hasDisp:
-            patchRes += convertDisplacement(side, matSize, table)
-        if brush.hasDisp:
-            continue
-        patchRes += convertSide(side, matSize, table)
+            mat = basename(side.material)
+            if mat not in tools:
+                return ""
+            else:
+                material = tools[mat]
+        else:
+            material = "caulk"
+        res += f"  ( {side.p1} ) ( {side.p2} ) ( {side.p3} ) {material} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
 
-    return brushRes + patchRes
+    res += " }\n"
+    return res
 
-def convertEntity(entity, id=False):
-    res = f"// Entity {id}\n" if isinstance(id, str) else ""
+def convertEntity(entity, id="", geo=""):
+    res = f"// Entity {id}\n" if id != "" else ""
     res += "{\n"
     for key, value in entity.items():
         res += f'"{key}" "{value}"\n'
@@ -417,7 +408,7 @@ def convertSpawner(entity):
 
     return res
 
-def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False, RemoveProbes=False, RemoveLights=False, RemoveSkybox=False, skipMats=False, skipModels=False):
+def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False, RemoveProbes=False, RemoveLights=False, RemoveSkybox=False, skipMats=False, skipModels=False, mapName=""):
     # create temporary directories to extract assets
     copyDir = gettempdir() + "/corvid"
     rmtree(copyDir)
@@ -501,17 +492,35 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     
     # generate map geometry
     print("Generating .map file...")
-    mapGeo = ""
+    mapGeo = []
     mapEnts = ""
     worldSpawnSettings = ""
 
     table = vertexTable()
 
     for brush in mapData["worldBrushes"]:
-        mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapData["sky"], matSizes, table)
+        if not brush.hasDisp:
+            mapGeo.append(convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapData["sky"]))
+        for side in brush.sides:
+            if side.material.startswith("tools"):
+                continue
+            if side.hasDisp:
+                mapGeo.append(convertDisplacement(side, matSizes, table))
+            if brush.hasDisp:
+                continue
+            mapGeo.append(convertSide(side, matSizes, table))
 
     for brush in mapData["entityBrushes"]:
-        mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapData["sky"], matSizes, table)
+        if not brush.hasDisp:
+            mapGeo.append(convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3, mapData["sky"]))
+        for side in brush.sides:
+            if side.material.startswith("tools"):
+                continue
+            if side.hasDisp:
+                mapGeo.append(convertDisplacement(side, matSizes, table))
+            if brush.hasDisp:
+                continue
+            mapGeo.append(convertSide(side, matSizes, table))
 
     for entity in mapData["entities"]:
         if entity["classname"].startswith("prop_"):
@@ -543,13 +552,58 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
             pitch = entity["pitch"]
             sundirection = pitch + " " + angles[1] + " " + angles[2]
             worldSpawnSettings += f' "sundirection" "{sundirection}"\n'
-    res = ("iwmap 4\n"
-           + "{\n"
-           + ' "classname" "worldspawn"\n'
-           + worldSpawnSettings
-           + mapGeo
-           + "}\n"
-           + mapEnts
-           )
+    
+    if BO3:
+        res = {}
+        # entities in a separate prefab
+        res["entities"] = (
+            "iwmap 4\n"
+            + "{\n"
+            + '"classname" "worldspawn"\n'
+            + "}\n"
+            + mapEnts
+        )
+
+        # divide geo into smaller chunks and hope Radiant Blacc will be able to handle it
+        res["geo"] = []
+        for i in range(0, len(mapGeo), 1000):
+            res["geo"].append((
+                "iwmap 4\n"
+                + "{\n"
+                + '"classname" "worldspawn"\n'
+                + "".join(mapGeo[i:1000 + i])
+                + "}\n"
+            ))
+
+        # create the main geo including all these as a prefab
+        res["main"] = (
+                "iwmap 4\n"
+                + "{\n"
+                + '"classname" "worldspawn"\n'
+                + "}\n"
+                + convertEntity({
+                    "classname": "misc_prefab",
+                    "origin": "0 0 0",
+                    "model": f"_prefabs/_{mapName}/{mapName}_entities.map"
+                })
+        )
+
+        for i in range(len(res["geo"])):
+            res["main"] += convertEntity({
+                "classname": "misc_prefab",
+                "origin": "0 0 0",
+                "model": f"_prefabs/_{mapName}/{mapName}_geo_{i}.map"
+            })
+
+    else:
+        res = (
+            "iwmap 4\n"
+            + "{\n"
+            + '"classname" "worldspawn"\n'
+            + worldSpawnSettings
+            + "".join(mapGeo)
+            + "}\n"
+            + mapEnts
+            )
 
     return res
