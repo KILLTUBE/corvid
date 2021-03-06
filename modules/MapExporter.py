@@ -452,8 +452,8 @@ def convertSkyBox(mapData, RemoveClips, RemoveSkybox, BO3, matSizes, table):
 def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False, RemoveProbes=False, RemoveLights=False, RemoveSkybox=False, skipMats=False, skipModels=False, mapName=""):
     # create temporary directories to extract assets
     copyDir = gettempdir() + "/corvid"
-    rmtree(copyDir)
     try:
+        rmtree(copyDir)
         makedirs(f"{copyDir}/mdl")
         makedirs(f"{copyDir}/mat")
         makedirs(f"{copyDir}/mdlMats")
