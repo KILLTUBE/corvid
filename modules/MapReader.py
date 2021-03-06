@@ -33,10 +33,11 @@ def readMap(vmf):
             matName = side.material.lower()
             if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
                 materials.append(matName)
-        if "visgroupid" in solid.editor and solid.editor.visgroupid == skyBoxId:
-            skyBoxBrushes.append(Brush(sides, "world", solid.id))
-        else:
-            worldBrushes.append(Brush(sides, "world", solid.id))
+        if "editor" in solid:
+            if "visgroupid" in solid.editor and solid.editor.visgroupid == skyBoxId:
+                skyBoxBrushes.append(Brush(sides, "world", solid.id))
+            else:
+                worldBrushes.append(Brush(sides, "world", solid.id))
     
 
     for entity in mapData.entities:
