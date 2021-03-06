@@ -398,7 +398,7 @@ def createMaterialGdtBo3(vmts: dict):
             if "$bumpmap2" in mat and "$ssbump2" not in mat:
                 data2["normalMap"] = "i_" + uniqueName(mat["$bumpmap2"].strip())
             if "$blendmodulatetexture" in mat:
-                data2["alphaRevealMap"] = "i_" + uniqueName(mat["$blendmodulatetexture"].strip())
+                data2["alphaRevealMap"] = "i_" + uniqueName(mat["$blendmodulatetexture"].strip())                
             if "$envmapmask2" in mat:
                 data2["cosinePowerMap2"] = "i_" + uniqueName(mat["$envmapmask2"].strip())
                 data2["materialType"] = "lit_decal_reveal_plus"
