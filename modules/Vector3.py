@@ -74,6 +74,13 @@ class Vector3:
         return Vector3(
             round(self.x, digits), round(self.y, digits), round(self.z, digits)
         )
+    
+    def max(self, rhs):
+        return Vector3(
+            max(self.x, rhs.x),
+            max(self.y, rhs.y),
+            max(self.z, rhs.z)
+        )
 
     def isLegal(self, sides):
         for side in sides:
@@ -81,3 +88,13 @@ class Vector3:
             if facing.dot(side.normal().normalize()) < -0.001:
                 return False
         return True
+    
+def Vector3FromStr(string: str):
+    tok = string.split(" ")
+    return Vector3(tok[0], tok[1], tok[2])
+
+def Vector3Max(vectors: list[Vector3]):
+    res = vectors[0]
+    for vector in vectors:
+        res = res.max(vector)
+    return res
