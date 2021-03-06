@@ -42,8 +42,11 @@ def readMap(vmf):
 
     for entity in mapData.entities:
         if entity.classname.startswith("prop"):
-            if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
-                skyBoxEntities.append(entity)
+            if "editor" in entity:
+                if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
+                    skyBoxEntities.append(entity)
+                else:
+                    entities.append(entity)
             else:
                 entities.append(entity)
             if "model" not in entity:
@@ -59,15 +62,20 @@ def readMap(vmf):
                     matName = side.material.lower()
                     if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
                         materials.append(matName)
-                if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
-                    skyBoxEntityBrushes.append(Brush(sides, entity.classname, solid.id))
+                if "editor" in entity:
+                    if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
+                        skyBoxEntityBrushes.append(Brush(sides, entity.classname, solid.id))
+                    else:
+                        entityBrushes.append(Brush(sides, entity.classname, solid.id))
                 else:
                     entityBrushes.append(Brush(sides, entity.classname, solid.id))
-
         elif "solid" in entity:
             if isinstance(entity.solid, str):
-                if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
-                    skyBoxEntities.append(entity)
+                if "editor" in entity:
+                    if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
+                        skyBoxEntities.append(entity)
+                    else:
+                        entities.append(entity)
                 else:
                     entities.append(entity)
             else:
@@ -77,16 +85,22 @@ def readMap(vmf):
                     matName = side.material.lower()
                     if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
                         materials.append(matName)
-                if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
-                    skyBoxBrushes.append(Brush(sides, entity.classname, solid.id))
+                if "editor" in entity:
+                    if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
+                        skyBoxBrushes.append(Brush(sides, entity.classname, solid.id))
+                    else:
+                        entityBrushes.append(Brush(sides, entity.classname, solid.id))
                 else:
                     entityBrushes.append(Brush(sides, entity.classname, solid.id))
         else:
-            if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
-                skyBoxEntities.append(entity)
-                if entity.classname == "sky_camera":
-                    skyBoxScale = entity.scale
-                    skyBoxOrigin = Vector3FromStr(entity.origin)
+            if "editor" in entity:
+                if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
+                    skyBoxEntities.append(entity)
+                    if entity.classname == "sky_camera":
+                        skyBoxScale = entity.scale
+                        skyBoxOrigin = Vector3FromStr(entity.origin)
+                else:
+                    entities.append(entity)
             else:
                 entities.append(entity)
 
