@@ -8,7 +8,6 @@ from tempfile import gettempdir
 from .Static import uniqueName
 from subprocess import call
 from PyCoD import Model
-import cube2sphere
 
 tempDir = gettempdir() + "/corvid"
 
