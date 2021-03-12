@@ -36,6 +36,7 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
         vmtDir, vtfDir = "mdlMats", "mdlTex"
     for file in mats:
         name = basename(file)
+        print(f"Reading {name}")
         vmt = parse_vdf(fixVmt(open(f"{tempDir}/{vmtDir}/{name}.vmt").read()))
         res["vmts"][name] = vmt
         shader = list(vmt)[0]
@@ -333,7 +334,11 @@ def createMaterialGdtBo3(vmts: dict):
         data["materialCategory"] = "Geometry"
         data["materialType"] = "lit"
 
-        data["colorMap"] = "i_" + uniqueName(mat["$basetexture"].strip())
+        if "$basetexture" in mat:
+            data["colorMap"] = "i_" + uniqueName(mat["$basetexture"].strip())
+        else:
+            data["colorMap"] = "$default"
+
         data["usage"] = "tools" # probably not a good idea
 
         if "$bumpmap" in mat and "$ssbump" not in mat:
