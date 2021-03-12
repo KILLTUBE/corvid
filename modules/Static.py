@@ -45,8 +45,9 @@ def uniqueName(name: str):
 
 # some vmt files are written so badly, we have to fix them make sure they will be parsed correctly
 def fixVmt(vmt: str):
+    """
     result = "";
-    lines = vmt.replace("\t", " ").replace("\\", "/").replace(".vtf", "").split("\n");
+    lines = vmt.replace("\t", " ").replace("\\", "/").replace(".vtf", "").replace(".tga", "").split("\n");
     for line in lines:
         line = ' '.join(line.split())
         if line.startswith("//") or len(line) == 0:
@@ -66,3 +67,5 @@ def fixVmt(vmt: str):
                 res = "\n"
             result += res
     return result;
+    """
+    return vmt.lower().replace(".vtf", "").replace(".tga", "")
