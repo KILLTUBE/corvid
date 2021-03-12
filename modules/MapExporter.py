@@ -261,6 +261,8 @@ def convertEntity(entity, id="", geo=""):
     res += "{\n"
     for key, value in entity.items():
         res += f'"{key}" "{value}"\n'
+    if geo != "":
+        res += geo
     res += "}\n"
     return res
 
@@ -524,7 +526,8 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     if not skipMats:
         print("Converting textures...")
         convertImages(matData, "matTex", "texture_assets/corvid", "tif" if BO3 else "tga")
-        convertImages(mdlMatData, "mdlTex", "texture_assets/corvid", "tif" if BO3 else "tga")
+        if not skipModels:
+            convertImages(mdlMatData, "mdlTex", "texture_assets/corvid", "tif" if BO3 else "tga")
 
     # convert the models
     if not skipModels:
@@ -537,7 +540,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     mapPatches = []
     mapBrushes = ""
     mapEnts = ""
-    worldSpawnSettings = ""
+    worldSpawnSettings = {}
     skyBoxGeo = ""
 
     table = vertexTable()
@@ -580,22 +583,20 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
             mapEnts += convertSpawner(entity)
         elif entity["classname"] == "light_environment" and not BO3:
-            # There are better ways to handle these I think. Gotta come back to this eventually.
-            worldSpawnSettings += ('"reflection_ignore_portals" "1"\n'
-               + '"sunlight" "1"\n'
-               + '"sundiffusecolor" "0.75 0.82 0.85"\n'
-               + '"diffusefraction" ".2"\n'
-               + '"ambient" ".116"\n')
-            _color = entity["_ambient"].split(" ")
-            color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
-            worldSpawnSettings += f'"_color" "{color}"\n'
-            _light = entity["_light"].split(" ")
-            light = (Vector3(_light[0], _light[1], _light[2]) / 255).round(3)
-            worldSpawnSettings += f'"suncolor" "{light}"\n'
-            angles = entity["angles"].split(" ")
-            pitch = entity["pitch"]
-            sundirection = pitch + " " + angles[1] + " " + angles[2]
-            worldSpawnSettings += f'"sundirection" "{sundirection}"\n'
+            color = (Vector3FromStr(entity["_ambient"]) / 255).round(3)
+            light = (Vector3FromStr(entity["_light"]) / 255).round(3)
+            angles = Vector3FromStr(entity["angles"])
+            angles.x = float(entity["pitch"]) - 180 # I think the north angle is different in both engines, gotta do more tests with this
+            worldSpawnSettings = {
+                "reflection_ignore_portals": "1",
+                "sunlight": "1",
+                "sundiffusecolor": "0.75 0.82 0.85",
+                "diffusefraction": ".2",
+                "ambient": ".116",
+                "_color": color,
+                "suncolor": light,
+                "sundirection": angles
+            }
 
     # generate 3d skybox geometry
     if mapData["skyBoxId"] != -1:
@@ -614,12 +615,12 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         res = {}
         # divide geo into smaller chunks and hope Radiant Blacc will be able to handle it
         res["patches"] = []
-        for i in range(0, len(mapPatches), 1000):
+        for i in range(0, len(mapPatches), 400):
             res["patches"].append((
                 "iwmap 4\n"
                 + "{\n"
                 + '"classname" "worldspawn"\n'
-                + "".join(mapPatches[i:1000 + i])
+                + "".join(mapPatches[i:400 + i])
                 + "}\n"
             ))
 
@@ -641,18 +642,14 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
 
     else:
         res = {}
-
         res["main"] = (
-            "iwmap 4\n"
-            + "{\n"
-            + '"classname" "worldspawn"\n'
-            + worldSpawnSettings
-            + mapBrushes
-            + "".join(mapPatches)
-            + "}\n"
-            + mapEnts
-        )
+            convertEntity(
+                {**{"classname": "worldspawn"}, **worldSpawnSettings },
+                id="0",
+                geo=mapBrushes + "".join(mapPatches))
+                + mapEnts
+            )
 
-    res["skyBox"] = skyBoxGeo
+    res["skyBox"] = skyBoxGeo.strip()
 
     return res
