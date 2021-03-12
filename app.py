@@ -358,14 +358,17 @@ class App:
         # prepare the necessary stuff to move and write files
         try:
             makedirs(f"{outputDir}/map_source/_prefabs/_{vmfName}")
+            makedirs(f"{outputDir}/source_data")
+            makedirs(f"{outputDir}/texture_assets/corvid")
+            makedirs(f"{outputDir}/model_export/corvid")
         except:
             pass
-        convertedDir = gettempdir() + "/corvid/converted/"
+        convertedDir = gettempdir() + "/corvid/converted"
+        
         convertedFiles = listdir(convertedDir)
         print(f"Moving all converted assets to \"{outputDir}\"...")
         try:
-            for file in convertedFiles:
-                shutil.move(os.path.join(convertedDir, file), outputDir)
+            shutil.copytree(convertedDir, outputDir)
         except:
             pass
         # create the .map file
@@ -378,8 +381,9 @@ class App:
         else:
             print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
             open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res["main"])
-            print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source/_prefabs/_{vmfName}\"")
-            open(f"{outputDir}/map_source/_prefabs/_{vmfName}/{vmfName}_skybox.map", "w").write(res["skyBox"])
+            if len(res["skyBox"]) != 0:
+                print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source/_prefabs/_{vmfName}\"")
+                open(f"{outputDir}/map_source/_prefabs/_{vmfName}/{vmfName}_skybox.map", "w").write(res["skyBox"])
         end = time.time()
         print(f"Conversion finished in {round(end - start)} seconds")
 
