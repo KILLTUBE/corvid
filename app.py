@@ -357,33 +357,34 @@ class App:
         res = exportMap(vmfFile, vpkFiles, gameDirs, BO3, self.removeClips.get(), self.removeProbes.get(), self.removeLights.get(), self.removeSkybox.get(), self.skipMats.get(), self.skipModels.get(), vmfName)
         # prepare the necessary stuff to move and write files
         try:
-            makedirs(f"{outputDir}/map_source/_prefabs/_{vmfName}")
-            makedirs(f"{outputDir}/source_data")
-            makedirs(f"{outputDir}/texture_assets/corvid")
-            makedirs(f"{outputDir}/model_export/corvid")
+            makedirs(f"{outputDir}/map_source")
         except:
             pass
-        convertedDir = gettempdir() + "/corvid/converted"
-        
+        if BO3:
+            try:
+                makedirs(f"{outputDir}/map_source/_prefabs/_{vmfName}")
+            except:
+                pass
+        convertedDir = gettempdir() + "/corvid/converted/"
         convertedFiles = listdir(convertedDir)
         print(f"Moving all converted assets to \"{outputDir}\"...")
         try:
-            shutil.copytree(convertedDir, outputDir)
+            for file in convertedFiles:
+                shutil.move(os.path.join(convertedDir, file), outputDir)
         except:
             pass
         # create the .map file
         if self.BO3.get():
             print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
             open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res["main"])
-            for i in range(len(res["patches"])):
-                print(f"Writing \"{vmfName}_patches_{i}.map\" in \"{outputDir}/map_source/_prefabs/_{vmfName}\"")
-                open(f"{outputDir}/map_source/_prefabs/_{vmfName}/{vmfName}_patches_{i}.map", "w").write(res["patches"][i])
+            print(f"Writing \"{vmfName}_entities.map\" in \"{outputDir}/map_source/_prefabs/_{vmfName}\"")
+            open(f"{outputDir}/map_source/_prefabs/_{vmfName}/{vmfName}_entities.map", "w").write(res["entities"])
+            for i in range(len(res["geo"])):
+                print(f"Writing \"{vmfName}_geo_{i}.map\" in \"{outputDir}/map_source/_prefabs/_{vmfName}\"")
+                open(f"{outputDir}/map_source/_prefabs/_{vmfName}/{vmfName}_geo_{i}.map", "w").write(res["geo"][i])
         else:
             print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
-            open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res["main"])
-            if len(res["skyBox"]) != 0:
-                print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source/_prefabs/_{vmfName}\"")
-                open(f"{outputDir}/map_source/_prefabs/_{vmfName}/{vmfName}_skybox.map", "w").write(res["skyBox"])
+            open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res)
         end = time.time()
         print(f"Conversion finished in {round(end - start)} seconds")
 

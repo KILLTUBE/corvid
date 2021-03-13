@@ -36,7 +36,6 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
         vmtDir, vtfDir = "mdlMats", "mdlTex"
     for file in mats:
         name = basename(file)
-        print(f"Reading {name}")
         vmt = parse_vdf(fixVmt(open(f"{tempDir}/{vmtDir}/{name}.vmt").read()))
         res["vmts"][name] = vmt
         shader = list(vmt)[0]
@@ -334,11 +333,7 @@ def createMaterialGdtBo3(vmts: dict):
         data["materialCategory"] = "Geometry"
         data["materialType"] = "lit"
 
-        if "$basetexture" in mat:
-            data["colorMap"] = "i_" + uniqueName(mat["$basetexture"].strip())
-        else:
-            data["colorMap"] = "$default"
-
+        data["colorMap"] = "i_" + uniqueName(mat["$basetexture"].strip())
         data["usage"] = "tools" # probably not a good idea
 
         if "$bumpmap" in mat and "$ssbump" not in mat:
@@ -403,7 +398,7 @@ def createMaterialGdtBo3(vmts: dict):
             if "$bumpmap2" in mat and "$ssbump2" not in mat:
                 data2["normalMap"] = "i_" + uniqueName(mat["$bumpmap2"].strip())
             if "$blendmodulatetexture" in mat:
-                data2["alphaRevealMap"] = "i_" + uniqueName(mat["$blendmodulatetexture"].strip())                
+                data2["alphaRevealMap"] = "i_" + uniqueName(mat["$blendmodulatetexture"].strip())
             if "$envmapmask2" in mat:
                 data2["cosinePowerMap2"] = "i_" + uniqueName(mat["$envmapmask2"].strip())
                 data2["materialType"] = "lit_decal_reveal_plus"

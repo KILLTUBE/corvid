@@ -27,9 +27,6 @@ class Brush:
                             self.sides[k].points.append(intersectionPoint)
 
         for i in range(n):
-            if len(self.sides[i].points) == 0:
-                print(f"Brush face {self.sides[i].id} has no points. Skipping...")
-                continue
             self.sides[i].sortVertices()
             if self.sides[i].hasDisp:
                 self.hasDisp = True

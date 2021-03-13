@@ -3,7 +3,7 @@ from modules.SourceDir import SourceDir
 from .Side import Side
 from .MapReader import readMap
 from .Vector2 import Vector2
-from .Vector3 import Vector3, Vector3FromStr
+from .Vector3 import Vector3
 from .Gdt import Gdt
 from os.path import basename, splitext
 from os import makedirs
@@ -29,12 +29,12 @@ class vertexTable:
             self.table[index].append(vert)
             return vert
 
-def convertSide(side: Side, matSize, table: vertexTable, size=1):
+def convertSide(side: Side, matSize, table: vertexTable):
     res = ""
     points = []
     # get uv points
     for point in side.points:
-        points.append(table.add(point * size))
+        points.append(table.add(point))
         side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
     uvs: list[Vector2] = side.uvs
 
@@ -92,12 +92,12 @@ def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, power: i
     return res
 
 
-def convertDisplacement(side: Side, matSize, table: vertexTable, size=1):
+def convertDisplacement(side: Side, matSize, table: vertexTable):
     res = ""
     points = []
     # get uv points
     for point in side.points:
-        points.append(table.add(point * size))
+        points.append(table.add(point))
         side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
 
     if len(points) != 4:
@@ -197,7 +197,7 @@ def convertDisplacement(side: Side, matSize, table: vertexTable, size=1):
 
     return res
 
-def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=False, sky="sky", size=1):
+def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=False, sky="sky"):
     if RemoveClips:
         clipmats = ["tools/toolsclip", "tools/toolsplayerclip", "tools/toolsnpcclip", "tools/toolsgrenadeclip"]
         if brush.sides[0].material in clipmats:
@@ -251,7 +251,7 @@ def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=F
                 material = tools[mat]
         else:
             material = "caulk"
-        res += f"  ( {side.p1 * size} ) ( {side.p2 * size} ) ( {side.p3 * size} ) {material} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+        res += f"  ( {side.p1} ) ( {side.p2} ) ( {side.p3} ) {material} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
 
     res += " }\n"
     return res
@@ -261,8 +261,6 @@ def convertEntity(entity, id="", geo=""):
     res += "{\n"
     for key, value in entity.items():
         res += f'"{key}" "{value}"\n'
-    if geo != "":
-        res += geo
     res += "}\n"
     return res
 
@@ -362,27 +360,20 @@ def convertRope(entity):
             }, entity["id"])
     return res
 
-def convertProp(entity, scale=1):    
+def convertProp(entity):
     if "model" not in entity:
         return convertEntity({
             "classname": "info_null",
-            "origin": entity["origin"],
             "original_classname": entity["classname"]
         }, entity["id"])
-
-    origin = str(Vector3FromStr(entity["origin"]) * scale)
-
-    modelScale = float(entity["uniformscale"] if "uniformscale" in entity else entity["modelscale"] if "modelscale" in entity else "1")
-    if scale != 1:
-        modelScale *= float(scale)
 
     return convertEntity({
         "classname": "dyn_model" if entity["classname"].startswith("prop_physics") else "misc_model",
         "model": splitext(basename(entity["model"].lower()))[0],
-        "origin": origin,
+        "origin": entity["origin"],
         "angles": entity["angles"],
         "spawnflags": "16" if entity["classname"].startswith("prop_physics") else "",
-        "modelscale": modelScale
+        "modelscale": entity["uniformscale"] if "uniformscale" in entity else entity["modelscale"] if "modelscale" in entity else "1"
     }, entity["id"])
 
 def convertCubemap(entity):
@@ -401,6 +392,7 @@ def convertSpawner(entity):
     if entity["classname"] in spawners:
         classname = spawners[entity["classname"]]
     else:
+        print(entity["classname"])
         return ""
     res = convertEntity({
         "classname": classname,
@@ -416,46 +408,11 @@ def convertSpawner(entity):
 
     return res
 
-def convertSkyBox(mapData, RemoveClips, RemoveSkybox, BO3, matSizes, table):
-    geo = ""
-    geo = ""
-    entities = ""
-
-    for brush in mapData["skyBoxBrushes"]:
-        if not brush.hasDisp:
-            geo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapData["skyName"], mapData["skyBoxScale"])
-        for side in brush.sides:
-            if side.material.startswith("tools"):
-                continue
-            if side.hasDisp:
-                geo += convertDisplacement(side, matSizes, table, mapData["skyBoxScale"])
-            if brush.hasDisp:
-                continue
-            geo += convertSide(side, matSizes, table, mapData["skyBoxScale"])
-
-    for brush in mapData["skyBoxEntityBrushes"]:
-        if not brush.hasDisp:
-            geo += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3, mapData["skyName"], mapData["skyBoxScale"])
-        for side in brush.sides:
-            if side.material.startswith("tools"):
-                continue
-            if side.hasDisp:
-                geo += convertDisplacement(side, matSizes, table, mapData["skyBoxScale"])
-            if brush.hasDisp:
-                continue
-            geo += convertSide(side, matSizes, table, mapData["skyBoxScale"])
-
-    for entity in mapData["skyBoxEntities"]:
-        if entity["classname"].startswith("prop_"):
-            entities += convertProp(entity, mapData["skyBoxScale"])
-
-    return {"geo": geo, "entities": entities}
-
 def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False, RemoveProbes=False, RemoveLights=False, RemoveSkybox=False, skipMats=False, skipModels=False, mapName=""):
     # create temporary directories to extract assets
     copyDir = gettempdir() + "/corvid"
+    rmtree(copyDir)
     try:
-        rmtree(copyDir)
         makedirs(f"{copyDir}/mdl")
         makedirs(f"{copyDir}/mat")
         makedirs(f"{copyDir}/mdlMats")
@@ -526,48 +483,44 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     if not skipMats:
         print("Converting textures...")
         convertImages(matData, "matTex", "texture_assets/corvid", "tif" if BO3 else "tga")
-        if not skipModels:
-            convertImages(mdlMatData, "mdlTex", "texture_assets/corvid", "tif" if BO3 else "tga")
+        convertImages(mdlMatData, "mdlTex", "texture_assets/corvid", "tif" if BO3 else "tga")
 
     # convert the models
     if not skipModels:
         print("Converting models...")
         convertModels(mapData["models"], BO3)
     
-
     # generate map geometry
     print("Generating .map file...")
-    mapPatches = []
-    mapBrushes = ""
+    mapGeo = ""
     mapEnts = ""
-    worldSpawnSettings = {}
-    skyBoxGeo = ""
+    worldSpawnSettings = ""
 
     table = vertexTable()
 
     for brush in mapData["worldBrushes"]:
         if not brush.hasDisp:
-            mapBrushes += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapData["skyName"])
+            mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapData["sky"])
         for side in brush.sides:
             if side.material.startswith("tools"):
                 continue
             if side.hasDisp:
-                mapPatches.append(convertDisplacement(side, matSizes, table))
+                mapGeo += convertDisplacement(side, matSizes, table)
             if brush.hasDisp:
                 continue
-            mapPatches.append(convertSide(side, matSizes, table))
+            mapGeo += convertSide(side, matSizes, table)
 
     for brush in mapData["entityBrushes"]:
         if not brush.hasDisp:
-            mapBrushes += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3, mapData["skyName"])
+            mapGeo += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3, mapData["sky"])
         for side in brush.sides:
             if side.material.startswith("tools"):
                 continue
             if side.hasDisp:
-                mapPatches.append(convertDisplacement(side, matSizes, table))
+                mapGeo += convertDisplacement(side, matSizes, table)
             if brush.hasDisp:
                 continue
-            mapPatches.append(convertSide(side, matSizes, table))
+            mapGeo += convertSide(side, matSizes, table)
 
     for entity in mapData["entities"]:
         if entity["classname"].startswith("prop_"):
@@ -583,44 +536,42 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
             mapEnts += convertSpawner(entity)
         elif entity["classname"] == "light_environment" and not BO3:
-            color = (Vector3FromStr(entity["_ambient"]) / 255).round(3)
-            light = (Vector3FromStr(entity["_light"]) / 255).round(3)
-            angles = Vector3FromStr(entity["angles"])
-            angles.x = float(entity["pitch"]) - 180 # I think the north angle is different in both engines, gotta do more tests with this
-            worldSpawnSettings = {
-                "reflection_ignore_portals": "1",
-                "sunlight": "1",
-                "sundiffusecolor": "0.75 0.82 0.85",
-                "diffusefraction": ".2",
-                "ambient": ".116",
-                "_color": color,
-                "suncolor": light,
-                "sundirection": angles
-            }
-
-    # generate 3d skybox geometry
-    if mapData["skyBoxId"] != -1:
-        skyBox = convertSkyBox(mapData, RemoveClips, RemoveSkybox, BO3, matSizes, table)
-        skyBoxGeo = convertEntity({"classname": "worldspawn"}, id="", geo=skyBox["geo"])
-        skyBoxGeo += skyBox["entities"]
-        mapEnts += convertEntity({
-            "classname": "misc_prefab",
-            "origin": str(mapData["skyBoxOrigin"] * -1 * mapData["skyBoxScale"]),
-            "model": f"_prefabs/_{mapName}/{mapName}_skybox.map"
-        })
-    else:
-        skyBoxGeo = ""
-
+            # There are better ways to handle these I think. Gotta come back to this eventually.
+            worldSpawnSettings += (' "reflection_ignore_portals" "1"\n'
+               + ' "sunlight" "1"\n'
+               + ' "sundiffusecolor" "0.75 0.82 0.85"\n'
+               + ' "diffusefraction" ".2"\n'
+               + ' "ambient" ".116"\n')
+            _color = entity["_ambient"].split(" ")
+            color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
+            worldSpawnSettings += f' "_color" "{color}"\n'
+            _light = entity["_light"].split(" ")
+            light = (Vector3(_light[0], _light[1], _light[2]) / 255).round(3)
+            worldSpawnSettings += f' "suncolor" "{light}"\n'
+            angles = entity["angles"].split(" ")
+            pitch = entity["pitch"]
+            sundirection = pitch + " " + angles[1] + " " + angles[2]
+            worldSpawnSettings += f' "sundirection" "{sundirection}"\n'
+    
     if BO3:
         res = {}
+        # entities in a separate prefab
+        res["entities"] = (
+            "iwmap 4\n"
+            + "{\n"
+            + '"classname" "worldspawn"\n'
+            + "}\n"
+            + mapEnts
+        )
+
         # divide geo into smaller chunks and hope Radiant Blacc will be able to handle it
-        res["patches"] = []
-        for i in range(0, len(mapPatches), 400):
-            res["patches"].append((
+        res["geo"] = []
+        for i in range(0, len(mapGeo), 1000):
+            res["geo"].append((
                 "iwmap 4\n"
                 + "{\n"
                 + '"classname" "worldspawn"\n'
-                + "".join(mapPatches[i:400 + i])
+                + "".join(mapGeo[i:1000 + i])
                 + "}\n"
             ))
 
@@ -630,26 +581,29 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
                 + "{\n"
                 + '"classname" "worldspawn"\n'
                 + "}\n"
-                + mapEnts
+                + convertEntity({
+                    "classname": "misc_prefab",
+                    "origin": "0 0 0",
+                    "model": f"_prefabs/_{mapName}/{mapName}_entities.map"
+                })
         )
 
-        for i in range(len(res["patches"])):
+        for i in range(len(res["geo"])):
             res["main"] += convertEntity({
                 "classname": "misc_prefab",
                 "origin": "0 0 0",
-                "model": f"_prefabs/_{mapName}/{mapName}_patches_{i}.map"
+                "model": f"_prefabs/_{mapName}/{mapName}_geo_{i}.map"
             })
 
     else:
-        res = {}
-        res["main"] = (
-            convertEntity(
-                {**{"classname": "worldspawn"}, **worldSpawnSettings },
-                id="0",
-                geo=mapBrushes + "".join(mapPatches))
-                + mapEnts
+        res = (
+            "iwmap 4\n"
+            + "{\n"
+            + '"classname" "worldspawn"\n'
+            + worldSpawnSettings
+            + "".join(mapGeo)
+            + "}\n"
+            + mapEnts
             )
-
-    res["skyBox"] = skyBoxGeo.strip()
 
     return res

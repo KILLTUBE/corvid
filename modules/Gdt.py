@@ -25,10 +25,9 @@ class Gdt:
                 
     def toBat(self):
         res = ""
-        entries = list(self.entries.values())
-        count = len(entries)
+        count = len(self.entries)
         for i in range(count):
-            name, type = entries[i]["name"], entries[i]["type"]
+            name, type = self.entries[i]["name"], self.entries[i]["type"]
             res += f"@echo Converting {name}, {i+1} of {count}\n"
             res += f'@converter -nopause -single "{type}" {name}\n'
         return res
