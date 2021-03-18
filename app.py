@@ -377,11 +377,6 @@ class App:
         if self.BO3.get():
             print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
             open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res["main"])
-            print(f"Writing \"{vmfName}_entities.map\" in \"{outputDir}/map_source/_prefabs/_{vmfName}\"")
-            open(f"{outputDir}/map_source/_prefabs/_{vmfName}/{vmfName}_entities.map", "w").write(res["entities"])
-            for i in range(len(res["geo"])):
-                print(f"Writing \"{vmfName}_geo_{i}.map\" in \"{outputDir}/map_source/_prefabs/_{vmfName}\"")
-                open(f"{outputDir}/map_source/_prefabs/_{vmfName}/{vmfName}_geo_{i}.map", "w").write(res["geo"][i])
         else:
             print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
             open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res)
