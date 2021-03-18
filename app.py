@@ -374,12 +374,8 @@ class App:
         except:
             pass
         # create the .map file
-        if self.BO3.get():
-            print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
-            open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res["main"])
-        else:
-            print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
-            open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res)
+        print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
+        open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res)
         end = time.time()
         print(f"Conversion finished in {round(end - start)} seconds")
 
