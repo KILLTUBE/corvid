@@ -3,7 +3,7 @@ from modules.SourceDir import SourceDir
 from .Side import Side
 from .MapReader import readMap
 from .Vector2 import Vector2
-from .Vector3 import Vector3
+from .Vector3 import Vector3, Vector3FromStr
 from .Gdt import Gdt
 from os.path import basename, splitext
 from os import makedirs
@@ -30,6 +30,11 @@ class vertexTable:
             return vert
 
 def convertSide(side: Side, matSize, table: vertexTable):
+    # skip invalid sides
+    if len(side.points) < 3:
+        print(f"Brush face {side.id} has less than 3 vertices. Skipping...")
+        return ""
+
     res = ""
     points = []
     # get uv points
@@ -261,6 +266,8 @@ def convertEntity(entity, id="", geo=""):
     res += "{\n"
     for key, value in entity.items():
         res += f'"{key}" "{value}"\n'
+    if geo != "":
+        res += geo
     res += "}\n"
     return res
 
@@ -394,9 +401,11 @@ def convertSpawner(entity):
     else:
         print(entity["classname"])
         return ""
+    origin = Vector3FromStr(entity["origin"])
+    origin.z += 32
     res = convertEntity({
         "classname": classname,
-        "origin": entity["origin"],
+        "origin": origin,
         "angles": entity["angles"]
     }, entity["id"])
 
@@ -483,7 +492,8 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     if not skipMats:
         print("Converting textures...")
         convertImages(matData, "matTex", "texture_assets/corvid", "tif" if BO3 else "tga")
-        convertImages(mdlMatData, "mdlTex", "texture_assets/corvid", "tif" if BO3 else "tga")
+        if not skipModels:
+            convertImages(mdlMatData, "mdlTex", "texture_assets/corvid", "tif" if BO3 else "tga")
 
     # convert the models
     if not skipModels:
@@ -502,7 +512,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         if not brush.hasDisp:
             mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapData["sky"])
         for side in brush.sides:
-            if side.material.startswith("tools"):
+            if side.material.startswith("tools") or side.material.startswith("liquids"):
                 continue
             if side.hasDisp:
                 mapGeo += convertDisplacement(side, matSizes, table)
@@ -514,7 +524,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         if not brush.hasDisp:
             mapGeo += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3, mapData["sky"])
         for side in brush.sides:
-            if side.material.startswith("tools"):
+            if side.material.startswith("tools") or side.material.startswith("liquids"):
                 continue
             if side.hasDisp:
                 mapGeo += convertDisplacement(side, matSizes, table)
@@ -537,73 +547,61 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
             mapEnts += convertSpawner(entity)
         elif entity["classname"] == "light_environment" and not BO3:
             # There are better ways to handle these I think. Gotta come back to this eventually.
-            worldSpawnSettings += (' "reflection_ignore_portals" "1"\n'
-               + ' "sunlight" "1"\n'
-               + ' "sundiffusecolor" "0.75 0.82 0.85"\n'
-               + ' "diffusefraction" ".2"\n'
-               + ' "ambient" ".116"\n')
-            _color = entity["_ambient"].split(" ")
-            color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
-            worldSpawnSettings += f' "_color" "{color}"\n'
-            _light = entity["_light"].split(" ")
-            light = (Vector3(_light[0], _light[1], _light[2]) / 255).round(3)
-            worldSpawnSettings += f' "suncolor" "{light}"\n'
-            angles = entity["angles"].split(" ")
-            pitch = entity["pitch"]
-            sundirection = pitch + " " + angles[1] + " " + angles[2]
-            worldSpawnSettings += f' "sundirection" "{sundirection}"\n'
+            sundirection = Vector3FromStr(entity["angles"])
+            sundirection.x = float(entity["pitch"])
+            sundirection.y -= 180
+            worldSpawnSettings = {
+                "sunglight": "1",
+                "sundiffusecolor": "0.75 0.82 0.85",
+                "diffusefraction": ".2",
+                "ambient": ".116",
+                "reflection_ignore_portals": "1",
+                "_color": (Vector3FromStr(entity["ambient"]) / 255).round(3),
+                "suncolor": (Vector3FromStr(entity["_light"]) / 255).round(3),
+                "sundirection": sundirection
+            }
     
     if BO3:
-        res = {}
-        # entities in a separate prefab
-        res["entities"] = (
-            "iwmap 4\n"
-            + "{\n"
-            + '"classname" "worldspawn"\n'
-            + "}\n"
-            + mapEnts
-        )
-
-        # divide geo into smaller chunks and hope Radiant Blacc will be able to handle it
-        res["geo"] = []
-        for i in range(0, len(mapGeo), 1000):
-            res["geo"].append((
+        res = (
                 "iwmap 4\n"
-                + "{\n"
-                + '"classname" "worldspawn"\n'
-                + "".join(mapGeo[i:1000 + i])
-                + "}\n"
-            ))
-
-        # create the main geo including all these as a prefab
-        res["main"] = (
-                "iwmap 4\n"
-                + "{\n"
-                + '"classname" "worldspawn"\n'
-                + "}\n"
+                + '"script_startingnumber" 0\n'
+                + '"000_Global" flags expanded  active\n'
+                + '"000_Global/No Comp" flags hidden ignore \n'
+                + '"The Map" flags expanded \n'
                 + convertEntity({
-                    "classname": "misc_prefab",
-                    "origin": "0 0 0",
-                    "model": f"_prefabs/_{mapName}/{mapName}_entities.map"
-                })
+                    "classname": "worldspawn",
+                    "lightingquality": "1024",
+                    "samplescale": "1",
+                    "skyboxmodel": "skybox_default_day",
+                    "ssi": "default_day",
+                    "wsi": "default_day",
+                    "fsi": "default",
+                    "gravity": "800",
+                    "lodbias": "default",
+                    "lutmaterial": "luts_t7_default",
+                    "numOmniShadowSlices": "24",
+                    "numSpotShadowSlices": "64",
+                    "sky_intensity_factor0": "1",
+                    "sky_intensity_factor1": "1",
+                    "state_alias_1": "State 1",
+                    "state_alias_2": "State 2",
+                    "state_alias_3": "State 3",
+                    "state_alias_4": "State 4"
+                },
+                id="",
+                geo=mapGeo)
+                + mapEnts
         )
-
-        for i in range(len(res["geo"])):
-            res["main"] += convertEntity({
-                "classname": "misc_prefab",
-                "origin": "0 0 0",
-                "model": f"_prefabs/_{mapName}/{mapName}_geo_{i}.map"
-            })
 
     else:
         res = (
-            "iwmap 4\n"
-            + "{\n"
-            + '"classname" "worldspawn"\n'
-            + worldSpawnSettings
-            + "".join(mapGeo)
-            + "}\n"
-            + mapEnts
+            "iwmap4\n"
+            + convertEntity(
+                {**{"classname": "worldspawn"}, **worldSpawnSettings},
+                id="0",
+                geo=mapGeo
             )
+            + mapEnts
+        )
 
     return res
