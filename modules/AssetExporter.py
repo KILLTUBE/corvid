@@ -36,6 +36,7 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
         vmtDir, vtfDir = "mdlMats", "mdlTex"
     for file in mats:
         name = basename(file)
+        # print(f"Reading {name}.vmt")
         vmt = parse_vdf(fixVmt(open(f"{tempDir}/{vmtDir}/{name}.vmt").read()))
         res["vmts"][name] = vmt
         shader = list(vmt)[0]
@@ -89,9 +90,9 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
             res["envMapsAlpha"].append(basename(mat["$basetexture"].strip()))
         if "$basealphaenvmapmask2" in mat:
             res["envMapsAlpha"].append(basename(mat["$basetexture2"].strip()))
-        if "$normalmapalphaenvmapmask" in mat and "$bummap" in mat:
+        if "$normalmapalphaenvmapmask" in mat and "$bumpmap" in mat:
             res["envMapsAlpha"].append(basename(mat["$bumpmap"].strip()))
-        if "$normalmapalphaenvmapmask2" in mat and "$bummap2" in mat:
+        if "$normalmapalphaenvmapmask2" in mat and "$bumpmap2" in mat:
             res["envMapsAlpha"].append(basename(mat["$bumpmap2"].strip()))
     return res
 
@@ -260,9 +261,11 @@ def createMaterialGdt(vmts: dict, BO3=False):
         else:
             data["materialType"] = "world phong"
         
+        data["usage"] = "tools"
+
         if "$basetexture" in mat:
             if "$translucent" in mat or "$alpha" in mat or "$alphatest" in mat:
-                data["colorMap"] = textureDir + uniqueName(mat["$basetexture"].strip()) + ".dds"
+                data["colorMap"] = textureDir + uniqueName(mat["$basetexture"].strip()) + ext
             else:
                 data["colorMap"] = textureDir + uniqueName(mat["$basetexture"].strip()) + ext
         else:
@@ -294,7 +297,8 @@ def createMaterialGdt(vmts: dict, BO3=False):
             data2 = {}
             data2["materialType"] = "world phong"
             data2["colorMap"] = textureDir + uniqueName(mat["$basetexture2"].strip()) + ext
-            data["blendFunc"] = "Blend"
+            data2["blendFunc"] = "Blend"
+            data2["usage"] = "tools"
 
             if "$bumpmap2" in mat and "$ssbump" not in mat:
                 data2["normalMap"] = textureDir + uniqueName(mat["$bumpmap2"].strip()) + ext
@@ -312,7 +316,6 @@ def createMaterialGdt(vmts: dict, BO3=False):
 
             if "$alphatest" in mat or "$alpha" in mat:
                 data2["alphaTest"] = "GE128"
-            data, data2 = data2, data
 
             gdt.add(name.strip() + "_", "material", data2)
 
@@ -333,7 +336,10 @@ def createMaterialGdtBo3(vmts: dict):
         data["materialCategory"] = "Geometry"
         data["materialType"] = "lit"
 
-        data["colorMap"] = "i_" + uniqueName(mat["$basetexture"].strip())
+        if "$basetexture" in mat:
+            data["colorMap"] = "i_" + uniqueName(mat["$basetexture"].strip())
+        else:
+            data["colorMap"] = "404.tif"
         data["usage"] = "tools" # probably not a good idea
 
         if "$bumpmap" in mat and "$ssbump" not in mat:
@@ -382,6 +388,10 @@ def createMaterialGdtBo3(vmts: dict):
                 data["materialType"] = "lit_transparent_nocull_plus"
             elif data["materialType"] == "lit_transparent":
                 data["materialType"] = "lit_transparent_nocull"
+            elif data["materialType"] == "lit_alphatest":
+                data["materialType"] = "lit_alphatest_nocull"
+            elif data["materialType"] == "lit_alphatest_plus":
+                data["materialType"] = "lit_alphatest_nocull_plus"
             elif data["materialType"] == "lit_plus":
                 data["materialType"] = "lit_nocull_plus"
             else:
