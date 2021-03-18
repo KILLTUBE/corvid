@@ -323,12 +323,16 @@ def convertSpotLight(entity, BO3=False):
             "targetname": "spotlight_" + entity["id"]
         })
     else:
+        angles = Vector3FromStr(entity["angles"])
+        angles.x = float(entity["pitch"])
+        if angles.x == -90:
+            angles.x = 0
         res = convertEntity({
             "classname": "light",
             "origin": entity["origin"],
             "_color": color,
             "PRIMARY_TYPE": "PRIMARY_SPOT",
-            "angles": entity["angles"],
+            "angles": angles,
             "radius": radius,
             "fov_outer": entity["_cone"],
             "fov_inner": entity["_inner_cone"],
