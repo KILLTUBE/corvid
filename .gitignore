@@ -3,3 +3,4 @@
 dist/
 test/
 test.py
+.vscode/settings.json
