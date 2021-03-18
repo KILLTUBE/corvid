@@ -292,7 +292,7 @@ def createMaterialGdt(vmts: dict, BO3=False):
             data["alphaTest"] = "GE128"
         if "$translucent" in mat:
             data["blendFunc"] = "Blend"
-        
+
         if "$basetexture2" in mat:
             data2 = {}
             data2["materialType"] = "world phong"
@@ -396,7 +396,11 @@ def createMaterialGdtBo3(vmts: dict):
                 data["materialType"] = "lit_nocull_plus"
             else:
                 data["materialType"] = "lit_nocull"
-        
+                
+        if "$selfillum" in mat:
+            if mat["$selfillum"] == "1":
+                data["materialType"] = "lit_emissive"
+
         if "$basetexture2" in mat:
             data2 = {}
             data2["materialCategory"] = "Decal"
