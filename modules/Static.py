@@ -48,21 +48,16 @@ def fixVmt(vmt: str):
     result = "";
     lines = vmt.replace("\t", " ").replace("\\", "/").replace(".vtf", "").split("\n");
     for line in lines:
-        line = ' '.join(line.split())
-        if line.startswith("//") or len(line) == 0:
+        line = line.replace('"', " ").strip().lower()
+        if len(line) == 0 or line.startswith("/"):
             continue
-        else:
-            line = line.replace("\"\"", "\" \"").replace("\"", "").lower();
-            line = re.sub(r"s\s+", " ", line)
-            tok = line.split(" ");
-            if len(tok) == 1:
-                result += line + "\n";
-                continue;
-            key = tok[0];
-            tok = tok[1:]
-            value = " ".join(tok)
-            res = f'  "{key}" "{value}"\n'.strip();
-            if len(res.split(" ")) == 1:
-                res = "\n"
-            result += res
+        line = " ".join(line.split())
+        tok = line.split()
+        if len(tok) == 1:
+            result += line + "\n"
+            continue
+        key = tok[0]
+        value = " ".join(tok[1:])
+        line = f'"{key}" "{value}"'
+        result += line + "\n"
     return result;
