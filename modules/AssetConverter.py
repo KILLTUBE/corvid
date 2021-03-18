@@ -1,18 +1,17 @@
 import os
 from os.path import basename, splitext, exists, dirname
 os.environ["NO_BPY"] = "1"
-from PIL import Image
+from PIL import Image, ImageOps
 from SourceIO.source1.vtf.VTFWrapper import VTFLib
 from .Vector2 import Vector2
 from tempfile import gettempdir
 from .Static import uniqueName
 from subprocess import call
 from PyCoD import Model
-import cube2sphere
 
 tempDir = gettempdir() + "/corvid"
 
-def convertImage(src, dest, format="rgba", dds=False):
+def convertImage(src, dest, format="rgba", invert=False):
     if not exists(src):
         print(f"{src} could not be found")
         return False
@@ -22,24 +21,12 @@ def convertImage(src, dest, format="rgba", dds=False):
     width = image.width()
     height = image.height()
     rgba = Image.frombuffer("RGBA", (width, height), image.convert_to_rgba8888().contents)
+    if invert:
+        rgba = ImageOps.invert(rgba.convert("RGB"))
     if format == "RGBA":
         rgba.save(dest)
     elif format == "RGB":
         rgba.convert("RGB").save(dest)
-        # convert color maps with no alpha channel to DDS if the texture is being converted for older Cod titles
-        if dds:
-            name = splitext(basename(dest))[0]
-            imageDir = f"{tempDir}/converted/texture_assets/corvid"
-            fmt = image.image_format().name
-            formats = {
-                "ImageFormatDXT1": "-dxt1c",
-                "ImageFormatDXT1OneBitAlpha": "-dxt1a",
-                "ImageFormatDXT3": "-dxt3",
-                "ImageFormatDXT5": "-dxt5"
-            }
-            fmt = formats[fmt] if fmt in formats else "-dxt5"
-            call(["bin/nvdxt.exe", "-file", f"{imageDir}/{name}.tga", "-output", f"{imageDir}/{name}.dds", fmt])
-            os.remove(dest) # remove the tga file
     elif len(format) == 1:
         rgba.getchannel(format).save(dest)
 
@@ -50,24 +37,18 @@ def convertImages(images, src, dest, ext="tga"):
     images["envMaps"] = list(dict.fromkeys(images["envMaps"]))
     images["envMapsAlpha"] = list(dict.fromkeys(images["envMapsAlpha"]))
     images["revealMaps"] = list(dict.fromkeys(images["revealMaps"]))
-    dds = True if ext == "tga" else False
     for file in images["colorMapsAlpha"]:
-        print(f"Converting {file}.vtf...")
-        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgba", dds)
+        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgba")
     for file in images["normalMaps"]:
-        print(f"Converting {file}.vtf...")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgb")
     for file in images["envMaps"]:
-        print(f"Converting {file}.vtf...")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgb")
     for file in images["envMapsAlpha"]:
-        print(f"Converting {file}.vtf...")
+        print(f"Converting {file}")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}_.{ext}", "a")
     for file in images["revealMaps"]:
-        print(f"Converting {file}.vtf...")
-        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "g")
+        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "g", True)
     for file in images["colorMaps"]:
-        print(f"Converting {file}.vtf...")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgb")
 
 def getTexSize(src):
