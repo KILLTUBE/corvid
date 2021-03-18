@@ -1,6 +1,6 @@
 
 *.pyc
-dist/
+build/
 test/
 test.py
 .vscode/settings.json
