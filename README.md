@@ -30,6 +30,6 @@ To run Corvid, all you need to do is launch `app.py`. In order to convert a map,
 ## Special thanks to
 - [Dylancyclone](https://github.com/Dylancyclone) for [VMF2OBJ](https://github.com/Dylancyclone/VMF2OBJ) tool which helped me understand a lot of things about Source Engine maps and inspired me to work on this tool
 - [masterex1000](https://github.com/masterex1000) for helping me understand the intricacies of map files, mesh generation and helping with calculating UV maps
-- OldmanCats and Thomas cat for testing the maps converted by Corvid and help me figure out the issues we had on Black Ops 3. Without their help, Corvid couldn't have Black Ops 3 support at all.
+- Geekidos, HitmanVere, OldmanCats, ThomasCat for testing the maps converted by Corvid and help me figure out the issues we had on Black Ops 3. Without their help, Corvid couldn't have Black Ops 3 support at all.
 
 Icon file created by [Freepik](https://www.flaticon.com/authors/freepik)
