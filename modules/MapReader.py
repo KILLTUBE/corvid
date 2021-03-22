@@ -3,15 +3,28 @@ from .Side import Side
 from .Brush import Brush
 from vmf_tool.parser import parse
 from os.path import basename, splitext
+from .Vector3 import Vector3FromStr
 def readMap(vmf):
     mapData = parse(vmf)
     worldBrushes = []
     entityBrushes = []
     entities = []
 
+    skyBrushes = []
+    skyEntityBrushes = []
+    skyEntities = []
+
+    skyBoxId = -1
+    skyBoxScale = 16
+    skyBoxOrigin = Vector3FromStr("0 0 0")
+
     materials = []
     models = []
     modelTints = {}
+
+    for visgroup in mapData.visgroups.visgroups:
+        if visgroup.name == "3dskybox":
+            skyBoxId = visgroup.visgroupid
 
     for solid in mapData.world.solids:
         sides = []
@@ -20,12 +33,24 @@ def readMap(vmf):
             matName = side.material.lower()
             if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
                 materials.append(matName)
-        worldBrushes.append(Brush(sides, "world", solid.id))
+        if "editor" in solid:
+            if "visgroupid" in solid.editor and solid.editor.visgroupid == skyBoxId:
+                skyBrushes.append(Brush(sides, "world", solid.id))
+            else:
+                worldBrushes.append(Brush(sides, "world", solid.id))
+        else:
+            worldBrushes.append(Brush(sides, "world", solid.id))
     
 
     for entity in mapData.entities:
         if entity.classname.startswith("prop"):
-            entities.append(entity)
+            if "editor" in entity:
+                if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
+                    skyEntities.append(entity)
+                else:
+                    entities.append(entity)
+            else:
+                entities.append(entity)
             if "model" not in entity:
                 continue
             mdlName = entity.model.lower()
@@ -47,7 +72,13 @@ def readMap(vmf):
                     matName = side.material.lower()
                     if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
                         materials.append(matName)
-                entityBrushes.append(Brush(sides, entity.classname, solid.id))
+                if "editor" in solid:
+                    if "visgroupid" in solid.editor and solid.editor.visgroupid == skyBoxId:
+                        skyEntityBrushes.append(Brush(sides, entity.classname, solid.id))
+                    else:
+                        entityBrushes.append(Brush(sides, entity.classname, solid.id))
+                else:
+                    entityBrushes.append(Brush(sides, entity.classname, solid.id))
         elif "solid" in entity:
             if isinstance(entity.solid, str):
                 entities.append(entity)
@@ -58,19 +89,46 @@ def readMap(vmf):
                     matName = side.material.lower()
                     if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
                         materials.append(matName)
-                entityBrushes.append(Brush(sides, entity.classname, solid.id))
+                if "editor" in solid:
+                    if "visgroupid" in solid.editor and solid.editor.visgroupid == skyBoxId:
+                        skyEntityBrushes.append(Brush(sides, entity.classname, solid.id))
+                    else:
+                        entityBrushes.append(Brush(sides, entity.classname, solid.id))
+                else:
+                    entityBrushes.append(Brush(sides, entity.classname, solid.id))
+        elif entity.classname == "sky_camera":
+            skyBoxOrigin = Vector3FromStr(entity.origin)
+            skyBoxScale = float(entity.scale)
         else:
-            entities.append(entity)
+            if "editor" in entity:
+                if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
+                    skyEntities.append(entity)
+                else:
+                    entities.append(entity)
+            else:
+                entities.append(entity)
 
     models = sorted(set(models))
     materials = sorted(set(materials))
+
+    if skyBoxId == -1:
+        print("3d sky box not selected. It will be converted as a smaller version of itself...")
 
     return {
         "worldBrushes": worldBrushes,
         "entityBrushes": entityBrushes,
         "entities": entities,
+
+        "skyBrushes": skyBrushes,
+        "skyEntityBrushes": skyEntityBrushes,
+        "skyEntities": skyEntities,
+        "skyBoxId": skyBoxId,
+        "skyBoxOrigin": skyBoxOrigin,
+        "skyBoxScale": skyBoxScale,
+
         "materials": materials,
         "models": models,
         "modelTints": modelTints,
+        
         "sky": mapData.world.skyname.lower() if "skyname" in mapData.world else "sky"
     }
