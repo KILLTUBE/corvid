@@ -1,7 +1,8 @@
+from modules.Vector3 import Vector3FromStr
 from modules.Vector2 import Vector2
 from modules.vdfutils import parse_vdf
 from os.path import basename, splitext, dirname
-from .Static import fixVmt, uniqueName
+from .Static import fixVmt, rgbToHex, uniqueName
 from .Gdt import Gdt
 from tempfile import gettempdir
 from .AssetConverter import getTexSize
@@ -52,6 +53,8 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
                 res["sizes"][file.strip()] = Vector2(512, 512)
         if "$basetexture" in mat:
             if "$translucent" in mat or "$alpha" in mat or "$alphatest" in mat:
+                res["colorMapsAlpha"].append(name)
+            elif "$blendtintbybasealpha" in mat or "$blendtintcoloroverbase" in mat:
                 res["colorMapsAlpha"].append(name)
             else:
                 res["colorMaps"].append(name)
@@ -104,11 +107,13 @@ def copyModels(models, dir: SourceDir):
         for ext in ["dx90.vtx", "vtx", "vvd"]:
             dir.copy(f"{path}/{name}.{ext}", f"{tempDir}/mdl/{name}.{ext}", True)
 
-def copyModelMaterials(models, dir: SourceDir):
+def copyModelMaterials(models, dir: SourceDir, modelTints, BO3=False):
     materials = []
+    res = []
     for model in models:
-        name = basename(model)
-        mdl = Mdl(f"{tempDir}/mdl/{name}")
+        mdlName = splitext(basename(model))[0]
+        tints = modelTints[mdlName] if mdlName in modelTints else []
+        mdl = Mdl(f"{tempDir}/mdl/{mdlName}.mdl")
         mdl.read()
         for material in mdl.materials:
             for path in mdl.materials_paths:
@@ -116,25 +121,39 @@ def copyModelMaterials(models, dir: SourceDir):
                 name = basename(material.name)
                 name = f"{path}/{name}".lower()
                 if name not in materials:
-                    materials.append((name, mdl.header.surface_prop))
+                    materials.append((name, mdl.header.surface_prop, tints))
 
                 name = Path(material.name).as_posix().lower()
                 if name not in materials:
-                    materials.append((name, mdl.header.surface_prop))
+                    materials.append((name, mdl.header.surface_prop, tints))
                     
-    for mat, surface_prop in materials:
+    for mat, surface_prop, tints in materials:
         name = basename(mat)
         if dir.copy(f"materials/{mat}.vmt", f"{tempDir}/mdlMats/{name}.vmt", True):
             # unlike CoD, the surface type of a model isn't defined in the material so we have to copy that value
             # from the model and paste it in the materials it uses
             try:
                 file = open(f"{tempDir}/mdlMats/{name}.vmt")
-                new = file.read().replace("{\n", f'{{\n"$surfaceprop" "{surface_prop}" // corvid\n', 1)
+                new = file.read().replace("{\n", f'{{\n"$surfaceprop" "{surface_prop}"\n', 1)
                 open(f"{tempDir}/mdlMats/{name}.vmt", "w").write(new)
             except:
                 pass
-    
-    return [i[0] for i in materials]
+            res.append(mat)
+
+            # create new a material for each tint value used for the model
+            if BO3 and len(tints) > 0:
+                for tint in tints:
+                    hex = rgbToHex(tint)
+                    tint = (Vector3FromStr(tint) / 255).round(3)
+                    try:
+                        file = open(f"{tempDir}/mdlMats/{name}.vmt")
+                        new = file.read().replace("{\n", f'{{\n"$colortint" "{tint} 1"\n', 1)
+                        open(f"{tempDir}/mdlMats/{name}_{hex}.vmt", "w").write(new)
+                        res.append(f"{mat}_{hex}")
+                    except:
+                        pass
+
+    return sorted(set(res))
 
 def surfaceType(surface):
     surface = surface.lower()
@@ -401,6 +420,9 @@ def createMaterialGdtBo3(vmts: dict):
             if mat["$selfillum"] == "1":
                 data["materialType"] = "lit_emissive"
 
+        if "$colortint" in mat:
+            data["colorTint"] = mat["$colortint"]
+
         if "$basetexture2" in mat:
             data2 = {}
             data2["materialCategory"] = "Decal"
@@ -434,7 +456,7 @@ def createMaterialGdtBo3(vmts: dict):
                 data2["surfaceType"] = "<none>"
                 data2["glossSurfaceType"] = "<full>" if not "cosinePowerMap" in data2 else "<custom>"
             
-            gdt.add(name.strip() + "_", "material", data2)
+            gdt.add(name.strip() + "_", "material", data2, "tinted" if "$colortint" in mat else "")
         
         gdt.add(name.strip(), "material", data)
     
@@ -442,7 +464,7 @@ def createMaterialGdtBo3(vmts: dict):
         "gdt": gdt.toStr()
     }
 
-def createModelGdt(models, BO3=False):
+def createModelGdt(models, BO3=False, modelTints={}):
     gdt = Gdt()
     for model in models:
         name = splitext(basename(model))[0].lower()
@@ -452,6 +474,16 @@ def createModelGdt(models, BO3=False):
             "type": "rigid",
             "physicsPreset": "default"
         })
+        if BO3 and name in modelTints:
+            for tint in modelTints[name]:
+                hex = rgbToHex(tint)
+                gdt.add(f"{name}_{hex}", "xmodel", {
+                    "collisionLOD" if not BO3 else "BulletCollisionLOD": "High",
+                    "filename": f"corvid\\\\{name}_{hex}." + ("xmodel_export" if not BO3 else "xmodel_bin"),
+                    "type": "rigid",
+                    "physicsPreset": "default"
+                }, "tinted")
+
     return {
         "gdt": gdt.toStr(),
         "bat": gdt.toBat()

@@ -1,8 +1,8 @@
 from pprint import pprint
-from typing import Mapping
 from .Side import Side
 from .Brush import Brush
 from vmf_tool.parser import parse
+from os.path import basename, splitext
 def readMap(vmf):
     mapData = parse(vmf)
     worldBrushes = []
@@ -11,6 +11,7 @@ def readMap(vmf):
 
     materials = []
     models = []
+    modelTints = {}
 
     for solid in mapData.world.solids:
         sides = []
@@ -30,6 +31,14 @@ def readMap(vmf):
             mdlName = entity.model.lower()
             if mdlName not in models:
                 models.append(mdlName)
+            # need to create duplicates of a model and its materails in order to apply tint
+            if "rendercolor" in entity:
+                if entity.rendercolor != "255 255 255":
+                    mdlName = splitext(basename(mdlName))[0]
+                    if mdlName not in modelTints:
+                        modelTints[mdlName] = []
+                    if entity.rendercolor not in modelTints[mdlName]:
+                        modelTints[mdlName].append(entity.rendercolor)
         elif "solids" in entity:
             for solid in entity.solids:
                 sides = []
@@ -52,7 +61,7 @@ def readMap(vmf):
                 entityBrushes.append(Brush(sides, entity.classname, solid.id))
         else:
             entities.append(entity)
-    
+
     models = sorted(set(models))
     materials = sorted(set(materials))
 
@@ -62,5 +71,6 @@ def readMap(vmf):
         "entities": entities,
         "materials": materials,
         "models": models,
+        "modelTints": modelTints,
         "sky": mapData.world.skyname.lower() if "skyname" in mapData.world else "sky"
     }

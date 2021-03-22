@@ -1,4 +1,4 @@
-from .Vector3 import Vector3
+from .Vector3 import Vector3, Vector3FromStr
 from .Side import Side
 from math import pi as PI, isnan
 from os.path import basename, splitext
@@ -61,3 +61,7 @@ def fixVmt(vmt: str):
         line = f'"{key}" "{value}"'
         result += line + "\n"
     return result;
+
+def rgbToHex(rgb):
+    rgb = Vector3FromStr(rgb)
+    return "%02x%02x%02x" % (int(rgb.x), int(rgb.y), int(rgb.z))

@@ -5,7 +5,7 @@ from PIL import Image, ImageOps
 from SourceIO.source1.vtf.VTFWrapper import VTFLib
 from .Vector2 import Vector2
 from tempfile import gettempdir
-from .Static import uniqueName
+from .Static import rgbToHex, uniqueName
 from subprocess import call
 from PyCoD import Model
 
@@ -56,13 +56,20 @@ def getTexSize(src):
     image.image_load(src)
     return Vector2(image.width(), image.height())
 
-def convertModels(models, BO3=False):
+def convertModels(models, modelTints, BO3=False):
     codModel = Model()
     mdlDir = f"{tempDir}/mdl"
     convertDir = f"{tempDir}/converted/model_export/corvid"
     for model in models:
         model = splitext(basename(model))[0]
         print(f"Converting {model}.mdl...")
+        if BO3 and model in modelTints:
+            for tint in modelTints[model]:
+                hex = rgbToHex(tint)
+                call(["bin/mdl2xmodel.exe", f"{mdlDir}/{model}", convertDir, "_" + hex])
+                codModel.LoadFile_Raw(f"{convertDir}/{model}_{hex}.xmodel_export")
+                codModel.WriteFile_Bin(f"{convertDir}/{model}_{hex}.xmodel_bin")
+                os.remove(f"{convertDir}/{model}_{hex}.xmodel_export")
         call(["bin/mdl2xmodel.exe", f"{mdlDir}/{model}", convertDir])
         if BO3:
             codModel.LoadFile_Raw(f"{convertDir}/{model}.xmodel_export")
