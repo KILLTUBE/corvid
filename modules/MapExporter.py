@@ -1,4 +1,3 @@
-from modules.Brush import Brush
 from modules.SourceDir import SourceDir
 from .Side import Side
 from .MapReader import readMap
@@ -11,7 +10,7 @@ from tempfile import gettempdir
 from .AssetExporter import *
 from .AssetConverter import convertImages, convertModels
 from shutil import rmtree
-
+from .Static import rgbToHex
 class vertexTable:
     def __init__(self):
         self.table = {}
@@ -29,17 +28,16 @@ class vertexTable:
             self.table[index].append(vert)
             return vert
 
-def convertSide(side: Side, matSize, table: vertexTable):
+def convertSide(side: Side, matSize):
     # skip invalid sides
     if len(side.points) < 3:
         print(f"Brush face {side.id} has less than 3 vertices. Skipping...")
         return ""
 
     res = ""
-    points = []
+    points = side.points
     # get uv points
     for point in side.points:
-        points.append(table.add(point))
         side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
     uvs: list[Vector2] = side.uvs
 
@@ -97,12 +95,11 @@ def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, power: i
     return res
 
 
-def convertDisplacement(side: Side, matSize, table: vertexTable):
+def convertDisplacement(side: Side, matSize):
     res = ""
-    points = []
+    points = side.points
     # get uv points
     for point in side.points:
-        points.append(table.add(point))
         side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
 
     if len(points) != 4:
@@ -236,7 +233,7 @@ def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=F
         "toolsblocklight": "shadowcaster",
         "toolshint": "hint",
         "toolsskip": "skip",
-        "toolsskybox": sky
+        "toolsskybox": "sky" if BO3 else sky
     }
 
     res = " {\n"
@@ -274,6 +271,8 @@ def convertEntity(entity, id="", geo=""):
 def convertLight(entity):
     if "_light" in entity:
         _color = entity["_light"].split(" ")
+        if len(_color) == 3:
+            _color.append(500)
     else:
         _color = [0, 0, 0, 500]
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
@@ -371,16 +370,22 @@ def convertRope(entity):
             }, entity["id"])
     return res
 
-def convertProp(entity):
+def convertProp(entity, BO3=False):
     if "model" not in entity:
         return convertEntity({
             "classname": "info_null",
             "original_classname": entity["classname"]
         }, entity["id"])
 
+    modelName = splitext(basename(entity["model"].lower()))[0]
+
+    if BO3 and "rendercolor" in entity:
+        if entity["rendercolor"] != "255 255 255":
+            modelName += "_" + rgbToHex(entity["rendercolor"])
+
     return convertEntity({
         "classname": "dyn_model" if entity["classname"].startswith("prop_physics") else "misc_model",
-        "model": splitext(basename(entity["model"].lower()))[0],
+        "model": modelName,
         "origin": entity["origin"],
         "angles": entity["angles"],
         "spawnflags": "16" if entity["classname"].startswith("prop_physics") else "",
@@ -424,7 +429,10 @@ def convertSpawner(entity):
 def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False, RemoveProbes=False, RemoveLights=False, RemoveSkybox=False, skipMats=False, skipModels=False, mapName=""):
     # create temporary directories to extract assets
     copyDir = gettempdir() + "/corvid"
-    rmtree(copyDir)
+    try:
+        rmtree(copyDir)
+    except:
+        pass
     try:
         makedirs(f"{copyDir}/mdl")
         makedirs(f"{copyDir}/mat")
@@ -462,7 +470,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     if not skipModels:
         print("Extracting models...")
         copyModels(mapData["models"], gamePath)
-        mdlMaterials = copyModelMaterials(mapData["models"], gamePath)
+        mdlMaterials = copyModelMaterials(mapData["models"], gamePath, mapData["modelTints"], BO3)
         mdlMatData = copyTextures(mdlMaterials, gamePath, True)
 
     # create GDT files
@@ -479,7 +487,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     if not BO3 and not skipModels:
         open(f"{copyDir}/converted/bin/_corvid_modelmaterials.bat", "w").write(modelMats["bat"])
     if not skipModels:
-        models = createModelGdt(mapData["models"], BO3)
+        models = createModelGdt(mapData["models"], BO3, mapData["modelTints"])
         open(f"{copyDir}/converted/source_data/_corvid_models.gdt", "w").write(models["gdt"])
     if not BO3 and not skipModels:
         open(f"{copyDir}/converted/bin/_corvid_models.bat", "w").write(models["bat"])
@@ -502,15 +510,13 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     # convert the models
     if not skipModels:
         print("Converting models...")
-        convertModels(mapData["models"], BO3)
+        convertModels(mapData["models"], mapData["modelTints"], BO3)
     
     # generate map geometry
     print("Generating .map file...")
     mapGeo = ""
     mapEnts = ""
     worldSpawnSettings = ""
-
-    table = vertexTable()
 
     for brush in mapData["worldBrushes"]:
         if not brush.hasDisp:
@@ -519,10 +525,10 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
             if side.material.startswith("tools") or side.material.startswith("liquids"):
                 continue
             if side.hasDisp:
-                mapGeo += convertDisplacement(side, matSizes, table)
+                mapGeo += convertDisplacement(side, matSizes)
             if brush.hasDisp:
                 continue
-            mapGeo += convertSide(side, matSizes, table)
+            mapGeo += convertSide(side, matSizes)
 
     for brush in mapData["entityBrushes"]:
         if not brush.hasDisp:
@@ -531,14 +537,14 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
             if side.material.startswith("tools") or side.material.startswith("liquids"):
                 continue
             if side.hasDisp:
-                mapGeo += convertDisplacement(side, matSizes, table)
+                mapGeo += convertDisplacement(side, matSizes)
             if brush.hasDisp:
                 continue
-            mapGeo += convertSide(side, matSizes, table)
+            mapGeo += convertSide(side, matSizes)
 
     for entity in mapData["entities"]:
         if entity["classname"].startswith("prop_"):
-            mapEnts += convertProp(entity)
+            mapEnts += convertProp(entity, BO3)
         elif entity["classname"] == "light" and not RemoveLights:
             mapEnts += convertLight(entity)
         elif entity["classname"] == "light_spot" and not RemoveLights:
