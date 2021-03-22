@@ -2,7 +2,7 @@ from cx_Freeze import setup, Executable
 
 buildOptions = {
     "includes": ["numpy", "PIL", "vmf_tool", "vpk"],
-    "include_files": ["modules/", "PyCoD/", "SourceIO/", "vrProjector/", "bin/"]
+    "include_files": ["modules/", "PyCoD/", "SourceIO/", "vrProjector/", "bin/", "icon.ico"]
 }
 
 setup(
