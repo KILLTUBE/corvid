@@ -35,6 +35,9 @@ class Vector3:
             return (self - rhs).len() <= 0.01
         return False
 
+    def __pow__(self, p):
+        return Vector3(self.x ** p, self.y ** p, self.z ** p)
+
     def __str__(self):
         return f"{self.x} {self.y} {self.z}"
 
@@ -82,6 +85,13 @@ class Vector3:
                 return False
         return True
 
+    def min(self, value):
+        return Vector3(min(self.x, value), min(self.y, value), min(self.z, value))
+
+    def max(self, value):
+        return Vector3(max(self.x, value), max(self.y, value), max(self.z, value))
+
 def Vector3FromStr(string: str):
+    string = string.replace("[","").replace("]","").replace("{","").replace("}","").strip()
     tok = string.split(" ")
     return Vector3(tok[0], tok[1], tok[2])
