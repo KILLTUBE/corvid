@@ -12,9 +12,9 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
 - Light entities
 - Sun light
 
-## Work-in-progress
-[ ] 2d skybox texture
-[ ] Spot lights
+## Work-in-progress features
+- 2d skybox texture
+- Spot lights
 
 # Currently not supported
 - Decals / overlays
