@@ -12,6 +12,7 @@ import time
 from threading import *
 import shutil
 from tempfile import gettempdir, tempdir
+import json
 
 class App:
     def __init__(self, root: tk.Tk):
@@ -264,8 +265,16 @@ class App:
         checkSkipModels.place(x=230,y=350,width=78,height=30)
         checkSkipModels["offvalue"] = False
         checkSkipModels["onvalue"] = True
-        self.vpkList.insert(0, "C:/stuff/Steam/steamapps/common/Counter-Strike Global Offensive/csgo/pak01_dir.vpk")
-        self.gameDirList.insert(0, "C:/stuff/Steam/steamapps/common/Half-Life 2/hl2")
+
+        try:
+            settings = json.loads(open("settings.json").read())
+        except:
+            pass
+        else:
+            for vpk in settings["vpkFiles"]:
+                self.vpkList.insert(0, vpk)
+            for gameDir in settings["gameDirs"]:
+                self.gameDirList.insert(0, gameDir)
     def chooseVmfDialog_command(self):
         file = filedialog.askopenfile(mode="r", filetypes=[("Source Engine map file", "*.vmf")])
         if file is not None:
@@ -296,6 +305,14 @@ class App:
     def convertButton_command(self):
         vpkFiles = list(self.vpkList.get(0, self.vpkList.size() - 1))
         gameDirs = list(self.gameDirList.get(0, self.gameDirList.size() - 1))
+        try:
+            settings = json.dumps({
+                "vpkFiles": vpkFiles,
+                "gameDirs": gameDirs
+            })
+            open("settings.json", "w").write(settings)
+        except:
+            pass
         '''
         print("VMF path:", self.vmfPath.get())
         print("Vpk files:", vpkFiles)
