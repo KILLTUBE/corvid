@@ -22,9 +22,11 @@ def readMap(vmf):
     models = []
     modelTints = {}
 
-    for visgroup in mapData.visgroups.visgroups:
-        if visgroup.name == "3dskybox":
-            skyBoxId = visgroup.visgroupid
+    if "visgroups" in mapData:
+        if "visgroups" in mapData.visgroups:
+            for visgroup in mapData.visgroups.visgroups:
+                if visgroup.name == "3dskybox":
+                    skyBoxId = visgroup.visgroupid
 
     for solid in mapData.world.solids:
         sides = []
