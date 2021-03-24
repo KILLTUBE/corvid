@@ -40,7 +40,7 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
         vmtDir, vtfDir = "mdlMats", "mdlTex"
     for file in mats:
         name = basename(file)
-        # print(f"Reading {name}.vmt")
+        print(f"Reading {name}.vmt")
         vmt = parse_vdf(fixVmt(open(f"{tempDir}/{vmtDir}/{name}.vmt").read()))
         res["vmts"][name] = vmt
         shader = list(vmt)[0]
@@ -423,8 +423,20 @@ def createMaterialGdtBo3(vmts: dict):
             if mat["$selfillum"] == "1":
                 data["materialType"] = "lit_emissive"
 
+        if "$color" in mat:
+            if mat["$color"].startswith("{"):
+                data["colorTint"] = (Vector3FromStr(mat["$color"]) / 255).round(3)
+            else:
+                data["colorTint"] = Vector3FromStr(mat["$color"])
+
         if "$colortint" in mat:
             data["colorTint"] = mat["$colortint"]
+
+        if "$layertint1" in mat:
+            if mat["$layertint1"].startswith("{"):
+                data["colorTint"] = (Vector3FromStr(mat["$layertint1"]) / 255).round(3)
+            else:
+                data["colorTint"] = Vector3FromStr(mat["$layertint1"])
 
         if "$basetexture2" in mat:
             data2 = {}
@@ -458,7 +470,13 @@ def createMaterialGdtBo3(vmts: dict):
             else:
                 data2["surfaceType"] = "<none>"
                 data2["glossSurfaceType"] = "<full>" if not "cosinePowerMap" in data2 else "<custom>"
-            
+
+            if "$layertint2" in mat:
+                if mat["$layertint2"].startswith("{"):
+                    data2["colorTint"] = (Vector3FromStr(mat["$layertint2"]) / 255).round(3)
+                else:
+                    data2["colorTint"] = Vector3FromStr(mat["$layertint2"])            
+
             gdt.add(name.strip() + "_", "material", data2, "tinted" if "$colortint" in mat else "")
         
         gdt.add(name.strip(), "material", data)
@@ -592,11 +610,11 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
     if BO3:
         # convert cubemap images to an equirectangular image
         for face in faces:
-            Image.open(f"{convertDir}/{mapName}_sky_{face}.tif").resize((1024, 1024), Image.ANTIALIAS).save(f"{convertDir}/{mapName}_sky_{face}.tif")
+            Image.open(f"{convertDir}/{mapName}_sky_{face}.tif").resize((1024, 1024)).save(f"{convertDir}/{mapName}_sky_{face}.tif")
         source = CubemapProjection()
         source.loadImages(
-            f"{convertDir}/{mapName}_sky_lf.tif", f"{convertDir}/{mapName}_sky_bk.tif",
-            f"{convertDir}/{mapName}_sky_rt.tif", f"{convertDir}/{mapName}_sky_ft.tif",
+            f"{convertDir}/{mapName}_sky_ft.tif", f"{convertDir}/{mapName}_sky_rt.tif",
+            f"{convertDir}/{mapName}_sky_bk.tif", f"{convertDir}/{mapName}_sky_lf.tif",
             f"{convertDir}/{mapName}_sky_up.tif", f"{convertDir}/{mapName}_sky_dn.tif"
         )
         output = EquirectangularProjection()
@@ -648,7 +666,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "lensFlarePitchOffset": "0",
             "lensFlareYawOffset": "0",
             "penumbra_inches": "1.5",
-            "pitch": f"{worldSpawnSettings['sundirection'].x * -1}",
+            "pitch": worldSpawnSettings['sundirection'].x,
             "skyboxmodel": f"{mapName}_skybox",
             "spec_comp": "0",
             "stops": "14",
@@ -663,7 +681,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "sunCookieScrollY": "0",
             "sunVolumetricCookie": "0",
             "type": "ssi",
-            "yaw": f"{worldSpawnSettings['sundirection'].y}"
+            "yaw": worldSpawnSettings['sundirection'].y
         })
     else:
         gdt.add(f"{mapName}_sky", "material", {

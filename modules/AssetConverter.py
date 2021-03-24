@@ -65,11 +65,19 @@ def convertModels(models, modelTints, BO3=False):
             for tint in modelTints[model]:
                 hex = rgbToHex(tint)
                 call(["bin/mdl2xmodel.exe", f"{mdlDir}/{model}", convertDir, "_" + hex])
-                codModel.LoadFile_Raw(f"{convertDir}/{model}_{hex}.xmodel_export")
-                codModel.WriteFile_Bin(f"{convertDir}/{model}_{hex}.xmodel_bin")
-                os.remove(f"{convertDir}/{model}_{hex}.xmodel_export")
+                try:
+                    codModel.LoadFile_Raw(f"{convertDir}/{model}_{hex}.xmodel_export")
+                    codModel.WriteFile_Bin(f"{convertDir}/{model}_{hex}.xmodel_bin")
+                except:
+                    print(f"Could not convert {model}_{hex} to xmodel_bin...")
+                else:
+                    os.remove(f"{convertDir}/{model}_{hex}.xmodel_export")
         call(["bin/mdl2xmodel.exe", f"{mdlDir}/{model}", convertDir])
         if BO3:
-            codModel.LoadFile_Raw(f"{convertDir}/{model}.xmodel_export")
-            codModel.WriteFile_Bin(f"{convertDir}/{model}.xmodel_bin")
-            os.remove(f"{convertDir}/{model}.xmodel_export")
+            try:
+                codModel.LoadFile_Raw(f"{convertDir}/{model}.xmodel_export")
+                codModel.WriteFile_Bin(f"{convertDir}/{model}.xmodel_bin")
+            except:
+                print(f"Could not convert {model} to xmodel_bin...")
+            else:
+                os.remove(f"{convertDir}/{model}.xmodel_export")

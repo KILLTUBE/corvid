@@ -565,7 +565,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         elif entity["classname"] == "light_environment":
             # There are better ways to handle these I think. Gotta come back to this eventually.
             sundirection = Vector3FromStr(entity["angles"])
-            sundirection.x = float(entity["pitch"])
+            sundirection.x = float(entity["pitch"]) * -1
             worldSpawnSettings = {
                 "sunglight": "1",
                 "sundiffusecolor": "0.75 0.82 0.85",
