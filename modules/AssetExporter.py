@@ -1,3 +1,4 @@
+from genericpath import exists
 from PIL import Image
 from modules.Vector3 import Vector3FromStr
 from modules.Vector2 import Vector2
@@ -41,7 +42,13 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
     for file in mats:
         name = basename(file)
         print(f"Reading {name}.vmt")
-        vmt = parse_vdf(fixVmt(open(f"{tempDir}/{vmtDir}/{name}.vmt").read()))
+        vmtPath = f"{tempDir}/{vmtDir}/{name}.vmt"
+        if not exists(vmtPath):
+            print(f"Could not find material {name}. Creating an empty material for it...")
+            res["vmts"][name] = 'lightmappedgeneric\n{\n"$basetexture" "404"\n}'
+            res["sizes"][file.strip()] = Vector2(512, 512)
+            return res
+        vmt = parse_vdf(fixVmt(open(vmtPath).read()))
         res["vmts"][name] = vmt
         shader = list(vmt)[0]
         mat = vmt[shader]
