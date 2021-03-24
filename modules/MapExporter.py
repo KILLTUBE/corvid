@@ -199,7 +199,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
 
     return res
 
-def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=False, sky="sky", origin=Vector3(0, 0, 0), scale=1):
+def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=False, mapName="", origin=Vector3(0, 0, 0), scale=1):
     if RemoveClips:
         clipmats = ["tools/toolsclip", "tools/toolsplayerclip", "tools/toolsnpcclip", "tools/toolsgrenadeclip"]
         if brush.sides[0].material in clipmats:
@@ -233,7 +233,7 @@ def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=F
         "toolsblocklight": "shadowcaster",
         "toolshint": "hint",
         "toolsskip": "skip",
-        "toolsskybox": "sky" if BO3 else sky
+        "toolsskybox": "sky" if BO3 else f"{mapName}_sky"
     }
 
     res = " {\n"
@@ -517,7 +517,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     if not skipModels:
         print("Converting models...")
         convertModels(mapData["models"], mapData["modelTints"], BO3)
-    
+
     # generate map geometry
     print("Generating .map file...")
     mapGeo = ""
@@ -527,7 +527,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     # convert world geo & entities
     for brush in mapData["worldBrushes"]:
         if not brush.hasDisp:
-            mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapData["sky"])
+            mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapName)
         for side in brush.sides:
             if side.material.startswith("tools") or side.material.startswith("liquids"):
                 continue
@@ -539,7 +539,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
 
     for brush in mapData["entityBrushes"]:
         if not brush.hasDisp:
-            mapGeo += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3, mapData["sky"])
+            mapGeo += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3, mapName)
         for side in brush.sides:
             if side.material.startswith("tools") or side.material.startswith("liquids"):
                 continue
@@ -562,18 +562,17 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
             mapEnts += convertCubemap(entity)
         elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
             mapEnts += convertSpawner(entity)
-        elif entity["classname"] == "light_environment" and not BO3:
+        elif entity["classname"] == "light_environment":
             # There are better ways to handle these I think. Gotta come back to this eventually.
             sundirection = Vector3FromStr(entity["angles"])
             sundirection.x = float(entity["pitch"])
-            sundirection.y -= 180
             worldSpawnSettings = {
                 "sunglight": "1",
                 "sundiffusecolor": "0.75 0.82 0.85",
                 "diffusefraction": ".2",
                 "ambient": ".116",
                 "reflection_ignore_portals": "1",
-                "_color": (Vector3FromStr(entity["ambient"]) / 255).round(3),
+                "_color": (Vector3FromStr(entity["_ambient"] if "_ambient" in entity else entity["ambient"]) / 255).round(3),
                 "suncolor": (Vector3FromStr(entity["_light"]) / 255).round(3),
                 "sundirection": sundirection
             }
@@ -581,7 +580,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     # convert 3d skybox geo & entities
     for brush in mapData["skyBrushes"]:
         if not brush.hasDisp:
-            mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapData["sky"], mapData["skyBoxOrigin"], mapData["skyBoxScale"])
+            mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapName, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
         for side in brush.sides:
             if side.material.startswith("tools") or side.material.startswith("liquids"):
                 continue
@@ -593,7 +592,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
 
     for brush in mapData["skyEntityBrushes"]:
         if not brush.hasDisp:
-            mapGeo += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3, mapData["sky"], mapData["skyBoxOrigin"], mapData["skyBoxScale"])
+            mapGeo += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3, mapName, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
         for side in brush.sides:
             if side.material.startswith("tools") or side.material.startswith("liquids"):
                 continue
@@ -609,6 +608,12 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
             mapEnts += convertRope(entity, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
     
+    # convert the skybox textures
+    skyData = exportSkybox(mapData["sky"], mapName, worldSpawnSettings, gamePath, BO3)
+    open(f"{copyDir}/converted/source_data/_corvid_sky.gdt", "w").write(skyData["gdt"])
+    if not BO3:
+        open(f"{copyDir}/converted/bin/_corvid_sky.bat", "w").write(skyData["bat"])
+
     if BO3:
         res = (
                 "iwmap 4\n"

@@ -1,3 +1,4 @@
+from PIL import Image
 from modules.Vector3 import Vector3FromStr
 from modules.Vector2 import Vector2
 from modules.vdfutils import parse_vdf
@@ -5,10 +6,12 @@ from os.path import basename, splitext, dirname
 from .Static import fixVmt, rgbToHex, uniqueName
 from .Gdt import Gdt
 from tempfile import gettempdir
-from .AssetConverter import getTexSize
+from .AssetConverter import getTexSize, convertImage
 from SourceIO.source1.mdl.mdl_file import Mdl
 from pathlib import Path
 from .SourceDir import SourceDir
+from vrProjector.vrProjector.CubemapProjection import CubemapProjection
+from vrProjector.vrProjector import CubemapProjection, EquirectangularProjection
 
 tempDir = f"{gettempdir()}/corvid"
 
@@ -564,3 +567,119 @@ def createImageGdt(images):
             "streamable": "1"
         })
     return gdt.toStr()
+
+def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir, BO3=False):
+    skyName = skyName.lower()
+    faces = ["up", "dn", "lf", "rt", "ft", "bk"]
+    gdt = Gdt()
+    ext = "tif" if BO3 else "tga"
+    convertDir = f"{tempDir}/converted/texture_assets/corvid/"
+    for face in faces:
+        name = f"{mapName}_sky_{face}"
+        dir.copy(f"materials/skybox/{skyName}{face}.vmt", f"{tempDir}/mat/{name}.vmt")
+        vmt = fixVmt(open(f"{tempDir}/mat/{name}.vmt").read())
+        vmt = parse_vdf(fixVmt(vmt))
+        shader = list(vmt)[0]
+        mat = vmt[shader]
+        # could be any of these three
+        for param in ["$basetexture", "$hdrcompressedtexture", "$hdrbasetexture"]:
+            if param in mat:
+                texture = param
+                break
+        texture = splitext(basename(mat[texture]))[0]
+        dir.copy(f"materials/skybox/{texture}.vtf", f"{tempDir}/matTex/{name}.vtf")
+        convertImage(f"{tempDir}/matTex/{name}.vtf", f"{convertDir}/{name}.{ext}", format="rgb")
+    if BO3:
+        # convert cubemap images to an equirectangular image
+        for face in faces:
+            Image.open(f"{convertDir}/{mapName}_sky_{face}.tif").resize((1024, 1024), Image.ANTIALIAS).save(f"{convertDir}/{mapName}_sky_{face}.tif")
+        source = CubemapProjection()
+        source.loadImages(
+            f"{convertDir}/{mapName}_sky_lf.tif", f"{convertDir}/{mapName}_sky_bk.tif",
+            f"{convertDir}/{mapName}_sky_rt.tif", f"{convertDir}/{mapName}_sky_ft.tif",
+            f"{convertDir}/{mapName}_sky_up.tif", f"{convertDir}/{mapName}_sky_dn.tif"
+        )
+        output = EquirectangularProjection()
+        output.initImage(4096, 2048)
+        output.reprojectToThis(source)
+        output.saveImage(f"{convertDir}/i_{mapName}_sky.tif")
+        # create GDTs for the skybox assets
+        gdt.add(f"i_{mapName}_sky", "image", {
+            "imageType": "Texture",
+            "type": "image",
+            "baseImage": f"texture_assets\\\\corvid\\\\i_{mapName}_sky.tif",
+            "semantic": "HDR",
+            "compressionMethod": "uncompressed",
+            "coreSemantic": "HDR",
+            "streamable": "1"
+        })
+        gdt.add(f"{mapName}_sky_mtl", "material", {
+            "materialCategory": "Geometry",
+            "materialType": "sky_latlong_hdr",
+            "colorMap": f"i_{mapName}_sky",
+            "surfaceType": "<none>",
+            "glossSurfaceType": "<full>",
+            "usage": "<not in editor>",
+            "noImpact": "1",
+            "noMarks": "1",
+            "nonColliding": "1",
+            "noCastShadow": "1",
+            "skyHalfSpace": "1",
+            "skyStops": "13.5",
+            "skySize": "8000"
+
+        })
+        gdt.add(f"{mapName}_skybox", "xmodel", {
+            "filename": f"t6_props\\vista\\\\skybox\\\\t6_skybox.xmodel_bin",
+            "type": "rigid",
+            "skinOverride": f"mtl_skybox_default {mapName}_sky_mtl\\r\\n",
+            "BulletCollisionLOD": "None"
+        })
+        gdt.add(f"{mapName}_ssi", "ssi", {
+            "bounceCount": "4",
+            "colorSRGB": f"{worldSpawnSettings['suncolor']} 1",
+            "dynamicShadow": "1",
+            "enablesun": "1",
+            "ev": "15",
+            "evcmp": "0",
+            "evmax": "16",
+            "evmin": "1",
+            "lensFlare": "",
+            "lensFlarePitchOffset": "0",
+            "lensFlareYawOffset": "0",
+            "penumbra_inches": "1.5",
+            "pitch": f"{worldSpawnSettings['sundirection'].x * -1}",
+            "skyboxmodel": f"{mapName}_skybox",
+            "spec_comp": "0",
+            "stops": "14",
+            "sunCookieAngle": "0",
+            "sunCookieIntensity": "0",
+            "sunCookieLightDefName": "",
+            "sunCookieOffsetX": "0",
+            "sunCookieOffsetY": "0",
+            "sunCookieRotation": "0",
+            "sunCookieScale": "0",
+            "sunCookieScrollX": "0",
+            "sunCookieScrollY": "0",
+            "sunVolumetricCookie": "0",
+            "type": "ssi",
+            "yaw": f"{worldSpawnSettings['sundirection'].y}"
+        })
+    else:
+        gdt.add(f"{mapName}_sky", "material", {
+            "materialType": "sky",
+            "usage": "sky",
+            "locale_tools": "1",
+            "sort": "skybox - horizon",
+            "surfaceType": "<none>",
+            "noLightmap": "1",
+            "noCastShadow": "1",
+            "noReceiveDynamicShadow": "1",
+            "nopicmipColor": "1",
+            "sky": "1",
+            "colorMap": f"texture_assets\\\\corvid\\\\{mapName}_sky_ft.tga"
+        })
+    return {
+        "gdt": gdt.toStr(),
+        "bat": gdt.toBat()
+    }
