@@ -44,7 +44,6 @@ def convertImages(images, src, dest, ext="tga"):
     for file in images["envMaps"]:
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgb")
     for file in images["envMapsAlpha"]:
-        print(f"Converting {file}")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}_.{ext}", "a")
     for file in images["revealMaps"]:
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "g", True)
@@ -62,7 +61,6 @@ def convertModels(models, modelTints, BO3=False):
     convertDir = f"{tempDir}/converted/model_export/corvid"
     for model in models:
         model = splitext(basename(model))[0]
-        print(f"Converting {model}.mdl...")
         if BO3 and model in modelTints:
             for tint in modelTints[model]:
                 hex = rgbToHex(tint)
