@@ -27,6 +27,7 @@ class Brush:
                             self.sides[k].points.append(intersectionPoint)
 
         for i in range(n):
-            self.sides[i].sortVertices()
+            if len(self.sides[i].points) != 0:
+                self.sides[i].sortVertices()
             if self.sides[i].hasDisp:
                 self.hasDisp = True
