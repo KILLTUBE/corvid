@@ -1,4 +1,4 @@
-from math import pi, pow, sqrt
+from math import cos, pi, pow, sin, sqrt
 
 class Vector3:
     def __init__(self, a: float = float(0.0), b: float = float(0.0), c: float = float(0.0)):
@@ -84,6 +84,24 @@ class Vector3:
             if facing.dot(side.normal().normalize()) < -0.001:
                 return False
         return True
+
+    def rotateX(self, rad):
+        Cos = cos(rad)
+        Sin = sin(rad)
+        return Vector3(self.x, self.y * Cos - self.z * Sin, self.z * Cos + self.y * Sin)
+    
+    def rotateY(self, rad):
+        Cos = cos(rad)
+        Sin = sin(rad)
+        return Vector3(self.x * Cos - self.z * Sin, self.y, self.z * Cos + self.x * Sin)
+
+    def rotateZ(self, rad):
+        Cos = cos(rad)
+        Sin = sin(rad)
+        return Vector3(self.x * Cos - self.y * Sin, self.y * Cos + self.x * Sin, self.z)
+
+    def rotate(self, rot: 'Vector3'):
+        return self.rotateX(rot.x).rotateY(rot.y).rotateZ(rot.z)
 
     def min(self, value):
         return Vector3(min(self.x, value), min(self.y, value), min(self.z, value))
