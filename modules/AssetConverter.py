@@ -37,18 +37,34 @@ def convertImages(images, src, dest, ext="tga"):
     images["envMaps"] = list(dict.fromkeys(images["envMaps"]))
     images["envMapsAlpha"] = list(dict.fromkeys(images["envMapsAlpha"]))
     images["revealMaps"] = list(dict.fromkeys(images["revealMaps"]))
+
+    total = len(images["colorMaps"] + images["colorMapsAlpha"] + images["normalMaps"] + images["envMaps"] + images["envMapsAlpha"] + images["revealMaps"])
+    i = 0
+
     for file in images["colorMapsAlpha"]:
-        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgba")
+        print(f"{i}|{total}|done", end="")
+        i += 1
+        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{file}.{ext}", "rgba")
     for file in images["normalMaps"]:
-        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgb")
+        print(f"{i}|{total}|done", end="")
+        i += 1
+        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{file}.{ext}", "rgb")
     for file in images["envMaps"]:
-        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgb")
+        print(f"{i}|{total}|done", end="")
+        i += 1
+        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{file}.{ext}", "rgb")
     for file in images["envMapsAlpha"]:
-        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}_.{ext}", "a")
+        print(f"{i}|{total}|done", end="")
+        i += 1
+        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{file}_.{ext}", "a")
     for file in images["revealMaps"]:
-        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "g", True)
+        print(f"{i}|{total}|done", end="")
+        i += 1
+        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{file}.{ext}", "g", True)
     for file in images["colorMaps"]:
-        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{uniqueName(file)}.{ext}", "rgb")
+        print(f"{i}|{total}|done", end="")
+        i += 1
+        convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{file}.{ext}", "rgb")
 
 def getTexSize(src):
     image = VTFLib.VTFLib()
@@ -59,8 +75,12 @@ def convertModels(models, modelTints, BO3=False):
     codModel = Model()
     mdlDir = f"{tempDir}/mdl"
     convertDir = f"{tempDir}/converted/model_export/corvid"
+    total = len(models)
+    i = 0
     for model in models:
-        model = splitext(basename(model))[0]
+        print(f"{i}|{total}|done", end="")
+        i += 1
+        model = uniqueName(splitext(model)[0])
         if BO3 and model in modelTints:
             for tint in modelTints[model]:
                 hex = rgbToHex(tint)
