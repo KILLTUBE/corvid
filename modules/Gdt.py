@@ -1,6 +1,6 @@
 class Gdt:
-    def __init__(self):
-        self.entries = {}
+    def __init__(self, entries={}):
+        self.entries = entries
     
     def add(self, name: str, type: str, data: dict, comment: str = ""):
         self.entries[name] = {
@@ -31,9 +31,7 @@ class Gdt:
             name, type = entries[i]["name"], entries[i]["type"]
             res += f"@echo Converting {name}, {i+1} of {count}\n"
             res += f'@converter -nopause -single "{type}" {name}\n'
-        return res
+        return res + "\n"
     
     def __add__(self, other: 'Gdt'):
-        gdt = Gdt()
-        gdt.entries = {**self.entries, **other.entries}
-        return Gdt
+        return Gdt({**self.entries, **other.entries})
