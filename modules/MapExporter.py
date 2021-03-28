@@ -10,23 +10,9 @@ from tempfile import gettempdir
 from .AssetExporter import *
 from .AssetConverter import convertImages, convertModels
 from shutil import rmtree
-from .Static import rgbToHex
-class vertexTable:
-    def __init__(self):
-        self.table = {}
-    
-    def add(self, vert: Vector3):
-        index = str(int(vert.len()))
-        if index in self.table:
-            for point in self.table[index]:
-                if point == vert:
-                    return point
-            self.table[index].append(vert)
-            return vert
-        else:
-            self.table[index] = []
-            self.table[index].append(vert)
-            return vert
+from .Static import deg2rad, rad2deg, rgbToHex
+
+sides = {}
 
 def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     # skip invalid sides
@@ -36,9 +22,10 @@ def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
 
     res = ""
     points = side.points
+
     # get uv points
     for point in side.points:
-        side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
+        side.uvs.append(side.getUV(point, matSize[uniqueName(side.material)]))
     uvs: list[Vector2] = side.uvs
 
     if len(points) % 2 == 1:
@@ -48,13 +35,13 @@ def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     rows = int(count / 2)
 
     if side.material.lower().strip().startswith("liquids"):
-        side.material = "clip"
+        side.material = "clip_water"
     res += f"// Side {side.id}\n"
     res += (
         "{\n" +
         "mesh\n" +
         "{\n" +
-        "" + basename(side.material).lower().strip() + "\n" +
+        "" + uniqueName(side.material) + "\n" +
         "lightmap_gray\n" +
         "" + str(rows) + " 2 " + str(side.lightmapScale) + " 8\n"
     )
@@ -83,7 +70,6 @@ def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     )
     return res
 
-
 def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, power: int):
     res = []
     rowCount = int(2 ** power) + 1
@@ -94,19 +80,21 @@ def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, power: i
         })
     return res
 
-
 def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     res = ""
     points = side.points
     # get uv points
     for point in side.points:
-        side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
+        side.uvs.append(side.getUV(point, matSize[uniqueName(side.material)]))
 
     if len(points) != 4:
         print(f"Displacement has {len(points)}. Displacements can have 4 points only. Side id: {side.id}\n")
         for point in points:
             print(point)
         return ""
+    
+    sides[side.id] = side
+
     uvs: list[Vector2] = side.uvs
     disp: dict = side.dispinfo
     power: int = int(disp["power"])
@@ -142,7 +130,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
         "{\n" +
         "mesh\n" +
         "{\n" +
-        "" + basename(side.material).lower().strip() + "\n" +
+        "" + uniqueName(side.material) + "\n" +
         "lightmap_gray\n"
         "" + str(len(rows[0])) + " " + str(len(rows[0])
                                               ) + " " + str(side.lightmapScale) + " 8\n"
@@ -166,14 +154,14 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
 
     if not alpha:
         return res
-    if basename(side.material).lower().strip() + "_" not in matSize:
+    if uniqueName(side.material) + "_" not in matSize:
         return res
 
     res += (
         "{\n" +
         "mesh\n" +
         "{\n" +
-        "" + basename(side.material).lower().strip() + "_\n" +
+        "" + uniqueName(side.material) + "_\n" +
         "lightmap_gray\n" +
         "" + str(len(rows[0])) + " " + str(len(rows[0])
                                               ) + " " + str(side.lightmapScale) + " 8\n"
@@ -236,9 +224,9 @@ def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=F
         "toolsskybox": "sky" if BO3 else f"{mapName}_sky"
     }
 
-    res = " {\n"
+    res = "{\n"
     if not world:
-        res += "  contents detail;\n"
+        res += "contents detail;\n"
     else:
         pass  # do nothing. structural brushes and portals don't need to be specified like detail brushes
 
@@ -253,9 +241,9 @@ def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=F
                 material = tools[mat]
         else:
             material = "caulk"
-        res += f"  ( {(side.p1 - origin) * scale} ) ( {(side.p2 - origin) * scale} ) ( {(side.p3 - origin) * scale} ) {material} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+        res += f"( {(side.p1 - origin) * scale} ) ( {(side.p2 - origin) * scale} ) ( {(side.p3 - origin) * scale} ) {material} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
 
-    res += " }\n"
+    res += "}\n"
     return res
 
 def convertEntity(entity, id="", geo=""):
@@ -323,15 +311,19 @@ def convertSpotLight(entity, BO3=False):
         })
     else:
         angles = Vector3FromStr(entity["angles"])
-        angles.x = float(entity["pitch"])
-        if angles.x == -90:
-            angles.x = 0
+        pitch = float(entity["pitch"])
+        rot = Vector3(deg2rad(-90), 0, 0)
+        newAngles = rot.rotate(Vector3(
+            deg2rad(angles.z),
+            deg2rad(-pitch),
+            deg2rad(angles.y)
+        ))
         res = convertEntity({
             "classname": "light",
             "origin": entity["origin"],
             "_color": color,
             "PRIMARY_TYPE": "PRIMARY_SPOT",
-            "angles": angles,
+            "angles": newAngles,
             "radius": radius,
             "fov_outer": entity["_cone"],
             "fov_inner": entity["_inner_cone"],
@@ -383,7 +375,7 @@ def convertProp(entity, BO3=False, skyOrigin=Vector3(0, 0, 0), scale=1):
             "origin": origin
         }, entity["id"])
 
-    modelName = splitext(basename(entity["model"].lower()))[0]
+    modelName = "m" + uniqueName(splitext(entity["model"].lower())[0])
 
     if BO3 and "rendercolor" in entity:
         if entity["rendercolor"] != "255 255 255":
@@ -414,7 +406,7 @@ def convertSpawner(entity):
     if entity["classname"] in spawners:
         classname = spawners[entity["classname"]]
     else:
-        print(entity["classname"])
+        print(f'Unknown spawner entity: {entity["classname"]}')
         return ""
     origin = Vector3FromStr(entity["origin"])
     origin.z += 32
@@ -452,8 +444,8 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         makedirs(f"{copyDir}/converted/texture_assets/corvid")
     except:
         pass
-    mapData = readMap(vmfString)
 
+    mapData = readMap(vmfString)
 
     # load &/ define the paks and folders where the assets will be grabbed from
     gamePath = SourceDir()
@@ -476,35 +468,36 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     if not skipModels:
         print("Extracting models...")
         copyModels(mapData["models"], gamePath)
+        print("Reading model materials...")
         mdlMaterials = copyModelMaterials(mapData["models"], gamePath, mapData["modelTints"], BO3)
         mdlMatData = copyTextures(mdlMaterials, gamePath, True)
 
     # create GDT files
+    gdtFile = Gdt()
+    batFile = ""
     if not skipMats or not skipModels:
-        print("Creating GDT files....")
+        print("Generating GDT file...")
     if not skipMats:
         worldMats = createMaterialGdt(matData["vmts"], BO3)
-        open(f"{copyDir}/converted/source_data/_corvid_worldmaterials.gdt", "w").write(worldMats["gdt"])
+        gdtFile += worldMats
     if not BO3 and not skipMats:
-        open(f"{copyDir}/converted/bin/_corvid_worldmaterials.bat", "w").write(worldMats["bat"])
+        batFile += worldMats.toBat()
     if not skipModels:
         modelMats = createMaterialGdt(mdlMatData["vmts"], BO3)
-        open(f"{copyDir}/converted/source_data/_corvid_modelmaterials.gdt", "w").write(modelMats["gdt"])
+        gdtFile += modelMats
     if not BO3 and not skipModels:
-        open(f"{copyDir}/converted/bin/_corvid_modelmaterials.bat", "w").write(modelMats["bat"])
+        batFile += modelMats.toBat()
     if not skipModels:
         models = createModelGdt(mapData["models"], BO3, mapData["modelTints"])
-        open(f"{copyDir}/converted/source_data/_corvid_models.gdt", "w").write(models["gdt"])
+        gdtFile += models
     if not BO3 and not skipModels:
-        open(f"{copyDir}/converted/bin/_corvid_models.bat", "w").write(models["bat"])
+        batFile += models.toBat()
     # create GDT files for images for Bo3
     if BO3:
         if not skipMats:
-            worldImages = createImageGdt(matData)
-            open(f"{copyDir}/converted/source_data/_corvid_worldimages.gdt", "w").write(worldImages)
+            gdtFile += createImageGdt(matData)
         if not skipModels:
-            modelImages = createImageGdt(mdlMatData)
-            open(f"{copyDir}/converted/source_data/_corvid_modelimages.gdt", "w").write(modelImages)
+            gdtFile += createImageGdt(mdlMatData)
 
     # convert the textures
     if not skipMats:
@@ -609,10 +602,16 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
             mapEnts += convertRope(entity, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
     
     # convert the skybox textures
-    skyData = exportSkybox(mapData["sky"], mapName, worldSpawnSettings, gamePath, BO3)
-    open(f"{copyDir}/converted/source_data/_corvid_sky.gdt", "w").write(skyData["gdt"])
+    if not skipMats:
+        skyData = exportSkybox(mapData["sky"], mapName, worldSpawnSettings, gamePath, BO3)
+        gdtFile += skyData
+        if not BO3:
+            batFile += skyData.toBat()
+
+    # write the gdt & bat files
+    open(f"{copyDir}/converted/source_data/_{mapName}.gdt", "w").write(gdtFile.toStr())
     if not BO3:
-        open(f"{copyDir}/converted/bin/_corvid_sky.bat", "w").write(skyData["bat"])
+        open(f"{copyDir}/converted/bin/_convert_{mapName}_assets.bat", "w").write(gdtFile.toBat())
 
     if BO3:
         res = (
@@ -625,7 +624,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
                     "classname": "worldspawn",
                     "lightingquality": "1024",
                     "samplescale": "1",
-                    "skyboxmodel": "skybox_default_day",
+                    "skyboxmodel": f"{mapName}_ssi",
                     "ssi": "default_day",
                     "wsi": "default_day",
                     "fsi": "default",
@@ -648,7 +647,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
 
     else:
         res = (
-            "iwmap4\n"
+            "iwmap 4\n"
             + convertEntity(
                 {**{"classname": "worldspawn"}, **worldSpawnSettings},
                 id="0",
