@@ -5,6 +5,7 @@ import tkinter.constants
 import tkinter.messagebox as alert
 import tkinter.font as tkFont
 from tkinter import filedialog
+from tkinter.ttk import Progressbar
 from sys import stderr, stdout
 import os.path
 from modules.MapExporter import exportMap
@@ -201,20 +202,28 @@ class App:
         checkRemoveSky["offvalue"] = False
         checkRemoveSky["onvalue"] = True
 
-        consoleLabel=tk.Label(root)
+        '''consoleLabel=tk.Label(root)
         consoleLabel["font"] = ft
         consoleLabel["fg"] = "#333333"
         consoleLabel["justify"] = "left"
         consoleLabel["text"] = "Console"
-        consoleLabel.place(x=20,y=440,width=49,height=30)
+        consoleLabel.place(x=20,y=440,width=49,height=30)'''
+
+        self.progressOverall = Progressbar()
+        self.progressOverall.place(x=20,y=440,width=630,height=13)
+        self.progressOverall["value"] = 0
+
+        self.progressCurrent = Progressbar()
+        self.progressCurrent.place(x=20,y=457,width=630,height=13)
+        self.progressCurrent["value"] = 0
 
         self.consoleTextBox=tk.Text(root)
         self.consoleTextBox["borderwidth"] = "1px"
         self.consoleTextBox["font"] = ft
         self.consoleTextBox["fg"] = "#333333"
         self.consoleTextBox.place(x=20,y=480,width=755,height=132)
-        sys.stdout = TextRedirector(self.consoleTextBox, stdout)
-        sys.stderr = TextRedirector(self.consoleTextBox, stderr)
+        sys.stdout = TextRedirector(self.consoleTextBox, self.progressOverall, self.progressCurrent, stdout)
+        sys.stderr = TextRedirector(self.consoleTextBox, self.progressOverall, self.progressCurrent, stderr)
         self.consoleScrollbar = tk.Scrollbar(self.consoleTextBox)
         self.consoleScrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
         self.consoleTextBox["yscrollcommand"] = self.consoleScrollbar.set
@@ -401,17 +410,50 @@ class App:
         t1.start()
 
 class TextRedirector(object):
-    def __init__(self, widget, tag="stdout"):
+    def __init__(self, widget, overall, current, tag="stdout"):
         self.widget = widget
+        self.overall = overall
+        self.current = current
         self.tag = tag
         self.eof = False
 
-    def write(self, str):
-        if self.eof:
-            self.eof = False
-            self.widget.delete(1.0, "end")
-        self.widget.insert("end", str, (self.tag,))
-        self.widget.see("end")
+    def write(self, str):        
+        # update the progress bars depending on the printed text
+        # I'm not really a Python guy normally, so I'm not sure if this is the best way to do this
+        overAllSteps = [
+            "Opening VMF file",
+            "Reading VMF file...",
+            "Reading materials...",
+            "Reading texture data...",
+            "Extracting models...",
+            "Reading model materials...",
+            "Generating GDT file...",
+            "Converting textures...",
+            "Converting models...",
+            "Generating .map file...",
+            "Moving all converted assets to",
+            "Writing",
+            "Conversion finished"
+        ]
+        totalSteps = len(overAllSteps)
+        for i in range(totalSteps):
+            if str.startswith(overAllSteps[i]):
+                self.overall["value"] = ((i + 1) / totalSteps) * 100
+                self.current["value"] = 0
+                if i == totalSteps:
+                    self.current["value"] = 100
+
+        if str.endswith("|done"):
+            tok = str.split("|")
+            current = int(tok[0])
+            total = int(tok[1])
+            self.current["value"] = ((current + 1) / total) * 100
+        else:
+            if self.eof:
+                self.eof = False
+                self.widget.delete(1.0, "end")
+            self.widget.insert("end", str, (self.tag,))
+            self.widget.see("end")
 
 if __name__ == "__main__":
     root = tk.Tk()
