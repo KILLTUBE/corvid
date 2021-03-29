@@ -4,5 +4,5 @@
 		"gameRoot": "custom game path",
 		"vpkFiles": [],
 		"gameDirs": []
-	},
+	}
 ]
