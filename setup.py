@@ -13,7 +13,7 @@ setup(
     executables=[
         Executable(
             "app.py",
-            targetName="Corvid.exe",
+            target_name="Corvid.exe",
             icon="icon.ico",
             base=None
             )
