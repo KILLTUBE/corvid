@@ -458,9 +458,9 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
 
     # extract world materials and textures
     # can't skip exporting these becasue the textures (or the base textures of those materaials) are needed to get the UV of brush faces
-    print("Reading materials...")
+    print("Loading materials...")
     materials = copyMaterials(mapData["materials"], gamePath)
-    print("Reading texture data...")
+    print("Loading texture data...")
     matData = copyTextures(materials, gamePath)
     matSizes = matData["sizes"]
 
@@ -468,7 +468,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     if not skipModels:
         print("Extracting models...")
         copyModels(mapData["models"], gamePath)
-        print("Reading model materials...")
+        print("Loading model materials...")
         mdlMaterials = copyModelMaterials(mapData["models"], gamePath, mapData["modelTints"], BO3)
         mdlMatData = copyTextures(mdlMaterials, gamePath, True)
 
