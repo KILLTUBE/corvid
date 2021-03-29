@@ -10,7 +10,7 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
    - Physics props
    - Props with different colors
 - Light entities
-- Sun light
+- Sun color & sun angles (doesn't always produce perfect results)
 - Materials
    - Color maps
    - Normal maps (excluding ssbump textures)
@@ -40,6 +40,7 @@ To run Corvid, launch `app.py`. Use a VMF file of the map you want to convert (y
 - Spot lights often have the wrong angles.
 - Some assets cannot get copied or converted at all. This is because they are either renamed or removed from the game. There isn't anything that can be done about this apart from adding those assets manually.
 - Converted assets might not get copied after the conversion is over if the map has been converted before. Choosing a different directory to extract those assets or deleting the previous ones seems to solve that issue.
+- Some brush faces don't get converted for reasons I cannot understand for now. It probably has something to do with the way I check for invalid vertices or slightly incorrect plane calculations.
 
 ## Sources and references
 - Stefan Hajnoczi's [paper](https://github.com/stefanha/map-files/blob/master/MAPFiles.pdf) on map files.
