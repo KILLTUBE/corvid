@@ -517,8 +517,16 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
     mapEnts = ""
     worldSpawnSettings = ""
 
+    total = (
+        len(mapData["worldBrushes"]) + len(mapData["entityBrushes"]) + len(mapData["entities"])
+        + len(mapData["skyBrushes"]) + len(mapData["skyEntityBrushes"]) + len(mapData["skyEntities"])
+    )
+    i = 0
+
     # convert world geo & entities
     for brush in mapData["worldBrushes"]:
+        print(f"{i}|{total}|done", end="")
+        i += 1
         if not brush.hasDisp:
             mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapName)
         for side in brush.sides:
@@ -531,6 +539,8 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
             mapGeo += convertSide(side, matSizes)
 
     for brush in mapData["entityBrushes"]:
+        print(f"{i}|{total}|done", end="")
+        i += 1
         if not brush.hasDisp:
             mapGeo += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3, mapName)
         for side in brush.sides:
@@ -543,6 +553,8 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
             mapGeo += convertSide(side, matSizes)
 
     for entity in mapData["entities"]:
+        print(f"{i}|{total}|done", end="")
+        i += 1
         if entity["classname"].startswith("prop_"):
             mapEnts += convertProp(entity, BO3)
         elif entity["classname"] == "light" and not RemoveLights:
@@ -572,6 +584,8 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
 
     # convert 3d skybox geo & entities
     for brush in mapData["skyBrushes"]:
+        print(f"{i}|{total}|done", end="")
+        i += 1
         if not brush.hasDisp:
             mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapName, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
         for side in brush.sides:
@@ -584,6 +598,8 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
             mapGeo += convertSide(side, matSizes, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
 
     for brush in mapData["skyEntityBrushes"]:
+        print(f"{i}|{total}|done", end="")
+        i += 1
         if not brush.hasDisp:
             mapGeo += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3, mapName, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
         for side in brush.sides:
@@ -596,6 +612,8 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
             mapGeo += convertSide(side, matSizes, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
 
     for entity in mapData["skyEntities"]:
+        print(f"{i}|{total}|done", end="")
+        i += 1
         if entity["classname"].startswith("prop_"):
             mapEnts += convertProp(entity, BO3, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
