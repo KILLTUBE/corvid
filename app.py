@@ -439,9 +439,6 @@ class TextRedirector(object):
         for i in range(totalSteps):
             if str.startswith(overAllSteps[i]):
                 self.overall["value"] = ((i + 1) / totalSteps) * 100
-                self.current["value"] = 0
-                if i == totalSteps:
-                    self.current["value"] = 100
 
         if str.endswith("|done"):
             tok = str.split("|")
