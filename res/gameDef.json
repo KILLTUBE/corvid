@@ -1,0 +1,127 @@
+[
+	{
+		"gameName": "Counter-Strike Source",
+		"gameRoot": "Counter-Strike Source",
+		"vpkFiles": [
+			"cstrike/cstrike_pak_dir.vpk",
+			"hl2/hl2_textures_dir.vpk",
+			"hl2/hl2_misc_dir.vpk"
+		],
+		"gameDirs": [
+			"cstrike",
+			"hl2"
+		]
+	},
+	{
+		"gameName": "Counter-Strike Global Offensive",
+		"gameRoot": "Counter-Strike Global Offensive",
+		"vpkFiles": [
+			"csgo/pak01_dir.vpk"
+		],
+		"gameDirs": [
+			"csgo"
+		]
+	},
+	{
+		"gameName": "Day of Defeat: Source",
+		"gameRoot": "day of defeat source",
+		"vpkFiles": [
+			"dod/dod_pak_dir.vpk",
+			"hl2/hl2_textures_dir.vpk",
+			"hl2/hl2_misc_dir.vpk"
+		],
+		"gameDirs": []
+	},
+	{
+		"gameName": "Half-Life 2",
+		"gameRoot": "half-life 2",
+		"vpkFiles": [
+			"hl2/hl2_textures_dir.vpk",
+			"hl2/hl2_misc_dir.vpk"
+		],
+		"gameDirs": [
+			"hl2"
+		]
+	},
+	{
+		"gameName": "Half-Life 2: Deathmatch",
+		"gameRoot": "Half-Life 2 Deathmatch",
+		"vpkFiles": [
+			"hl2/hl2_textures_dir.vpk",
+			"hl2/hl2_misc_dir.vpk",
+			"hl2mp/hl2mp_pak_dir.vpk"
+		],
+		"gameDirs": [
+			"hl2",
+			"hl2mp"
+		]
+	},
+	{
+		"gameName": "Half-Life Deathmatch: Source",
+		"gameRoot": "half-life deathmatch source",
+		"vpkFiles": [],
+		"gameDirs": []
+	},
+	{
+		"gameName": "Half-Life: Source",
+		"gameRoot": "half-life source",
+		"vpkFiles": [],
+		"gameDirs": []
+	},
+	{
+		"gameName": "Insurgency",
+		"gameRoot": "",
+		"vpkFiles": [],
+		"gameDirs": []
+	},
+	{
+		"gameName": "Left 4 Dead",
+		"gameRoot": "left 4 dead",
+		"vpkFiles": [
+			"left4dead/pak01_dir.vpk"
+		],
+		"gameDirs": [
+			"left4dead"
+		]
+	},
+	{
+		"gameName": "Left 4 Dead 2",
+		"gameRoot": "left 4 dead 2",
+		"vpkFiles": [
+			"left4dead2/pak01_dir.vpk",
+			"left4dead2_dlc1/pak01_dir.vpk",
+			"left4dead2_dlc2/pak01_dir.vpk",
+			"left4dead2_dlc3/pak01_dir.vpk"
+		],
+		"gameDirs": [
+			"left4dead2",
+			"left4dead2_dlc1",
+			"left4dead2_dlc2",
+			"left4dead2_dlc3"
+		]
+	},
+	{
+		"gameName": "Portal",
+		"gameRoot": "",
+		"vpkFiles": [],
+		"gameDirs": []
+	},
+	{
+		"gameName": "Portal 2",
+		"gameRoot": "",
+		"vpkFiles": [],
+		"gameDirs": []
+	},
+	{
+		"gameName": "Team Fortress 2",
+		"gameRoot": "",
+		"vpkFiles": [],
+		"gameDirs": []
+	},
+	{
+		"gameName": "<none>",
+		"gameRoot": "",
+		"vpkFiles": [],
+		"gameDirs": []
+	}
+]

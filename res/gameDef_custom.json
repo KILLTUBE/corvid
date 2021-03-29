@@ -1,0 +1,8 @@
+[
+	{
+		"gameName": "Custom game",
+		"gameRoot": "custom game path",
+		"vpkFiles": [],
+		"gameDirs": []
+	},
+]
