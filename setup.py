@@ -2,7 +2,7 @@ from cx_Freeze import setup, Executable
 
 buildOptions = {
     "includes": ["numpy", "PIL", "vmf_tool", "vpk"],
-    "include_files": ["modules/", "PyCoD/", "SourceIO/", "vrProjector/", "bin/", "icon.ico"]
+    "include_files": ["modules/", "PyCoD/", "SourceIO/", "vrProjector/", "bin/", "res/"]
 }
 
 setup(
@@ -14,7 +14,7 @@ setup(
         Executable(
             "app.py",
             target_name="Corvid.exe",
-            icon="icon.ico",
+            icon="res/icon.ico",
             base=None
             )
     ]
