@@ -23,10 +23,13 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
 ## Work-in-progress features
 - Spot lights
 
-# Currently not supported
+## Currently not supported
 - Decals / overlays
 
-# Screenshots
+## Screenshots
+<details>
+<summary>Click to toggle</summary>
+
 ![Inferno](screenshots/Inferno.jpg "Inferno from CSGO")
 ![Cache](screenshots/Cache-1.png "Cache from CSGO")
 ![Cache](screenshots/Cache-2.png "Cache from CSGO")
@@ -42,6 +45,8 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
 ![Bounce](screenshots/Bounce-1.png "Bounce from Black Mesa")
 ![Bounce](screenshots/Bounce-2.png "Bounce from Black Mesa")
 ![Contact](screenshots/Contact.png "Contact from Insurgency")
+
+</details>
 
 ## Installing & running
 Clone this repository and its submodules and install the dependencies using the following command.
