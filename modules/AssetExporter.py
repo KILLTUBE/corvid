@@ -61,6 +61,30 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
         res["vmts"][fileName] = vmt
         shader = list(vmt)[0]
         mat = vmt[shader]
+        
+        # some materials in Source can reference & inherit other materials' properties
+        if "include" in mat:
+            includeFile = mat["include"]
+            if not includeFile.startswith("materials"):
+                includeFile = "materials/" + includeFile
+            if not includeFile.endswith(".vmt"):
+                includeFile += ".vmt"
+            includeFile = Path(includeFile).as_posix().lower().strip()
+            if dir.copy(includeFile, f"{tempDir}/{vmtDir}/{basename(includeFile)}"):
+                try:
+                    includeVmt = parse_vdf(fixVmt(open(f"{tempDir}/{vmtDir}/{basename(includeFile)}").read()))
+                    patch = list(includeVmt)[0]
+                    includeMat = includeVmt[patch]
+                    mat = {**includeMat, **mat}
+                except:
+                    pass
+                else:
+                    res["vmts"][fileName][shader] = mat
+    
+        if "insert" in mat:
+            mat = {**mat, **mat["insert"]}
+            res["vmts"][fileName][shader] = mat
+            pass
 
         if "$basetexture" in mat:
             baseTexture = mat["$basetexture"].strip().replace(".vtf", "").replace(".tga", "")
