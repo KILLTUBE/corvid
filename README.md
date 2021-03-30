@@ -37,7 +37,7 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
 ![Cache](screenshots/Cache-1.png "Cache from CSGO")
 ![Cache](screenshots/Cache-2.png "Cache from CSGO")
 ![Cache](screenshots/Cache-3.png "Cache from CSGO")
-![Mirage](screenshots/Mirage-1.png "Mirage from CSGO")
+![Mirage](screenshots/Mirage.png "Mirage from CSGO")
 ![Mirage](screenshots/Mirage-2.png "Mirage from CSGO")
 ![Mirage](screenshots/Mirage-3.png "Mirage from CSGO")
 ![Atrium](screenshots/Atrium.png "Atrium from L4D2")
