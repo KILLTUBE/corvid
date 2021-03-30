@@ -187,16 +187,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
 
     return res
 
-def convertBrush(brush, world=True, RemoveClips=False, RemoveSkybox=False, BO3=False, mapName="", origin=Vector3(0, 0, 0), scale=1):
-    if RemoveClips:
-        clipmats = ["tools/toolsclip", "tools/toolsplayerclip", "tools/toolsnpcclip", "tools/toolsgrenadeclip"]
-        if brush.sides[0].material in clipmats:
-            return ""
-
-    if RemoveSkybox:
-        if brush.sides[0].material in ["tools/toolsskybox", "tools/toolsskybox2d"]:
-            return ""
-
+def convertBrush(brush, world=True, BO3=False, mapName="", origin=Vector3(0, 0, 0), scale=1):
     # BO3 doesn't need hint/skip brushes or portals for optimization
     if BO3:
         if brush.entity == "func_areaportal" or brush.entity == "func_areaportalwindow":
@@ -424,7 +415,7 @@ def convertSpawner(entity):
 
     return res
 
-def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False, RemoveProbes=False, RemoveLights=False, RemoveSkybox=False, skipMats=False, skipModels=False, mapName=""):
+def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, skipModels=False, mapName=""):
     # create temporary directories to extract assets
     copyDir = gettempdir() + "/corvid"
     try:
@@ -528,7 +519,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         print(f"{i}|{total}|done", end="")
         i += 1
         if not brush.hasDisp:
-            mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapName)
+            mapGeo += convertBrush(brush, True, BO3, mapName)
         for side in brush.sides:
             if side.material.startswith("tools") or side.material.startswith("liquids"):
                 continue
@@ -542,7 +533,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         print(f"{i}|{total}|done", end="")
         i += 1
         if not brush.hasDisp:
-            mapGeo += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3, mapName)
+            mapGeo += convertBrush(brush, False, BO3, mapName)
         for side in brush.sides:
             if side.material.startswith("tools") or side.material.startswith("liquids"):
                 continue
@@ -557,13 +548,13 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         i += 1
         if entity["classname"].startswith("prop_"):
             mapEnts += convertProp(entity, BO3)
-        elif entity["classname"] == "light" and not RemoveLights:
+        elif entity["classname"] == "light":
             mapEnts += convertLight(entity)
-        elif entity["classname"] == "light_spot" and not RemoveLights:
+        elif entity["classname"] == "light_spot":
             mapEnts += convertSpotLight(entity, BO3)
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
             mapEnts += convertRope(entity)
-        elif entity["classname"] == "env_cubemap" and not RemoveProbes:
+        elif entity["classname"] == "env_cubemap":
             mapEnts += convertCubemap(entity)
         elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
             mapEnts += convertSpawner(entity)
@@ -587,7 +578,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         print(f"{i}|{total}|done", end="")
         i += 1
         if not brush.hasDisp:
-            mapGeo += convertBrush(brush, True, RemoveClips, RemoveSkybox, BO3, mapName, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
+            mapGeo += convertBrush(brush, True, BO3, mapName, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
         for side in brush.sides:
             if side.material.startswith("tools") or side.material.startswith("liquids"):
                 continue
@@ -601,7 +592,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, RemoveClips=False,
         print(f"{i}|{total}|done", end="")
         i += 1
         if not brush.hasDisp:
-            mapGeo += convertBrush(brush, False, RemoveClips, RemoveSkybox, BO3, mapName, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
+            mapGeo += convertBrush(brush, False, BO3, mapName, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
         for side in brush.sides:
             if side.material.startswith("tools") or side.material.startswith("liquids"):
                 continue
