@@ -70,9 +70,16 @@
 	},
 	{
 		"gameName": "Insurgency",
-		"gameRoot": "",
-		"vpkFiles": [],
-		"gameDirs": []
+		"gameRoot": "insurgency2",
+		"vpkFiles": [
+			"insurgency/insurgency_materials_dir.vpk",
+			"insurgency/insurgency_misc_dir.vpk",
+			"insurgency/insurgency_models_dir.vpk",
+			"insurgency/insurgency_particles_dir.vpk"
+		],
+		"gameDirs": [
+			"insurgency"
+		]
 	},
 	{
 		"gameName": "Left 4 Dead",
@@ -102,21 +109,46 @@
 	},
 	{
 		"gameName": "Portal",
-		"gameRoot": "",
-		"vpkFiles": [],
-		"gameDirs": []
+		"gameRoot": "Portal",
+		"vpkFiles": [
+			"hl2/hl2_textures_dir.vpk",
+			"hl2/hl2_misc_dir.vpk",
+			"portal/portal_pak_dir.vpk"
+		],
+		"gameDirs": [
+			"hl2",
+			"portal"
+		]
 	},
 	{
 		"gameName": "Portal 2",
-		"gameRoot": "",
-		"vpkFiles": [],
-		"gameDirs": []
+		"gameRoot": "Portal 2",
+		"vpkFiles": [
+			"portal2/pak01_dir.vpk",
+			"portal2_dlc1/pak01_dir.vpk",
+			"portal2_dlc2/pak01_dir.vpk",
+			"update/pak01_dir.vpk"
+		],
+		"gameDirs": [
+			"portal2",
+			"portal2_dlc1",
+			"portal2_dlc2",
+			"update"
+		]
 	},
 	{
 		"gameName": "Team Fortress 2",
 		"gameRoot": "",
-		"vpkFiles": [],
-		"gameDirs": []
+		"vpkFiles": [
+			"hl2/hl2_textures_dir.vpk",
+			"hl2/hl2_misc_dir.vpk",
+			"tf/tf2_misc_dir.vpk",
+			"tf/tf2_textures_dir.vpk"
+		],
+		"gameDirs": [
+			"hl2",
+			"tf"
+		]
 	},
 	{
 		"gameName": "<none>",
