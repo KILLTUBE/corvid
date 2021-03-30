@@ -23,10 +23,11 @@ from modules.MapExporter import exportMap
 settings = json.loads(open("res/settings.json").read())
 gameDef = json.loads(open("res/gameDef.json").read())
 gameDefCustom = json.loads(open("res/gameDef.json").read())
+version = open("res/version.txt").read().split("\n")[0]
 
 class App:
     def __init__(self, root: tk.Tk):
-        root.title("Corvid - 0.0.1 (Public beta)")
+        root.title(f"Corvid - v{version}")
         root.iconbitmap("res/icon.ico")
         width=800
         height=620
@@ -69,6 +70,7 @@ class App:
         helpMenu.add_command(label="Corvid on Github", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid"))
         helpMenu.add_command(label="Corvid wiki", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid/wiki"))
         helpMenu.add_command(label="Video tutorial", command=lambda: alert.showwarning(title="Warning", message="Video tutorial is not ready yet."))
+        helpMenu.add_command(label="Check for new versions", command=lambda: print("Checking for new versions..."))
         helpMenu.add_separator()
         helpMenu.add_command(label="About Corvid", command=self.aboutButton_command)
         menuBar.add_cascade(label="Help", menu=helpMenu)
@@ -291,7 +293,7 @@ class App:
             self.gameDirList.insert(0, gameDir)
 
     def setSteamDir(self):
-        dir = filedialog.askdirectory(title="Set Steam directory")
+        dir = filedialog.askdirectory(title="Set your Steam directory")
         if dir is not None:
             settings["steamDir"] = dir
             open("res/settings.json", "w").write(json.dumps(settings, indent=4))
@@ -335,7 +337,7 @@ class App:
     def aboutButton_command(self):
         alert.showinfo(
             title="About Corvid",
-            message="Version: 0.0.1 (Public beta)\n\n"
+            message=f"Version: {version}\n\n"
             + "Author: Mehmet Yüce\n"
             + "Github: @myuce\n"
             + "Twitter: @myuce153\n\n"
@@ -492,7 +494,7 @@ if __name__ == "__main__":
         alert.showwarning(
             "Warning",
             message="It appears that this is your first time using Corvid.\n\n"
-                        + "Please select your Steam directory."
+                        + "Please set your Steam directory in the next dialogue."
         )
         app.setSteamDir()
 
