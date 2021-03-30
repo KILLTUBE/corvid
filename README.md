@@ -15,6 +15,7 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
    - Color maps
    - Normal maps (excluding ssbump textures)
    - Gloss maps
+   - Blend maps
    - Color tints
    - Patch materials (material inheritence in other words)
 - 2d skyboxes
@@ -22,6 +23,7 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
 
 ## Work-in-progress features
 - Spot lights
+- Infected shaders
 
 ## Currently not supported
 - Decals / overlays
@@ -49,13 +51,14 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
 </details>
 
 ## Installing & running
-Clone this repository and its submodules and install the dependencies using the following command.
+Clone this repository and its submodules and install the dependencies using the following commands.
 
 ```
+git clone https://github.com/KILLTUBE/corvid.git --recurse-submodules
 python -m pip install -r requirements.txt
 ```
 
-To run Corvid, launch `app.py`. Use a VMF file of the map you want to convert (you can use [BSP Source](https://github.com/ata4/bspsrc/releases) to decompile maps) and add the necessary VPK files (the ones whose names end with `_dir.vpk`) and the directories where the assets of the game are located. Once the conversion is done, the map will be ready to be used with its assets properly converted for Call of Duty's mod tools.
+To run Corvid, launch `app.py`. Choose your Steam director and the game of the map you want to convert, use the VMF file of the map (you can use [BSP Source](https://github.com/ata4/bspsrc/releases) to decompile maps). Once the conversion is done, the map will be ready to be used with its assets properly converted for Call of Duty's mod tools.
 
 ## Issues and known bugs
 - Some models get converted, but they don't look as they are supposed to (They either have bad normals or look really messed up) and some models cannot get converted at all. This is because of the model converter I wrote. Updating it or using SourceIO's model loader will probably fix that issue.
