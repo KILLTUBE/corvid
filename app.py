@@ -42,10 +42,10 @@ class App:
         # file menu
         fileMenu = tk.Menu(menuBar, tearoff=0)
         fileMenu.add_command(label="Select VMF file", command=self.chooseVmfDialog_command)
+        fileMenu.add_command(label="Clear console", command=self.clearConsoleButton_command)
         fileMenu.add_command(label="Save console log", command=self.saveConsoleLog)
 
         fileMenu.add_separator()
-
         fileMenu.add_command(label="Exit", command=root.quit)
         menuBar.add_cascade(label="File", menu=fileMenu)
 
@@ -199,7 +199,7 @@ class App:
         self.currentGameLabel["justify"] = "right"
         self.currentGameLabel["anchor"] = "e"
         self.currentGameLabel["fg"] = "#333333"
-        self.currentGameLabel["text"] = f"{gameDef[settings['currentGame']]['gameName']}"
+        self.currentGameLabel["text"] = gameDef[settings["currentGame"]]["gameName"]
         self.currentGameLabel.place(x=390,y=570,width=390,height=30)
 
         self.steamDirLabel=tk.Label(root)
@@ -211,32 +211,39 @@ class App:
         self.steamDirLabel.place(x=20,y=570,width=390,height=30)
 
         self.progressOverall = Progressbar()
-        self.progressOverall.place(x=20,y=400,width=630,height=13)
+        self.progressOverall.place(x=20,y=400,width=615,height=13)
         self.progressOverall["value"] = 0
 
+        self.overallLabel = tk.Label()
+        self.overallLabel["font"] = ft
+        self.overallLabel["justify"] = "left"
+        self.overallLabel["anchor"] = "w"
+        self.overallLabel["fg"] = "#333333"
+        self.overallLabel["text"] = f"Total: n/a"
+        self.overallLabel.place(x=635,y=398,width=300,height=15)
+
         self.progressCurrent = Progressbar()
-        self.progressCurrent.place(x=20,y=417,width=630,height=13)
+        self.progressCurrent.place(x=20,y=417,width=615,height=13)
         self.progressCurrent["value"] = 0
+
+        self.currentLabel = tk.Label()
+        self.currentLabel["font"] = ft
+        self.currentLabel["justify"] = "left"
+        self.currentLabel["anchor"] = "w"
+        self.currentLabel["fg"] = "#333333"
+        self.currentLabel["text"] = f"Current: n/a"
+        self.currentLabel.place(x=635,y=416,width=300,height=15)
 
         self.consoleTextBox=tk.Text(root)
         self.consoleTextBox["borderwidth"] = "1px"
         self.consoleTextBox["font"] = ft
         self.consoleTextBox["fg"] = "#333333"
         self.consoleTextBox.place(x=20,y=440,width=755,height=132)
-        sys.stdout = TextRedirector(self.consoleTextBox, self.progressOverall, self.progressCurrent, stdout)
-        sys.stderr = TextRedirector(self.consoleTextBox, self.progressOverall, self.progressCurrent, stderr)
+        sys.stdout = TextRedirector(self.consoleTextBox, self.progressOverall, self.progressCurrent, self.overallLabel, self.currentLabel, stdout)
+        sys.stderr = TextRedirector(self.consoleTextBox, self.progressOverall, self.progressCurrent, self.overallLabel, self.currentLabel, stderr)
         self.consoleScrollbar = tk.Scrollbar(self.consoleTextBox)
         self.consoleScrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
         self.consoleTextBox["yscrollcommand"] = self.consoleScrollbar.set
-
-        clearConsoleButton=tk.Button(root)
-        clearConsoleButton["bg"] = "#f0f0f0"
-        clearConsoleButton["font"] = ft
-        clearConsoleButton["fg"] = "#000000"
-        clearConsoleButton["justify"] = "center"
-        clearConsoleButton["text"] = "Clear console"
-        clearConsoleButton.place(x=660,y=400,width=114,height=30)
-        clearConsoleButton["command"] = self.clearConsoleButton_command
 
         convertButton=tk.Button(root)
         convertButton["bg"] = "#f0f0f0"
@@ -273,7 +280,7 @@ class App:
         checkSkipModels["justify"] = "center"
         checkSkipModels["text"] = "Models"
         checkSkipModels["variable"] = self.skipModels
-        checkSkipModels.place(x=230,y=310,width=78,height=30)
+        checkSkipModels.place(x=262,y=310,width=78,height=30)
         checkSkipModels["offvalue"] = False
         checkSkipModels["onvalue"] = True
 
@@ -401,7 +408,7 @@ class App:
         vmfFile = open(vmfPath)
         print("Reading VMF file...")
         BO3 = self.BO3.get()
-        res = exportMap(vmfFile, vpkFiles, gameDirs, BO3, self.removeClips.get(), self.removeProbes.get(), self.removeLights.get(), self.removeSkybox.get(), self.skipMats.get(), self.skipModels.get(), vmfName)
+        res = exportMap(vmfFile, vpkFiles, gameDirs, BO3, self.skipMats.get(), self.skipModels.get(), vmfName)
         # prepare the necessary stuff to move and write files
         try:
             makedirs(f"{outputDir}/map_source")
@@ -431,10 +438,12 @@ class App:
         t1.start()
 
 class TextRedirector(object):
-    def __init__(self, widget, overall, current, tag="stdout"):
+    def __init__(self, widget, overall, current, overallLabel, currentLabel, tag="stdout"):
         self.widget = widget
         self.overall = overall
         self.current = current
+        self.overallLabel = overallLabel
+        self.currentLabel = currentLabel
         self.tag = tag
         self.eof = False
 
@@ -460,12 +469,14 @@ class TextRedirector(object):
         for i in range(totalSteps):
             if str.startswith(overAllSteps[i]):
                 self.overall["value"] = ((i + 1) / totalSteps) * 100
+                self.overallLabel["text"] = f"Total: {i + 1}/{totalSteps}"
 
         if str.endswith("|done"):
             tok = str.split("|")
             current = int(tok[0])
             total = int(tok[1])
             self.current["value"] = ((current + 1) / total) * 100
+            self.currentLabel["text"] = f"Current: {current + 1}/{total}"
         else:
             if self.eof:
                 self.eof = False
