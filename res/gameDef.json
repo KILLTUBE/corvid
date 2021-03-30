@@ -1,6 +1,6 @@
 [
 	{
-		"gameName": "Counter-Strike Source",
+		"gameName": "Counter-Strike: Source",
 		"gameRoot": "Counter-Strike Source",
 		"vpkFiles": [
 			"cstrike/cstrike_pak_dir.vpk",
@@ -13,7 +13,7 @@
 		]
 	},
 	{
-		"gameName": "Counter-Strike Global Offensive",
+		"gameName": "Counter-Strike: Global Offensive",
 		"gameRoot": "Counter-Strike Global Offensive",
 		"vpkFiles": [
 			"csgo/pak01_dir.vpk"
@@ -30,7 +30,10 @@
 			"hl2/hl2_textures_dir.vpk",
 			"hl2/hl2_misc_dir.vpk"
 		],
-		"gameDirs": []
+		"gameDirs": [
+			"dod",
+			"hl2"
+		]
 	},
 	{
 		"gameName": "Half-Life 2",
@@ -59,14 +62,34 @@
 	{
 		"gameName": "Half-Life Deathmatch: Source",
 		"gameRoot": "half-life deathmatch source",
-		"vpkFiles": [],
-		"gameDirs": []
+		"vpkFiles": [
+			"hl2/hl2_textures_dir.vpk",
+			"hl2/hl2_misc_dir.vpk",
+			"hl1/hl1_pak_dir.vpk"
+		],
+		"gameDirs": [
+			"hl2",
+			"hl1"
+		]
 	},
 	{
 		"gameName": "Half-Life: Source",
 		"gameRoot": "half-life source",
-		"vpkFiles": [],
-		"gameDirs": []
+		"vpkFiles": [
+			"hl1/hl1_pak_dir.vpk",
+			"hl1mp/hl1mp_pak_dir.vpk",
+			"hl2/hl2_misc_dir.vpk",
+			"hl2/hl2_sound_misc_dir.vpk",
+			"hl2/hl2_sound_vo_english_dir.vpk",
+			"hl2/hl2_textures_dir.vpk",
+			"platform/platform_misc_dir.vpk"
+		],
+		"gameDirs": [
+			"hl2",
+			"hl1",
+			"hl1mp",
+			"platform"
+		]
 	},
 	{
 		"gameName": "Insurgency",
@@ -148,6 +171,22 @@
 		"gameDirs": [
 			"hl2",
 			"tf"
+		]
+	},
+	{
+		"gameName": "Fistful of Frags",
+		"gameRoot": "",
+		"vpkFiles": [
+			"fof/fof2_dir.vpk",
+			"fof/fof_dir.vpk",
+			"sdk/hl2/hl2_misc_dir.vpk",
+			"sdk/hl2/hl2_textures_dir.vpk",
+			"sdk/platform/platform_misc_dir.vpk"
+		],
+		"gameDirs": [
+			"fof",
+			"sdk/hl2",
+			"sdk/platform"
 		]
 	},
 	{
