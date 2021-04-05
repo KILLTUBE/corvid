@@ -25,7 +25,7 @@ def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
 
     # get uv points
     for point in side.points:
-        side.uvs.append(side.getUV(point, matSize[uniqueName(side.material)]))
+        side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
     uvs: list[Vector2] = side.uvs
 
     if len(points) % 2 == 1:
@@ -41,7 +41,7 @@ def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
         "{\n" +
         "mesh\n" +
         "{\n" +
-        "" + uniqueName(side.material) + "\n" +
+        "" + basename(side.material).lower().strip() + "\n" +
         "lightmap_gray\n" +
         "" + str(rows) + " 2 " + str(side.lightmapScale) + " 8\n"
     )
@@ -85,7 +85,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     points = side.points
     # get uv points
     for point in side.points:
-        side.uvs.append(side.getUV(point, matSize[uniqueName(side.material)]))
+        side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
 
     if len(points) != 4:
         print(f"Displacement has {len(points)}. Displacements can have 4 points only. Side id: {side.id}\n")
@@ -130,7 +130,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
         "{\n" +
         "mesh\n" +
         "{\n" +
-        "" + uniqueName(side.material) + "\n" +
+        "" + basename(side.material).lower().strip() + "\n" +
         "lightmap_gray\n"
         "" + str(len(rows[0])) + " " + str(len(rows[0])
                                               ) + " " + str(side.lightmapScale) + " 8\n"
@@ -154,14 +154,14 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
 
     if not alpha:
         return res
-    if uniqueName(side.material) + "_" not in matSize:
+    if basename(side.material).lower().strip() + "_" not in matSize:
         return res
 
     res += (
         "{\n" +
         "mesh\n" +
         "{\n" +
-        "" + uniqueName(side.material) + "_\n" +
+        "" + basename(side.material).lower().strip() + "_\n" +
         "lightmap_gray\n" +
         "" + str(len(rows[0])) + " " + str(len(rows[0])
                                               ) + " " + str(side.lightmapScale) + " 8\n"
@@ -366,7 +366,7 @@ def convertProp(entity, BO3=False, skyOrigin=Vector3(0, 0, 0), scale=1):
             "origin": origin
         }, entity["id"])
 
-    modelName = "m" + uniqueName(splitext(entity["model"].lower())[0])
+    modelName = "m_" + splitext(basename(entity["model"].lower()))[0]
 
     if BO3 and "rendercolor" in entity:
         if entity["rendercolor"] != "255 255 255":

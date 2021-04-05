@@ -17,8 +17,6 @@ import webbrowser
 from datetime import datetime
 from modules.MapExporter import exportMap
 
-
-
 # global settings
 settings = json.loads(open("res/settings.json").read())
 gameDef = json.loads(open("res/gameDef.json").read())
@@ -54,7 +52,7 @@ class App:
         settingsMenu = tk.Menu(menuBar, tearoff=0)
         menuBar.add_cascade(label="Settings", menu=settingsMenu)
 
-        self.currentGame = tk.IntVar(value=settings["currentGame"])
+        self.currentGame = tk.IntVar(value=settings["currentGame"] if settings["currentGame"] != -1 else len(gameDef) - 1)
 
         currentGameMenu = tk.Menu(menuBar, tearoff=0)
         for i in range(len(gameDef)):
@@ -92,7 +90,6 @@ class App:
         self.vmfPath["fg"] = "#333333"
         self.vmfPath["justify"] = "left"
         self.vmfPath.place(x=80,y=10,width=690,height=30)
-
 
         vpkLabel=tk.Label(root)
         vpkLabel["font"] = ft
@@ -353,7 +350,6 @@ class App:
             return None
         open(saveFile.name, "w").write(consoleLog)
 
-
     def convertButton_command(self):
         # save the extra vpk files and directories in case the user needs them later
         vpkFiles = list(self.vpkList.get(0, self.vpkList.size() - 1))
@@ -368,7 +364,6 @@ class App:
 
         for dir in gameDef[self.currentGame.get()]["gameDirs"]:
             gameDirs.append(settings["steamDir"] + "/steamapps/common/" + gameDef[self.currentGame.get()]["gameRoot"] + "/" + dir)
-
 
         vmfPath = self.vmfPath.get()
         # check if the selected file is a valid VMF file

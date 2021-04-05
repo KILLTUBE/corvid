@@ -13,7 +13,6 @@ from pathlib import Path
 from .SourceDir import SourceDir
 from vrProjector.vrProjector.CubemapProjection import CubemapProjection
 from vrProjector.vrProjector import CubemapProjection, EquirectangularProjection
-from json import dumps
 
 tempDir = f"{gettempdir()}/corvid"
 
@@ -23,7 +22,7 @@ def copyMaterials(mats, dir: SourceDir):
     for i in range(total):
         print(f"{i}|{total}|done", end="")
         mat = mats[i]
-        name = uniqueName(mat)
+        name = basename(mat)
         dir.copy(f"materials/{mat}.vmt", f"{tempDir}/mat/{name}.vmt")
         res.append(name)
     return res
@@ -39,29 +38,26 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
         "revealMaps": [],
         "vmts": {} # save vmt data to create GDT's later
     }
-
     if not mdl:
         vmtDir, vtfDir = "mat", "matTex"
     else:
         vmtDir, vtfDir = "mdlMats", "mdlTex"
-
     total = len(mats)
-    for i in range(total):
-        file = mats[i]
+    i = 0
+    for file in mats:
+        print(f"{i}|{total}|done", end=""); i += 1;
         fileName = basename(file)
         vmtPath = f"{tempDir}/{vmtDir}/{fileName}.vmt"
-
         if not exists(vmtPath):
             print(f"Could not find material {fileName}. Creating an empty material for it...")
-            res["vmts"][fileName] = parse_vdf('"lightmappedgeneric"\n{\n"$basetexture" "404"\n}')
-            res["sizes"][fileName] = Vector2(512, 512)
+            res["vmts"][fileName] = 'lightmappedgeneric\n{\n"$basetexture" "404"\n}'
+            res["sizes"][file.strip()] = Vector2(512, 512)
             return res
-        
         vmt = parse_vdf(fixVmt(open(vmtPath).read()))
         res["vmts"][fileName] = vmt
         shader = list(vmt)[0]
         mat = vmt[shader]
-        
+
         # some materials in Source can reference & inherit other materials' properties
         if "include" in mat:
             includeFile = mat["include"]
@@ -87,15 +83,14 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
             pass
 
         if "$basetexture" in mat:
-            baseTexture = mat["$basetexture"].strip().replace(".vtf", "").replace(".tga", "")
-            name = uniqueName(baseTexture)
+            baseTexture = mat["$basetexture"].strip()
+            name = splitext(basename(baseTexture))[0]
             dir.copy(f"materials/{baseTexture}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
         if not mdl: # we don't need to get the dimensions of model textures
             if "$basetexture" in mat:
-                res["sizes"][fileName] = getTexSize(f"{tempDir}/{vtfDir}/{name}.vtf")
+                res["sizes"][file.strip()] = getTexSize(f"{tempDir}/{vtfDir}/{name}.vtf")
             else:
-                res["sizes"][fileName] = Vector2(512, 512)
-        
+                res["sizes"][file.strip()] = Vector2(512, 512)
         if "$basetexture" in mat:
             if "$translucent" in mat or "$alpha" in mat or "$alphatest" in mat:
                 res["colorMapsAlpha"].append(name)
@@ -103,79 +98,66 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
                 res["colorMapsAlpha"].append(name)
             else:
                 res["colorMaps"].append(name)
-        
         if "$bumpmap" in mat:
-            bumpMap = mat["$bumpmap"].strip().replace(".vtf", "").replace(".tga", "")
-            name: str = uniqueName(bumpMap)
-            if dir.copy(f"materials/{bumpMap}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf"):
-                res["normalMaps"].append(name)
-
+            bumpMap = mat["$bumpmap"].strip()
+            name: str = splitext(basename(bumpMap))[0]
+            dir.copy(f"materials/{bumpMap}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
+            res["normalMaps"].append(name)
         if "$envmapmask" in mat:
-            envMap: str = mat["$envmapmask"].strip().replace(".vtf", "").replace(".tga", "")
-            name = uniqueName(envMap)
-            if dir.copy(f"materials/{envMap}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf"):
-                res["envMaps"].append(name)
-
+            envMap: str = mat["$envmapmask"].strip()
+            name = splitext(basename(envMap))[0]
+            dir.copy(f"materials/{envMap}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
+            res["envMaps"].append(name)
         if "$blendmodulatetexture" in mat:
-            revealMap: str = mat["$blendmodulatetexture"].strip().replace(".vtf", "").replace(".tga", "")
-            name = uniqueName(revealMap)
-            if dir.copy(f"materials/{revealMap}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf"):
-                res["revealMaps"].append(name)
-        
-        # blend texture
+            revealMap: str = mat["$blendmodulatetexture"].strip()
+            name = splitext(basename(revealMap))[0]
+            dir.copy(f"materials/{revealMap}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
+            res["revealMaps"].append(name)
         if "$basetexture2" in mat:
-            basetexture2 = mat["$basetexture2"].strip().replace(".vtf", "").replace(".tga", "")
-            name: str = uniqueName(basetexture2)
-            if dir.copy(f"materials/{basetexture2}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf"):
-                res["colorMaps"].append(name)
-            res["sizes"][fileName + "_"] = getTexSize(f"{tempDir}/{vtfDir}/{name}.vtf")
-
+            basetexture2 = mat["$basetexture2"].strip()
+            name: str = splitext(basename(basetexture2))[0]
+            dir.copy(f"materials/{basetexture2}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
+            res["colorMaps"].append(name)
+            res["sizes"][file.strip() + "_"] = getTexSize(f"{tempDir}/{vtfDir}/{name}.vtf")
         if "$bumpmap2" in mat:
             bumpMap2 = mat["$bumpmap2"].strip()
-            name: str = uniqueName(bumpMap2)
-            if dir.copy(f"materials/{bumpMap2}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf"):
-                res["normalMaps"].append(name)
-
+            name: str = splitext(basename(bumpMap2))[0]
+            dir.copy(f"materials/{bumpMap2}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
+            res["normalMaps"].append(name)
         if "$envmapmask2" in mat:
             envMap2: str = mat["$envmapmask2"].strip()
-            name = uniqueName(envMap2)
-            if dir.copy(f"materials/{envMap2}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf"):
-                res["envMaps"].append(name)
-
-        # specular maps of some materials are stored as the alpha channel of the color map or the normal map
-        # we need to export those as separate files
+            name = splitext(basename(envMap2))[0]
+            dir.copy(f"materials/{envMap2}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
+            res["envMaps"].append(name)
         if "$basealphaenvmapmask" in mat:
-            res["envMapsAlpha"].append(uniqueName(baseTexture))
+            res["envMapsAlpha"].append(basename(mat["$basetexture"].strip()))
         if "$basealphaenvmapmask2" in mat:
-            res["envMapsAlpha"].append(uniqueName(basetexture2))
+            res["envMapsAlpha"].append(basename(mat["$basetexture2"].strip()))
         if "$normalmapalphaenvmapmask" in mat and "$bumpmap" in mat:
-            res["envMapsAlpha"].append(uniqueName(bumpMap))
+            res["envMapsAlpha"].append(basename(mat["$bumpmap"].strip()))
         if "$normalmapalphaenvmapmask2" in mat and "$bumpmap2" in mat:
-            res["envMapsAlpha"].append(uniqueName(bumpMap2))
-
+            res["envMapsAlpha"].append(basename(mat["$bumpmap2"].strip()))
     return res
 
 def copyModels(models, dir: SourceDir):
     total = len(models)
-    for i in range(total):
-        print(f"{i}|{total}|done", end="")
-        model  = models[i]
+    i = 0
+    for model in models:
+        print(f"{i}|{total}|done", end=""); i += 1;
         name = splitext(basename(model))[0]
         path = dirname(model)
-        newName = uniqueName(splitext(model)[0])
-        dir.copy(f"{model}", f"{tempDir}/mdl/{newName}.mdl")
-        
+        dir.copy(f"{model}", f"{tempDir}/mdl/{name}.mdl")
         for ext in ["dx90.vtx", "vtx", "vvd"]:
-            dir.copy(f"{path}/{name}.{ext}", f"{tempDir}/mdl/{newName}.{ext}", True)
+            dir.copy(f"{path}/{name}.{ext}", f"{tempDir}/mdl/{name}.{ext}", True)
 
 def copyModelMaterials(models, dir: SourceDir, modelTints, BO3=False):
     materials = []
     res = []
-    jsonFile = {}
-
+    total = len(models)
+    i = 0
     for model in models:
-        mdlName = uniqueName(splitext(model)[0])
-        jsonFile[mdlName] = {}
+        print(f"{i}|{total}|done", end=""); i += 1;
+        mdlName = splitext(basename(model))[0]
         tints = modelTints[mdlName] if mdlName in modelTints else []
         mdl = Mdl(f"{tempDir}/mdl/{mdlName}.mdl")
         mdl.read()
@@ -186,23 +168,16 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, BO3=False):
                 name = f"{path}/{name}".lower()
                 if name not in materials:
                     materials.append((name, mdl.header.surface_prop, tints))
-                    
-                    if dir.copy(f"materials/{name}.vmt", f"{tempDir}/mdlMats/{uniqueName(name)}.vmt", True):
-                        jsonFile[mdlName][basename(material.name)] = uniqueName(name)
 
                 name = Path(material.name).as_posix().lower()
                 if name not in materials:
                     materials.append((name, mdl.header.surface_prop, tints))
 
-                    if dir.copy(f"materials/{name}.vmt", f"{tempDir}/mdlMats/{uniqueName(name)}.vmt", True):
-                        jsonFile[mdlName][basename(material.name)] = uniqueName(name)
-
     total = len(materials)
     i = 0
     for mat, surface_prop, tints in materials:
-        print(f"{i}|{total}|done", end="")
-        i += 1
-        name = uniqueName(mat)
+        print(f"{i}|{total}|done", end=""); i += 1;
+        name = basename(mat)
         if dir.copy(f"materials/{mat}.vmt", f"{tempDir}/mdlMats/{name}.vmt", True):
             # unlike CoD, the surface type of a model isn't defined in the material so we have to copy that value
             # from the model and paste it in the materials it uses
@@ -212,8 +187,7 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, BO3=False):
                 open(f"{tempDir}/mdlMats/{name}.vmt", "w").write(new)
             except:
                 pass
-            else:
-                res.append(name)
+            res.append(mat)
 
             # create new a material for each tint value used for the model
             if BO3 and len(tints) > 0:
@@ -224,12 +198,9 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, BO3=False):
                         file = open(f"{tempDir}/mdlMats/{name}.vmt")
                         new = file.read().replace("{\n", f'{{\n"$colortint" "{tint} 1"\n', 1)
                         open(f"{tempDir}/mdlMats/{name}_{hex}.vmt", "w").write(new)
+                        res.append(f"{mat}_{hex}")
                     except:
                         pass
-                    else:
-                        res.append(f"{name}_{hex}")
-
-    open(f"{tempDir}/mdlMats/mdlMatInfo.json", "w").write(dumps(jsonFile))
 
     return sorted(set(res))
 
@@ -345,7 +316,10 @@ def createMaterialGdt(vmts: dict, BO3=False):
     textureDir = "texture_assets\\\\corvid\\\\"
     ext, _ext = ".tga", "_.tga"
 
+    total = len(vmts.items())
+    i = 0
     for name, vmt in vmts.items():
+        print(f"{i}|{total}|done", end=""); i += 1;
         shader = list(vmt)[0]
         mat = vmt[shader]
         data = {}
@@ -417,12 +391,14 @@ def createMaterialGdt(vmts: dict, BO3=False):
             gdt.add(name.strip() + "_", "material", data2)
 
         gdt.add(name.strip(), "material", data)
-
     return gdt
 
 def createMaterialGdtBo3(vmts: dict):
     gdt = Gdt()
+    total = len(vmts.items())
+    i = 0
     for name, vmt in vmts.items():
+        print(f"{i}|{total}|done", end=""); i += 1;
         shader = list(vmt)[0]
         mat = vmt[shader]
         data = {}
@@ -440,10 +416,7 @@ def createMaterialGdtBo3(vmts: dict):
         if "$bumpmap" in mat and "$ssbump" not in mat:
             data["normalMap"] = "i_" + uniqueName(mat["$bumpmap"].strip())
         if "$envmapmask" in mat:
-            if uniqueName(mat["$basetexture"].strip()) == uniqueName(mat["$envmapmask"].strip()):
-                data["cosinePowerMap"] = "_i_" + uniqueName(mat["$envmapmask"].strip())        
-            else:
-                data["cosinePowerMap"] = "i_" + uniqueName(mat["$envmapmask"].strip())
+            data["cosinePowerMap"] = "i_" + uniqueName(mat["$envmapmask"].strip())
             data["materialCategory"] = "Geometry Plus"
             data["materialType"] = "lit_plus"
         if "$basealphaenvmapmask" in mat and "$envmapmask" not in mat:
@@ -553,7 +526,7 @@ def createMaterialGdtBo3(vmts: dict):
                 else:
                     data2["colorTint"] = Vector3FromStr(mat["$layertint2"])            
 
-            gdt.add(name.strip() + "_", "material", data2)
+            gdt.add(name.strip() + "_", "material", data2, "tinted" if "$colortint" in mat else "")
         
         gdt.add(name.strip(), "material", data)
     
@@ -561,9 +534,12 @@ def createMaterialGdtBo3(vmts: dict):
 
 def createModelGdt(models, BO3=False, modelTints={}):
     gdt = Gdt()
+    total = len(models)
+    i = 0
     for model in models:
-        name = uniqueName(splitext(model)[0])
-        gdt.add("m" + name, "xmodel", {
+        print(f"{i}|{total}|done", end=""); i += 1;
+        name = splitext(basename(model))[0].lower()
+        gdt.add("m_" + name, "xmodel", {
             "collisionLOD" if not BO3 else "BulletCollisionLOD": "High",
             "filename": f"corvid\\\\{name}." + ("xmodel_export" if not BO3 else "xmodel_bin"),
             "type": "rigid",
@@ -572,12 +548,12 @@ def createModelGdt(models, BO3=False, modelTints={}):
         if BO3 and name in modelTints:
             for tint in modelTints[name]:
                 hex = rgbToHex(tint)
-                gdt.add(f"m{name}_{hex}", "xmodel", {
+                gdt.add(f"{name}_{hex}", "xmodel", {
                     "collisionLOD" if not BO3 else "BulletCollisionLOD": "High",
                     "filename": f"corvid\\\\{name}_{hex}." + ("xmodel_export" if not BO3 else "xmodel_bin"),
                     "type": "rigid",
                     "physicsPreset": "default"
-                })
+                }, "tinted")
 
     return gdt
 
@@ -589,7 +565,13 @@ def createImageGdt(images):
     images["envMaps"] = list(dict.fromkeys(images["envMaps"]))
     images["envMapsAlpha"] = list(dict.fromkeys(images["envMapsAlpha"]))
     images["revealMaps"] = list(dict.fromkeys(images["revealMaps"]))
+
+    total = len(images["colorMaps"] + images["colorMapsAlpha"] + images["normalMaps"] + images["envMaps"] + images["envMapsAlpha"] + images["revealMaps"])
+    i = 0
+
     for file in images["colorMaps"]:
+        print(f"{i}|{total}|done", end=""); i += 1;
+        file = uniqueName(file)
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -600,6 +582,8 @@ def createImageGdt(images):
             "streamable": "1"
         })
     for file in images["colorMapsAlpha"]:
+        print(f"{i}|{total}|done", end=""); i += 1;
+        file = uniqueName(file)
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -610,6 +594,8 @@ def createImageGdt(images):
             "streamable": "1"
         })
     for file in images["normalMaps"]:
+        print(f"{i}|{total}|done", end=""); i += 1;
+        file = uniqueName(file)
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -619,13 +605,10 @@ def createImageGdt(images):
             "coreSemantic": "Normal",
             "streamable": "1"
         })
-    # some materials use the same texture for their color and specular maps
     for file in images["envMaps"]:
-        if file in images["colorMaps"] or file in images["colorMapsAlpha"]:
-            entryName = f"_i_{file}"
-        else:
-            entryName = f"i_{file}"
-        gdt.add(entryName, "image", {
+        print(f"{i}|{total}|done", end=""); i += 1;
+        file = uniqueName(file)
+        gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
             "baseImage": f"texture_assets\\\\corvid\\\\{file}.tif",
@@ -635,6 +618,8 @@ def createImageGdt(images):
             "streamable": "1"
         })
     for file in images["envMapsAlpha"]:
+        print(f"{i}|{total}|done", end=""); i += 1;
+        file = uniqueName(file)
         gdt.add(f"i_{file}_", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -645,6 +630,8 @@ def createImageGdt(images):
             "streamable": "1"
         })
     for file in images["revealMaps"]:
+        print(f"{i}|{total}|done", end=""); i += 1;
+        file = uniqueName(file)
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",

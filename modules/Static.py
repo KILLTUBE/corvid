@@ -1,11 +1,8 @@
-from os import replace
 from .Vector3 import Vector3, Vector3FromStr
 from .Side import Side
 from math import pi as PI, isnan
-from os.path import basename, splitext, dirname
-from pathlib import Path
-from base64 import b64encode
-from hashlib import md5
+from os.path import basename, splitext
+import re
 
 def deg2rad(deg: float):
     return deg * (PI / 180)
@@ -40,21 +37,16 @@ def getPlaneIntersectıon(side1: Side, side2: Side, side3: Side) -> Vector3:
             normal1.cross(normal2) * side3.distance()
         ) / determinant
 
-"""
-some texture files have longer names than waw's limit.
-in Source, it is possible for two assets to have the same name since they can be stored in subdirectories
-in order to keep the file names short enough for the engines to handle and avoid duplicate assets, I had to come up with something like this
-"""
-def uniqueName(path: str):
-    path = Path(path.strip()).as_posix().lower().strip()
-    baseName = basename(path)
-    basePath = dirname(path)
-    hashedPath = md5(basePath.encode("utf-8")).hexdigest()
-    finalName = baseName if len(baseName) < 15 else baseName[:7] + baseName[-7:]
-    return f"{hashedPath[:6]}{hashedPath[-7:]}_{finalName}"
+# some texture files have longer names than waw's limit.
+# removing the characters from the middle of the file is a dirty but nice way to solve this issue.
+def uniqueName(name: str):
+    name = splitext(basename(name).strip())[0]
+    return name[:14] + name[-14:] if len(name) > 28 else name
 
+# some vmt files are written so badly, we have to fix them make sure they will be parsed correctly
 def fixVmt(vmt: str):
     result = ""
+    result2 = ""
     lines = vmt.replace("\t", " ").replace("\\", "/").replace(".vtf", "").split("\n")
     for line in lines:
         res2 = ""
