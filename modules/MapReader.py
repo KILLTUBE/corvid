@@ -4,7 +4,6 @@ from .Brush import Brush
 from vmf_tool.parser import parse
 from os.path import basename, splitext
 from .Vector3 import Vector3FromStr
-from .Static import uniqueName
 def readMap(vmf):
     mapData = parse(vmf)
     worldBrushes = []
@@ -62,7 +61,7 @@ def readMap(vmf):
             # need to create duplicates of a model and its materails in order to apply tint
             if "rendercolor" in entity:
                 if entity.rendercolor != "255 255 255":
-                    mdlName = uniqueName(splitext(mdlName)[0])
+                    mdlName = splitext(basename(mdlName))[0]
                     if mdlName not in modelTints:
                         modelTints[mdlName] = []
                     if entity.rendercolor not in modelTints[mdlName]:
