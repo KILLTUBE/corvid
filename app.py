@@ -71,6 +71,7 @@ class App:
         helpMenu.add_command(label="Video tutorial", command=lambda: alert.showwarning(title="Warning", message="Video tutorial is not ready yet."))
         #helpMenu.add_command(label="Check for new versions", command=lambda: print("Checking for new versions..."))
         helpMenu.add_separator()
+        helpMenu.add_command(label="Support me on Patreon", command=lambda: webbrowser.open("https://www.patreon.com/johndoe_"))
         helpMenu.add_command(label="About Corvid", command=self.aboutButton_command)
         menuBar.add_cascade(label="Help", menu=helpMenu)
 
