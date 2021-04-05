@@ -392,15 +392,16 @@ def convertSpawner(entity):
         "info_player_terrorist": "mp_tdm_spawn_axis_start",
         "info_player_counterterrorist": "mp_tdm_spawn_allies_start",
         "info_deathmatch_spawn": "mp_dm_spawn",
+        "info_player_deathmatch": "mp_dm_spawn",
         "info_player_start": "info_player_start",
     }
     if entity["classname"] in spawners:
         classname = spawners[entity["classname"]]
     else:
-        print(f'Unknown spawner entity: {entity["classname"]}')
+        #print(f'Unknown spawner entity: {entity["classname"]}')
         return ""
     origin = Vector3FromStr(entity["origin"])
-    origin.z += 32
+    origin.z += 32 # otherwise they go through the floor
     res = convertEntity({
         "classname": classname,
         "origin": origin,
