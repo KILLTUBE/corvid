@@ -1,5 +1,25 @@
 [
 	{
+		"gameName": "Black Mesa",
+		"gameRoot": "Black Mesa",
+		"vpkFiles": [
+			"bms/bms_materials_dir.vpk",
+			"bms/bms_misc_dir.vpk",
+			"bms/bms_models_dir.vpk",
+			"bms/bms_textures_dir.vpk",
+			"hl2/hl2_materials_dir.vpk",
+			"hl2/hl2_misc_dir.vpk",
+			"hl2/hl2_models_dir.vpk",
+			"hl2/hl2_textures_dir.vpk",
+			"platform/platform_misc_dir.vpk"
+		],
+		"gameDirs": [
+			"bms",
+			"hl2",
+			"platform"
+		]
+	},
+	{
 		"gameName": "Counter-Strike: Source",
 		"gameRoot": "Counter-Strike Source",
 		"vpkFiles": [
@@ -174,6 +194,22 @@
 		]
 	},
 	{
+		"gameName": "seperator"
+	},
+	{
+		"gameName": "Insurgency",
+		"gameRoot": "insurgency2",
+		"vpkFiles": [
+			"insurgency/insurgency_materials_dir.vpk",
+			"insurgency/insurgency_misc_dir.vpk",
+			"insurgency/insurgency_models_dir.vpk",
+			"insurgency/insurgency_particles_dir.vpk"
+		],
+		"gameDirs": [
+			"insurgency"
+		]
+	},
+	{
 		"gameName": "Fistful of Frags",
 		"gameRoot": "",
 		"vpkFiles": [
@@ -188,6 +224,9 @@
 			"sdk/hl2",
 			"sdk/platform"
 		]
+	},
+	{
+		"gameName": "seperator"
 	},
 	{
 		"gameName": "<none>",
