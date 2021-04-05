@@ -411,7 +411,11 @@ def createMaterialGdtBo3(vmts: dict):
             data["colorMap"] = "i_" + uniqueName(mat["$basetexture"].strip())
         else:
             data["colorMap"] = "404.tif"
-        data["usage"] = "tools" # probably not a good idea
+        
+        if shader == "vertexlitgeneric" or shader == "vertexunlitgeneric":
+            data["usage"] = "<not in editor>"
+        else:
+            data["usage"] = "tools" # probably not a good idea
 
         if "$bumpmap" in mat and "$ssbump" not in mat:
             data["normalMap"] = "i_" + uniqueName(mat["$bumpmap"].strip())
