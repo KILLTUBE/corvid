@@ -58,9 +58,10 @@ class App:
 
         currentGameMenu = tk.Menu(menuBar, tearoff=0)
         for i in range(len(gameDef)):
-            if i == len(gameDef) - 1:
+            if gameDef[i]["gameName"] == "seperator":
                 currentGameMenu.add_separator()
-            currentGameMenu.add_radiobutton(label=gameDef[i]["gameName"], variable=self.currentGame, value=i, command=self.setCurrentGame)
+            else:
+                currentGameMenu.add_radiobutton(label=gameDef[i]["gameName"], variable=self.currentGame, value=i, command=self.setCurrentGame)
 
         settingsMenu.add_cascade(label="Select game profile", menu=currentGameMenu)
         settingsMenu.add_separator()
@@ -70,7 +71,7 @@ class App:
         helpMenu.add_command(label="Corvid on Github", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid"))
         helpMenu.add_command(label="Corvid wiki", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid/wiki"))
         helpMenu.add_command(label="Video tutorial", command=lambda: alert.showwarning(title="Warning", message="Video tutorial is not ready yet."))
-        helpMenu.add_command(label="Check for new versions", command=lambda: print("Checking for new versions..."))
+        #helpMenu.add_command(label="Check for new versions", command=lambda: print("Checking for new versions..."))
         helpMenu.add_separator()
         helpMenu.add_command(label="About Corvid", command=self.aboutButton_command)
         menuBar.add_cascade(label="Help", menu=helpMenu)
@@ -405,7 +406,7 @@ class App:
         start = time.time()
         vmfName = os.path.splitext(os.path.basename(vmfPath))[0].lower()
         # read the map file and convert everything
-        outputDir += f"/{vmfName}"
+        outputDir += f"/{vmfName}_converted"
         print(f"Opening VMF file \"{vmfPath}\"...")
         vmfFile = open(vmfPath)
         print("Reading VMF file...")
@@ -416,11 +417,6 @@ class App:
             makedirs(f"{outputDir}/map_source")
         except:
             pass
-        if BO3:
-            try:
-                makedirs(f"{outputDir}/map_source/_prefabs/_{vmfName}")
-            except:
-                pass
         convertedDir = gettempdir() + "/corvid/converted/"
         convertedFiles = listdir(convertedDir)
         print(f"Moving all converted assets to \"{outputDir}\"...")
