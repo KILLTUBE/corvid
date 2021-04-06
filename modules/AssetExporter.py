@@ -552,7 +552,7 @@ def createModelGdt(models, BO3=False, modelTints={}):
         if BO3 and name in modelTints:
             for tint in modelTints[name]:
                 hex = rgbToHex(tint)
-                gdt.add(f"{name}_{hex}", "xmodel", {
+                gdt.add(f"m_{name}_{hex}", "xmodel", {
                     "collisionLOD" if not BO3 else "BulletCollisionLOD": "High",
                     "filename": f"corvid\\\\{name}_{hex}." + ("xmodel_export" if not BO3 else "xmodel_bin"),
                     "type": "rigid",
