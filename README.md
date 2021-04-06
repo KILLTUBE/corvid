@@ -29,7 +29,7 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
 ## Currently not supported
 - Decals / overlays
 
-## Screenshots
+# Screenshots
 <details>
 <summary>Click to toggle</summary>
 
@@ -51,7 +51,14 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
 
 </details>
 
-## Installing & running
+# Installing & running
+## For mappers
+Get the latest release from the [releases](https://github.com/KILLTUBE/corvid/releases) section and learn how to use it from the tutorial below.
+
+[![tutorial](https://img.youtube.com/vi/izALMNZjgkA/0.jpg)](https://www.youtube.com/watch?v=izALMNZjgkA)
+
+## For developers
+
 Clone this repository and its submodules and install the dependencies using the following commands.
 
 ```
