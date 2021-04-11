@@ -323,6 +323,9 @@ def createMaterialGdt(vmts: dict, BO3=False):
         shader = list(vmt)[0]
         mat = vmt[shader]
         data = {}
+
+        assetName = name.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+
         if shader == "lightmappedgeneric" or shader == "worldvertextransition":
             data["materialType"] = "world phong"
         elif shader == "unlitgeneric":
@@ -388,9 +391,9 @@ def createMaterialGdt(vmts: dict, BO3=False):
             if "$alphatest" in mat or "$alpha" in mat:
                 data2["alphaTest"] = "GE128"
 
-            gdt.add(name.strip() + "_", "material", data2)
+            gdt.add(assetName.strip() + "_", "material", data2)
 
-        gdt.add(name.strip(), "material", data)
+        gdt.add(assetName.strip(), "material", data)
     return gdt
 
 def createMaterialGdtBo3(vmts: dict):
@@ -402,6 +405,8 @@ def createMaterialGdtBo3(vmts: dict):
         shader = list(vmt)[0]
         mat = vmt[shader]
         data = {}
+
+        assetName = name.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
 
         # these are default values and should stay the same unless the material requires more than a color map and a normal map
         data["materialCategory"] = "Geometry"
@@ -530,9 +535,9 @@ def createMaterialGdtBo3(vmts: dict):
                 else:
                     data2["colorTint"] = Vector3FromStr(mat["$layertint2"])            
 
-            gdt.add(name.strip() + "_", "material", data2, "tinted" if "$colortint" in mat else "")
+            gdt.add(assetName + "_", "material", data2, "tinted" if "$colortint" in mat else "")
         
-        gdt.add(name.strip(), "material", data)
+        gdt.add(assetName, "material", data)
     
     return gdt
 
@@ -543,7 +548,8 @@ def createModelGdt(models, BO3=False, modelTints={}):
     for model in models:
         print(f"{i}|{total}|done", end=""); i += 1;
         name = splitext(basename(model))[0].lower()
-        gdt.add("m_" + name, "xmodel", {
+        assetName = name.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        gdt.add("m_" + assetName, "xmodel", {
             "collisionLOD" if not BO3 else "BulletCollisionLOD": "High",
             "filename": f"corvid\\\\{name}." + ("xmodel_export" if not BO3 else "xmodel_bin"),
             "type": "rigid",
@@ -552,7 +558,7 @@ def createModelGdt(models, BO3=False, modelTints={}):
         if BO3 and name in modelTints:
             for tint in modelTints[name]:
                 hex = rgbToHex(tint)
-                gdt.add(f"m_{name}_{hex}", "xmodel", {
+                gdt.add(f"m_{assetName}_{hex}", "xmodel", {
                     "collisionLOD" if not BO3 else "BulletCollisionLOD": "High",
                     "filename": f"corvid\\\\{name}_{hex}." + ("xmodel_export" if not BO3 else "xmodel_bin"),
                     "type": "rigid",
@@ -576,7 +582,8 @@ def createImageGdt(images):
     for file in images["colorMaps"]:
         print(f"{i}|{total}|done", end=""); i += 1;
         file = uniqueName(file)
-        gdt.add(f"i_{file}", "image", {
+        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        gdt.add(f"i_{assetName}", "image", {
             "imageType": "Texture",
             "type": "image",
             "baseImage": f"texture_assets\\\\corvid\\\\{file}.tif",
@@ -588,7 +595,8 @@ def createImageGdt(images):
     for file in images["colorMapsAlpha"]:
         print(f"{i}|{total}|done", end=""); i += 1;
         file = uniqueName(file)
-        gdt.add(f"i_{file}", "image", {
+        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        gdt.add(f"i_{assetName}", "image", {
             "imageType": "Texture",
             "type": "image",
             "baseImage": f"texture_assets\\\\corvid\\\\{file}.tif",
@@ -600,7 +608,8 @@ def createImageGdt(images):
     for file in images["normalMaps"]:
         print(f"{i}|{total}|done", end=""); i += 1;
         file = uniqueName(file)
-        gdt.add(f"i_{file}", "image", {
+        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        gdt.add(f"i_{assetName}", "image", {
             "imageType": "Texture",
             "type": "image",
             "baseImage": f"texture_assets\\\\corvid\\\\{file}.tif",
@@ -611,8 +620,13 @@ def createImageGdt(images):
         })
     for file in images["envMaps"]:
         print(f"{i}|{total}|done", end=""); i += 1;
+        
+        # some materials use the same image for both their color maps and env maps. we need to create seperate image asset for them
+        assetName = file + "_" if file in images["colorMaps"] or file in images["colorMapsAlpha"] else file
+
         file = uniqueName(file)
-        gdt.add(f"i_{file}", "image", {
+        assetName = uniqueName(assetName).strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        gdt.add(f"i_{assetName}", "image", {
             "imageType": "Texture",
             "type": "image",
             "baseImage": f"texture_assets\\\\corvid\\\\{file}.tif",
@@ -624,7 +638,8 @@ def createImageGdt(images):
     for file in images["envMapsAlpha"]:
         print(f"{i}|{total}|done", end=""); i += 1;
         file = uniqueName(file)
-        gdt.add(f"i_{file}_", "image", {
+        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        gdt.add(f"i_{assetName}_", "image", {
             "imageType": "Texture",
             "type": "image",
             "baseImage": f"texture_assets\\\\corvid\\\\{file}_.tif",
@@ -636,7 +651,8 @@ def createImageGdt(images):
     for file in images["revealMaps"]:
         print(f"{i}|{total}|done", end=""); i += 1;
         file = uniqueName(file)
-        gdt.add(f"i_{file}", "image", {
+        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        gdt.add(f"i_{assetName}", "image", {
             "imageType": "Texture",
             "type": "image",
             "baseImage": f"texture_assets\\\\corvid\\\\{file}.tif",
@@ -655,19 +671,21 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
     convertDir = f"{tempDir}/converted/texture_assets/corvid/"
     for face in faces:
         name = f"{mapName}_sky_{face}"
-        dir.copy(f"materials/skybox/{skyName}{face}.vmt", f"{tempDir}/mat/{name}.vmt")
-        vmt = fixVmt(open(f"{tempDir}/mat/{name}.vmt").read())
-        vmt = parse_vdf(fixVmt(vmt))
-        shader = list(vmt)[0]
-        mat = vmt[shader]
-        # could be any of these three
-        for param in ["$basetexture", "$hdrcompressedtexture", "$hdrbasetexture"]:
-            if param in mat:
-                texture = param
-                break
-        texture = splitext(basename(mat[texture]))[0]
-        dir.copy(f"materials/skybox/{texture}.vtf", f"{tempDir}/matTex/{name}.vtf")
-        convertImage(f"{tempDir}/matTex/{name}.vtf", f"{convertDir}/{name}.{ext}", format="rgb")
+        if dir.copy(f"materials/skybox/{skyName}{face}.vmt", f"{tempDir}/mat/{name}.vmt"):
+            vmt = fixVmt(open(f"{tempDir}/mat/{name}.vmt").read())
+            vmt = parse_vdf(fixVmt(vmt))
+            shader = list(vmt)[0]
+            mat = vmt[shader]
+            # could be any of these three
+            for param in ["$basetexture", "$hdrcompressedtexture", "$hdrbasetexture"]:
+                if param in mat:
+                    texture = param
+                    break
+            texture = splitext(basename(mat[texture]))[0]
+            dir.copy(f"materials/skybox/{texture}.vtf", f"{tempDir}/matTex/{name}.vtf")
+            convertImage(f"{tempDir}/matTex/{name}.vtf", f"{convertDir}/{name}.{ext}", format="rgb")
+        else:
+            return gdt # return an empty gdt in case the sky materials can't be found
     if BO3:
         # convert cubemap images to an equirectangular image
         for face in faces:

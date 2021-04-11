@@ -36,12 +36,16 @@ def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
 
     if side.material.lower().strip().startswith("liquids"):
         side.material = "clip_water"
+
+    material = basename(side.material).lower().strip()
+    material = material.replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+    
     res += f"// Side {side.id}\n"
     res += (
         "{\n" +
         "mesh\n" +
         "{\n" +
-        "" + basename(side.material).lower().strip() + "\n" +
+        "" + material + "\n" +
         "lightmap_gray\n" +
         "" + str(rows) + " 2 " + str(side.lightmapScale) + " 8\n"
     )
@@ -125,12 +129,15 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
 
     alpha = False
 
+    material = basename(side.material).lower().strip()
+    material = material.replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+
     res += f"// Side {side.id}\n"
     res += (
         "{\n" +
         "mesh\n" +
         "{\n" +
-        "" + basename(side.material).lower().strip() + "\n" +
+        "" + material + "\n" +
         "lightmap_gray\n"
         "" + str(len(rows[0])) + " " + str(len(rows[0])
                                               ) + " " + str(side.lightmapScale) + " 8\n"
@@ -154,14 +161,14 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
 
     if not alpha:
         return res
-    if basename(side.material).lower().strip() + "_" not in matSize:
+    if material + "_" not in matSize:
         return res
 
     res += (
         "{\n" +
         "mesh\n" +
         "{\n" +
-        "" + basename(side.material).lower().strip() + "_\n" +
+        "" + material + "_\n" +
         "lightmap_gray\n" +
         "" + str(len(rows[0])) + " " + str(len(rows[0])
                                               ) + " " + str(side.lightmapScale) + " 8\n"
@@ -367,6 +374,7 @@ def convertProp(entity, BO3=False, skyOrigin=Vector3(0, 0, 0), scale=1):
         }, entity["id"])
 
     modelName = "m_" + splitext(basename(entity["model"].lower()))[0]
+    modelName = modelName.replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
 
     if BO3 and "rendercolor" in entity:
         if entity["rendercolor"] != "255 255 255":
@@ -507,7 +515,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
     print("Generating .map file...")
     mapGeo = ""
     mapEnts = ""
-    worldSpawnSettings = ""
+    worldSpawnSettings = {}
 
     total = (
         len(mapData["worldBrushes"]) + len(mapData["entityBrushes"]) + len(mapData["entities"])
@@ -560,19 +568,19 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
         elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
             mapEnts += convertSpawner(entity)
         elif entity["classname"] == "light_environment":
-            # There are better ways to handle these I think. Gotta come back to this eventually.
             sundirection = Vector3FromStr(entity["angles"])
             sundirection.x = float(entity["pitch"]) * -1
-            worldSpawnSettings = {
-                "sunglight": "1",
-                "sundiffusecolor": "0.75 0.82 0.85",
-                "diffusefraction": ".2",
-                "ambient": ".116",
-                "reflection_ignore_portals": "1",
-                "_color": (Vector3FromStr(entity["_ambient"] if "_ambient" in entity else entity["ambient"]) / 255).round(3),
-                "suncolor": (Vector3FromStr(entity["_light"]) / 255).round(3),
-                "sundirection": sundirection
-            }
+            worldSpawnSettings["sundirection"] = sundirection
+            worldSpawnSettings["sunglight"] = "1",
+            worldSpawnSettings["sundiffusecolor"] = "0.75 0.82 0.85",
+            worldSpawnSettings["diffusefraction"] = ".2",
+            worldSpawnSettings["ambient"] = ".116",
+            worldSpawnSettings["reflection_ignore_portals"] = "1",
+            if "ambient" in entity:
+                worldSpawnSettings["_color"] = (Vector3FromStr(entity["_ambient"] if "_ambient" in entity else entity["ambient"]) / 255).round(3),
+            if "_light" in entity:
+                worldSpawnSettings["suncolor"] = (Vector3FromStr(entity["_light"]) / 255).round(3),
+            
 
     # convert 3d skybox geo & entities
     for brush in mapData["skyBrushes"]:
@@ -612,7 +620,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
             mapEnts += convertRope(entity, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
     
     # convert the skybox textures
-    if not skipMats:
+    if not skipMats and mapData["sky"] != "sky":
         skyData = exportSkybox(mapData["sky"], mapName, worldSpawnSettings, gamePath, BO3)
         gdtFile += skyData
         if not BO3:
