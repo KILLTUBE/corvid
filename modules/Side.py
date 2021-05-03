@@ -98,6 +98,9 @@ class Side:
         return self.p1 == rhs.p1 and self.p2 == rhs.p2 and self.p3 == rhs.p3
 
     def getUV(self, vertex: Vector3, texSize: Vector2 = Vector2(1024, 1024)):
+        if texSize.x == 0 or texSize.y == 0:
+            texSize = Vector2(1024, 1024)
+
         return Vector2(
             vertex.dot(self.uAxis) / (texSize.x * self.uScale) +
             (self.uOffset / texSize.x),
