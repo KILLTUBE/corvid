@@ -38,7 +38,7 @@ def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
         side.material = "clip_water"
 
     material = basename(side.material).lower().strip()
-    material = material.replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+    material = material.replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
     
     res += f"// Side {side.id}\n"
     res += (
@@ -130,7 +130,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     alpha = False
 
     material = basename(side.material).lower().strip()
-    material = material.replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+    material = material.replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
 
     res += f"// Side {side.id}\n"
     res += (
@@ -374,7 +374,7 @@ def convertProp(entity, BO3=False, skyOrigin=Vector3(0, 0, 0), scale=1):
         }, entity["id"])
 
     modelName = "m_" + splitext(basename(entity["model"].lower()))[0]
-    modelName = modelName.replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+    modelName = modelName.replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
 
     if BO3 and "rendercolor" in entity:
         if entity["rendercolor"] != "255 255 255":
