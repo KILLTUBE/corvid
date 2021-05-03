@@ -87,10 +87,13 @@ To run Corvid, launch `app.py`. Choose your Steam director and the game of the m
 - [SourceIO](https://github.com/REDxEYE/SourceIO/)
 - [vrProjector](https://github.com/bhautikj/vrProjector/)
 - [Source MDL](https://github.com/myuce/source-mdl)
+- [VDFUtils](https://github.com/darthryking/vdfutils)
 
 ## Special thanks to
 - [Dylancyclone](https://github.com/Dylancyclone) for [VMF2OBJ](https://github.com/Dylancyclone/VMF2OBJ) tool which helped me understand a lot of things about Source Engine maps and inspired me to work on this tool.
 - [masterex1000](https://github.com/masterex1000) for helping me understand the intricacies of map files, mesh generation and helping with calculating UV maps.
 - Geekidos, HitmanVere, OldmanCats, ThomasCat for testing the maps converted by Corvid and help me figure out the issues we had on Black Ops 3. Without their help, Corvid couldn't have Black Ops 3 support at all.
+
+For special requests and support, you contact me on Discord: -johndoe#4944
 
 Icon file created by [Freepik](https://www.flaticon.com/authors/freepik)
