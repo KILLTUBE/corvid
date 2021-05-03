@@ -67,6 +67,32 @@
 		]
 	},
 	{
+		"gameName": "Half-Life 2: Espiode 1",
+		"gameRoot": "half-life 2",
+		"vpkFiles": [
+			"hl2/hl2_textures_dir.vpk",
+			"hl2/hl2_misc_dir.vpk",
+			"episodic/ep1_pak_dir.vpk"
+		],
+		"gameDirs": [
+			"hl2",
+			"episodic"
+		]
+	},
+	{
+		"gameName": "Half-Life 2: Espiode 2",
+		"gameRoot": "half-life 2",
+		"vpkFiles": [
+			"hl2/hl2_textures_dir.vpk",
+			"hl2/hl2_misc_dir.vpk",
+			"ep2/ep2_pak_dir.vpk"
+		],
+		"gameDirs": [
+			"hl2",
+			"ep2"
+		]
+	},
+	{
 		"gameName": "Half-Life 2: Deathmatch",
 		"gameRoot": "Half-Life 2 Deathmatch",
 		"vpkFiles": [
