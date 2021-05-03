@@ -16,12 +16,16 @@ import json
 import webbrowser
 from datetime import datetime
 from modules.MapExporter import exportMap
+import winreg
+from pathlib import Path
+from modules.vdfutils import parse_vdf
 
 # global settings
 settings = json.loads(open("res/settings.json").read())
 gameDef = json.loads(open("res/gameDef.json").read())
 gameDefCustom = json.loads(open("res/gameDef.json").read())
 version = open("res/version.txt").read().split("\n")[0]
+steamAppsDirs = []
 
 class App:
     def __init__(self, root: tk.Tk):
@@ -68,7 +72,7 @@ class App:
         helpMenu = tk.Menu(menuBar, tearoff=0)
         helpMenu.add_command(label="Corvid on Github", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid"))
         helpMenu.add_command(label="Corvid wiki", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid/wiki"))
-        helpMenu.add_command(label="Video tutorial", command=lambda: alert.showwarning(title="Warning", message="Video tutorial is not ready yet."))
+        helpMenu.add_command(label="Video tutorial", command=lambda: webbrowser.open("https://www.youtube.com/watch?v=izALMNZjgkA"))
         #helpMenu.add_command(label="Check for new versions", command=lambda: print("Checking for new versions..."))
         helpMenu.add_separator()
         helpMenu.add_command(label="Support me on Patreon", command=lambda: webbrowser.open("https://www.patreon.com/johndoe_"))
@@ -291,8 +295,12 @@ class App:
         for gameDir in settings["gameDirs"]:
             self.gameDirList.insert(0, gameDir)
 
-    def setSteamDir(self):
-        dir = filedialog.askdirectory(title="Set your Steam directory")
+    def setSteamDir(self, _dir=""):
+        if _dir == "":
+            dir = filedialog.askdirectory(title="Set your Steam directory")
+        else:
+            dir = _dir
+        
         if dir is not None:
             settings["steamDir"] = dir
             open("res/settings.json", "w").write(json.dumps(settings, indent=4))
@@ -361,10 +369,18 @@ class App:
 
         # add the vpk files and the directories of the current game in the list
         for vpk in gameDef[self.currentGame.get()]["vpkFiles"]:
-            vpkFiles.append(settings["steamDir"] + "/steamapps/common/" + gameDef[self.currentGame.get()]["gameRoot"] + "/" + vpk)
+            for appDir in steamAppsDirs:
+                vpkPath = appDir + "/steamapps/common/" + gameDef[self.currentGame.get()]["gameRoot"] + "/" + vpk
+                if os.path.isfile(vpkPath):
+                    vpkFiles.append(vpkPath)
+                    break
 
         for dir in gameDef[self.currentGame.get()]["gameDirs"]:
-            gameDirs.append(settings["steamDir"] + "/steamapps/common/" + gameDef[self.currentGame.get()]["gameRoot"] + "/" + dir)
+            for appDir in steamAppsDirs:
+                dirPath = appDir + "/steamapps/common/" + gameDef[self.currentGame.get()]["gameRoot"] + "/" + dir
+                if os.path.isdir(dirPath):
+                    gameDirs.append(dirPath)
+                    break
 
         vmfPath = self.vmfPath.get()
         # check if the selected file is a valid VMF file
@@ -482,6 +498,15 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = App(root)
 
+    if settings["steamDir"] == "":
+        try:
+            hkey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\WOW6432Node\Valve\Steam")
+            steamDir = winreg.QueryValueEx(hkey, "InstallPath")[0]
+            steamDir = Path(steamDir).as_posix()
+            app.setSteamDir(steamDir)
+        except:
+            pass
+
     while settings["steamDir"] == "":
         alert.showwarning(
             "Warning",
@@ -489,5 +514,14 @@ if __name__ == "__main__":
                         + "Please set your Steam directory in the next dialogue."
         )
         app.setSteamDir()
+    
+    steamAppsDirs.append(settings["steamDir"])
+
+    try:
+        libraryFolders = parse_vdf(open(f'{settings["steamDir"]}/steamapps/libraryfolders.vdf').read())["LibraryFolders"]
+        for i in range(1, len(libraryFolders) - 1):
+            steamAppsDirs.append(Path(libraryFolders[str(i)]).as_posix());
+    except:
+        pass
 
     root.mainloop()
