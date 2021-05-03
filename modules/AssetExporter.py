@@ -324,7 +324,7 @@ def createMaterialGdt(vmts: dict, BO3=False):
         mat = vmt[shader]
         data = {}
 
-        assetName = name.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        assetName = name.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
 
         if shader == "lightmappedgeneric" or shader == "worldvertextransition":
             data["materialType"] = "world phong"
@@ -406,7 +406,7 @@ def createMaterialGdtBo3(vmts: dict):
         mat = vmt[shader]
         data = {}
 
-        assetName = name.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        assetName = name.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
 
         # these are default values and should stay the same unless the material requires more than a color map and a normal map
         data["materialCategory"] = "Geometry"
@@ -548,7 +548,7 @@ def createModelGdt(models, BO3=False, modelTints={}):
     for model in models:
         print(f"{i}|{total}|done", end=""); i += 1;
         name = splitext(basename(model))[0].lower()
-        assetName = name.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        assetName = name.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
         gdt.add("m_" + assetName, "xmodel", {
             "collisionLOD" if not BO3 else "BulletCollisionLOD": "High",
             "filename": f"corvid\\\\{name}." + ("xmodel_export" if not BO3 else "xmodel_bin"),
@@ -582,7 +582,7 @@ def createImageGdt(images):
     for file in images["colorMaps"]:
         print(f"{i}|{total}|done", end=""); i += 1;
         file = uniqueName(file)
-        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
         gdt.add(f"i_{assetName}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -595,7 +595,7 @@ def createImageGdt(images):
     for file in images["colorMapsAlpha"]:
         print(f"{i}|{total}|done", end=""); i += 1;
         file = uniqueName(file)
-        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
         gdt.add(f"i_{assetName}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -608,7 +608,7 @@ def createImageGdt(images):
     for file in images["normalMaps"]:
         print(f"{i}|{total}|done", end=""); i += 1;
         file = uniqueName(file)
-        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
         gdt.add(f"i_{assetName}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -625,7 +625,7 @@ def createImageGdt(images):
         assetName = file + "_" if file in images["colorMaps"] or file in images["colorMapsAlpha"] else file
 
         file = uniqueName(file)
-        assetName = uniqueName(assetName).strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        assetName = uniqueName(assetName).strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
         gdt.add(f"i_{assetName}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -638,7 +638,7 @@ def createImageGdt(images):
     for file in images["envMapsAlpha"]:
         print(f"{i}|{total}|done", end=""); i += 1;
         file = uniqueName(file)
-        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
         gdt.add(f"i_{assetName}_", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -651,7 +651,7 @@ def createImageGdt(images):
     for file in images["revealMaps"]:
         print(f"{i}|{total}|done", end=""); i += 1;
         file = uniqueName(file)
-        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_").replace()
+        assetName = file.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
         gdt.add(f"i_{assetName}", "image", {
             "imageType": "Texture",
             "type": "image",
