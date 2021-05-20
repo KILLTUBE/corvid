@@ -35,7 +35,13 @@ class Vector2:
         return False
 
     def __str__(self):
-        return f"{self.x} {self.y}"
+        res = self.round(3)
+        return f"{(res.x)} {res.y}"
+
+    def round(self, digits=0):
+        return Vector2(
+            round(self.x, digits), round(self.y, digits)
+        )
 
     def dot(self, rhs):
         return (self.x * rhs.x) + (self.y * rhs.y)

@@ -39,7 +39,8 @@ class Vector3:
         return Vector3(self.x ** p, self.y ** p, self.z ** p)
 
     def __str__(self):
-        return f"{self.x} {self.y} {self.z}"
+        res = self.round(3)
+        return f"{res.x} {res.y} {res.z}"
 
     def abs(self):
         return Vector3(abs(self.x), abs(self.y), abs(self.z))
