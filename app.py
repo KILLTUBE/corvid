@@ -420,7 +420,7 @@ class App:
         # read the map file and convert everything
         outputDir += f"/{vmfName}_converted"
         print(f"Opening VMF file \"{vmfPath}\"...")
-        vmfFile = open(vmfPath)
+        vmfFile = open(vmfPath).read()
         print("Reading VMF file...")
         BO3 = self.BO3.get()
         res = exportMap(vmfFile, vpkFiles, gameDirs, BO3, self.skipMats.get(), self.skipModels.get(), vmfName)
