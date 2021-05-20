@@ -1,6 +1,6 @@
 from .Vector3 import Vector3
 from .Side import Side
-from .Static import getPlaneIntersectıon
+from .Static import getPlaneIntersection
 
 
 class Brush:
@@ -18,7 +18,7 @@ class Brush:
             for j in range(n - 1):
                 for k in range(n):
                     if i != j and i != k and j != k:
-                        intersectionPoint: Vector3 = getPlaneIntersectıon(
+                        intersectionPoint: Vector3 = getPlaneIntersection(
                             self.sides[i], self.sides[j], self.sides[k]
                         )
                         if intersectionPoint is not None and intersectionPoint.isLegal(self.sides):
