@@ -10,24 +10,13 @@ def deg2rad(deg: float):
 def rad2deg(rad: float):
     return rad * (180 / PI)
 
-def getPlaneIntersectıon(side1: Side, side2: Side, side3: Side) -> Vector3:
+def getPlaneIntersection(side1: Side, side2: Side, side3: Side) -> Vector3:
     normal1: Vector3 = side1.normal().normalize()
     normal2: Vector3 = side2.normal().normalize()
     normal3: Vector3 = side3.normal().normalize()
-    determinant = (
-        (
-            normal1.x * normal2.y * normal3.z +
-            normal1.y * normal2.z * normal3.x +
-            normal1.z * normal2.x * normal3.y
-        )
-        -
-        (
-            normal1.z * normal2.y * normal3.x +
-            normal1.y * normal2.x * normal3.z +
-            normal1.x * normal2.z * normal3.y
-        )
-    )
-    # can't intersect parallel planes
+
+    determinant = normal1.dot(normal2.cross(normal3))
+
     if (determinant <= 0.001 and determinant >= -0.001) or (isnan(determinant)):
         return None
     else:
@@ -46,7 +35,6 @@ def uniqueName(name: str):
 # some vmt files are written so badly, we have to fix them make sure they will be parsed correctly
 def fixVmt(vmt: str):
     result = ""
-    result2 = ""
     lines = vmt.replace("\t", " ").replace("\\", "/").replace(".vtf", "").split("\n")
     for line in lines:
         res2 = ""
@@ -66,7 +54,10 @@ def fixVmt(vmt: str):
             continue
         key = tok[0]
         value = " ".join(tok[1:])
-        line = f'"{key}" "{value}"'
+        if value == "{":
+            line = key + "\n{"
+        else:
+            line = f'"{key}" "{value}"'
         result += line + "\n" + res2
     return result;
 
