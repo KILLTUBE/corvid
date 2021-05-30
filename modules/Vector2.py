@@ -37,6 +37,9 @@ class Vector2:
     def __str__(self):
         res = self.round(3)
         return f"{(res.x)} {res.y}"
+    
+    def __repr__(self):
+        return f"<Vector2 \{self.x} {self.y}\>"
 
     def round(self, digits=0):
         return Vector2(

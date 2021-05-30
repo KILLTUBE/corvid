@@ -41,6 +41,9 @@ class Vector3:
     def __str__(self):
         res = self.round(3)
         return f"{res.x} {res.y} {res.z}"
+    
+    def __repr__(self):
+        return f"<Vector3 \{self.x} {self.y} {self.z}\>"
 
     def abs(self):
         return Vector3(abs(self.x), abs(self.y), abs(self.z))
@@ -104,11 +107,17 @@ class Vector3:
     def rotate(self, rot: 'Vector3'):
         return self.rotateX(rot.x).rotateY(rot.y).rotateZ(rot.z)
 
-    def min(self, value):
-        return Vector3(min(self.x, value), min(self.y, value), min(self.z, value))
+    def max(self, rhs: 'Vector3'):
+        if max((self.x, self.y, self.z), (rhs.x, rhs.y, rhs.z)) == (self.x, self.y, self.z):
+            return self
+        else:
+            return rhs
 
-    def max(self, value):
-        return Vector3(max(self.x, value), max(self.y, value), max(self.z, value))
+    def min(self, rhs: 'Vector3'):
+        if min((self.x, self.y, self.z), (rhs.x, rhs.y, rhs.z)) == (self.x, self.y, self.z):
+            return self
+        else:
+            return rhs
 
 def Vector3FromStr(string: str):
     string = string.replace("[","").replace("]","").replace("{","").replace("}","").strip()
