@@ -1,8 +1,13 @@
-from .Vector3 import Vector3, Vector3FromStr
+from mathutils import Vector
 from .Side import Side
 from math import pi as PI, isnan
 from os.path import basename, splitext
 import re
+
+def Vector3FromStr(s: str):
+    s = s.replace("[","").replace("]","").replace("{","").replace("}","").strip()
+    tok = s.split(" ")
+    return Vector((float(tok[0]), float(tok[1]), float(tok[2])))
 
 def deg2rad(deg: float):
     return deg * (PI / 180)
@@ -10,10 +15,10 @@ def deg2rad(deg: float):
 def rad2deg(rad: float):
     return rad * (180 / PI)
 
-def getPlaneIntersection(side1: Side, side2: Side, side3: Side) -> Vector3:
-    normal1: Vector3 = side1.normal().normalize()
-    normal2: Vector3 = side2.normal().normalize()
-    normal3: Vector3 = side3.normal().normalize()
+def getPlaneIntersection(side1: Side, side2: Side, side3: Side) -> Vector:
+    normal1: Vector = side1.normal().normalized()
+    normal2: Vector = side2.normal().normalized()
+    normal3: Vector = side3.normal().normalized()
 
     determinant = normal1.dot(normal2.cross(normal3))
 

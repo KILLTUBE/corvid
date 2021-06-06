@@ -1,11 +1,12 @@
 from .Vector3 import Vector3
 from .Vector2 import Vector2
+from mathutils import Vector
 
 class MapSide:
     def __init__(self,
-        p1: Vector3,
-        p2: Vector3,
-        p3: Vector3,
+        p1: Vector,
+        p2: Vector,
+        p3: Vector,
         texture: str = "caulk",
         hScale: int = 128,
         vScale: int = 128,
@@ -31,9 +32,10 @@ class MapSide:
 
     def __str__(self):
         return (
-            f"( {self.p1} ) ( {self.p2} ) ( {self.p3} )"
-            +f" {self.texture} {self.hShift} {self.vShift} {self.hScale} {self.vScale} {self.rotation}"
-            +f" {self.lmapTexture} {self.lmapHScale} {self.lmapVScale} 0 0 0 0\n"
+            f"( {round(self.p1.x, 3)} {round(self.p1.y, 3)} {round(self.p1.z, 3)} )"
+            +f" ( {round(self.p2.x, 3)} {round(self.p2.y, 3)} {round(self.p2.z, 3)} )"
+            +f" ( {round(self.p3.x, 3)} {round(self.p3.y, 3)} {round(self.p3.z, 3)} )"
+            +f" {self.texture} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
         )
 
 class MapBrush:
@@ -46,8 +48,6 @@ class MapBrush:
         if len(self.sides) == 0:
             return ""
         res = ""
-        if id != 0:
-            res += f"// Brush {self.id}\n"
         res += "{\n"
         if self.contents != "":
             res += f"contents {self.contents};\n"
@@ -57,7 +57,7 @@ class MapBrush:
         return res
 
 class MapVert:
-    def __init__(self, pos: Vector3, uv: Vector2, lmapUv: Vector2, color=""):
+    def __init__(self, pos: Vector, uv: Vector, lmapUv: Vector, color=""):
         self.pos = pos
         self.uv = uv
         self.color = color
@@ -65,9 +65,16 @@ class MapVert:
     
     def __str__(self):
         if self.color == "":
-            return f"v {self.pos} t {self.uv} {self.lmapUv}\n"
+            return (
+                f"v {round(self.pos.x, 3)} {round(self.pos.y, 3)} {round(self.pos.z, 3)}"
+                +f" t {self.uv.x} {self.uv.y} {self.lmapUv.x} {self.lmapUv.y}\n"
+            )
         else:
-            return f"v {self.pos} c {self.color} t {self.uv} {self.lmapUv}\n"
+            return (
+                f"v {round(self.pos.x, 3)} {round(self.pos.y, 3)} {round(self.pos.z, 3)}"
+                +f" c {self.color}"
+                +f" t {self.uv.x} {self.uv.y} {self.lmapUv.x} {self.lmapUv.y}\n"
+            )
 
 class MapMesh:
     def __init__(self, texture: str, lmapTexture: str="lightmap_gray", lmapSize: int=16, rowCount: int=0, columnCount: int=0, id: int=0):
@@ -84,8 +91,6 @@ class MapMesh:
     
     def __str__(self):
         res = ""
-        if self.id != 0:
-            res += f"// Mesh {self.id}\n"
         res += (
             "{\n"
             + "mesh\n"
@@ -115,12 +120,12 @@ class MapEntity:
 
     def __str__(self):
         res = ""
-        if self.__id__ != 0:
-            res += f"// Entity {self.__id__}\n"
         res += "{\n"
         for key, value in vars(self).items():
             if key.startswith("__") and key.endswith("__"):
                 continue
+            if isinstance(value, Vector):
+                value = f"{value.x} {value.y} {value.z}"
             res += f'"{key}" "{value}"\n'
         for geo in self.__geo__:
             res += str(geo)

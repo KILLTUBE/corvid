@@ -1,10 +1,9 @@
 from genericpath import exists
 from PIL import Image
-from modules.Vector3 import Vector3FromStr
-from modules.Vector2 import Vector2
+from mathutils import Vector
 from modules.vdfutils import parse_vdf
 from os.path import basename, splitext, dirname
-from .Static import fixVmt, rgbToHex, uniqueName
+from .Static import fixVmt, rgbToHex, uniqueName, Vector3FromStr
 from .Gdt import Gdt
 from tempfile import gettempdir
 from .AssetConverter import getTexSize, convertImage
@@ -51,7 +50,7 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
         if not exists(vmtPath):
             print(f"Could not find material {fileName}. Creating an empty material for it...")
             res["vmts"][fileName] = 'lightmappedgeneric\n{\n"$basetexture" "404"\n}'
-            res["sizes"][file.strip()] = Vector2(512, 512)
+            res["sizes"][file.strip()] = Vector((512, 512))
             return res
         vmt = parse_vdf(fixVmt(open(vmtPath).read()))
         res["vmts"][fileName] = vmt
@@ -90,7 +89,7 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
             if "$basetexture" in mat:
                 res["sizes"][file.strip()] = getTexSize(f"{tempDir}/{vtfDir}/{name}.vtf")
             else:
-                res["sizes"][file.strip()] = Vector2(512, 512)
+                res["sizes"][file.strip()] = Vector((512, 512))
         if "$basetexture" in mat:
             if "$translucent" in mat or "$alpha" in mat or "$alphatest" in mat:
                 res["colorMapsAlpha"].append(name)
@@ -193,7 +192,8 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, BO3=False):
             if BO3 and len(tints) > 0:
                 for tint in tints:
                     hex = rgbToHex(tint)
-                    tint = (Vector3FromStr(tint) / 255).round(3)
+                    tint = (Vector3FromStr(tint) / 255)
+                    tint = f"{tint.x} {tint.y} {tint.z}"
                     try:
                         file = open(f"{tempDir}/mdlMats/{name}.vmt")
                         new = file.read().replace("{\n", f'{{\n"$colortint" "{tint} 1"\n', 1)
@@ -483,18 +483,22 @@ def createMaterialGdtBo3(vmts: dict):
 
         if "$color" in mat:
             if mat["$color"].startswith("{"):
-                data["colorTint"] = (Vector3FromStr(mat["$color"]) / 255).round(3)
+                _colorTint = (Vector3FromStr(mat["$color"]) / 255)
+                data["colorTint"] = f"{_colorTint.x} {_colorTint.y} {_colorTint.z}"
             else:
-                data["colorTint"] = Vector3FromStr(mat["$color"])
+                _colorTint = Vector3FromStr(mat["$color"])
+                data["colorTint"] = f"{_colorTint.x} {_colorTint.y} {_colorTint.z}"
 
         if "$colortint" in mat:
             data["colorTint"] = mat["$colortint"]
 
         if "$layertint1" in mat:
             if mat["$layertint1"].startswith("{"):
-                data["colorTint"] = (Vector3FromStr(mat["$layertint1"]) / 255).round(3)
+                _colorTint = (Vector3FromStr(mat["$layertint1"]) / 255).round(3)
+                data["colorTint"] = f"{_colorTint.x} {_colorTint.y} {_colorTint.z}"
             else:
-                data["colorTint"] = Vector3FromStr(mat["$layertint1"])
+                _colorTint = Vector3FromStr(mat["$layertint1"])
+                data["colorTint"] = f"{_colorTint.x} {_colorTint.y} {_colorTint.z}"
 
         if "$basetexture2" in mat:
             data2 = {}
@@ -531,9 +535,11 @@ def createMaterialGdtBo3(vmts: dict):
 
             if "$layertint2" in mat:
                 if mat["$layertint2"].startswith("{"):
-                    data2["colorTint"] = (Vector3FromStr(mat["$layertint2"]) / 255).round(3)
+                    _colorTint = (Vector3FromStr(mat["$layertint2"]) / 255)
+                    data2["colorTint"] = f"{_colorTint.x} {_colorTint.y} {_colorTint.z}"
                 else:
-                    data2["colorTint"] = Vector3FromStr(mat["$layertint2"])            
+                    _colorTint = Vector3FromStr(mat["$layertint2"])
+                    data2["colorTint"] = f"{_colorTint.x} {_colorTint.y} {_colorTint.z}"
 
             gdt.add(assetName + "_", "material", data2, "tinted" if "$colortint" in mat else "")
         

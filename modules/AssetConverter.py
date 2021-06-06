@@ -1,13 +1,13 @@
 import os
-from os.path import basename, splitext, exists, dirname
+from os.path import basename, splitext, exists
 os.environ["NO_BPY"] = "1"
 from PIL import Image, ImageOps
 from SourceIO.source1.vtf.VTFWrapper import VTFLib
-from .Vector2 import Vector2
 from tempfile import gettempdir
 from .Static import rgbToHex, uniqueName
 from subprocess import call
 from PyCoD import Model
+from mathutils import Vector
 
 tempDir = gettempdir() + "/corvid"
 
@@ -63,7 +63,7 @@ def convertImages(images, src, dest, ext="tga"):
 def getTexSize(src):
     image = VTFLib.VTFLib()
     image.image_load(src)
-    return Vector2(image.width(), image.height())
+    return Vector((image.width(), image.height()))
 
 def convertModels(models, modelTints, BO3=False):
     codModel = Model()

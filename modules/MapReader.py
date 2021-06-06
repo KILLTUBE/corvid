@@ -3,7 +3,7 @@ from .Side import Side
 from .Brush import Brush
 from vmf_tool.parser import parse
 from os.path import basename, splitext
-from .Vector3 import Vector3FromStr
+from .Static import Vector3FromStr
 def readMap(vmf):
     mapData = parse(vmf)
     worldBrushes = []
