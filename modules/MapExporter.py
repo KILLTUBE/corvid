@@ -1,8 +1,7 @@
 from modules.SourceDir import SourceDir
 from .Side import Side
 from .MapReader import readMap
-from .Vector2 import Vector2
-from .Vector3 import Vector3, Vector3FromStr
+from mathutils import Vector
 from .Gdt import Gdt
 from os.path import basename, splitext
 from os import makedirs
@@ -10,12 +9,12 @@ from tempfile import gettempdir
 from .AssetExporter import *
 from .AssetConverter import convertImages, convertModels
 from shutil import rmtree
-from .Static import deg2rad, rad2deg, rgbToHex
-from .CoDMap import *
+from .Static import rgbToHex, Vector3FromStr
 
 sides = {}
+disps = {}
 
-def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
+def convertSide(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
     # skip invalid sides
     if len(side.points) < 3:
         print(f"Brush face {side.id} has less than 3 vertices. Skipping...")
@@ -27,7 +26,7 @@ def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     # get uv points
     for point in side.points:
         side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
-    uvs: list[Vector2] = side.uvs
+    uvs: list[Vector] = side.uvs
 
     if len(points) % 2 == 1:
         points.append(points[-1])
@@ -40,16 +39,42 @@ def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
 
     material = basename(side.material).lower().strip()
     material = material.replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
-
-    res = MapMesh(texture=material, lmapTexture="lightmap_gray", lmapSize=side.lightmapScale, rowCount=rows, columnCount=2)
+    
+    res += f"// Side {side.id}\n"
+    res += (
+        "{\n" +
+        "mesh\n" +
+        "{\n" +
+        "" + material + "\n" +
+        "lightmap_gray\n" +
+        "" + str(rows) + " 2 " + str(side.lightmapScale) + " 8\n"
+    )
 
     for i in range(rows):
-        res.addVert(i, 0, MapVert(pos=(points[i] - origin) * scale, uv=uvs[i], lmapUv=uvs[i] * side.lightmapScale))
-        res.addVert(i, 1, MapVert(pos=(points[count - i - 1] - origin) * scale, uv=uvs[count - i - 1], lmapUv=uvs[count - i - 1] * side.lightmapScale))
-    
+        p1 = {
+            "pos": (points[i] - origin) * scale,
+            "uv": Vector((uvs[i].x * side.texSize.x, uvs[i].y * side.texSize.y)),
+            "lm": uvs[i] * side.lightmapScale
+        }
+        p2 = {
+            "pos": (points[count - i - 1] - origin) * scale,
+            "uv": Vector((uvs[count - i - 1].x * side.texSize.x, uvs[count - i - 1].y * side.texSize.y)),
+            "lm": uvs[count - i - 1] * side.lightmapScale
+        }
+        res += (
+            "(\n" +
+            f'v {p1["pos"].x} {p1["pos"].y} {p1["pos"].z} t {p1["uv"].x} {p1["uv"].y} {p1["lm"].x} {p1["lm"].y}\n' +
+            f'v {p2["pos"].x} {p2["pos"].y} {p2["pos"].z} t {p2["uv"].x} {p2["uv"].y} {p2["lm"].x} {p2["lm"].y}\n' +
+            ")\n"
+        )
+
+    res += (
+        "}\n" +
+        "}\n"
+    )
     return res
 
-def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, power: int):
+def getDispPoints(p1: Vector, p2: Vector, uv1: Vector, uv2: Vector, power: int):
     res = []
     rowCount = int(2 ** power) + 1
     for i in range(rowCount):
@@ -59,7 +84,7 @@ def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, power: i
         })
     return res
 
-def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
+def convertDisplacement(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
     res = ""
     points = side.points
     # get uv points
@@ -74,7 +99,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     
     sides[side.id] = side
 
-    uvs: list[Vector2] = side.uvs
+    uvs: list[Vector] = side.uvs
     disp: dict = side.dispinfo
     power: int = int(disp["power"])
     numVerts: int = int(2 ** power) + 1
@@ -107,44 +132,72 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     material = basename(side.material).lower().strip()
     material = material.replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
 
-    res = MapMesh(material, "lightmap_gray", side.lightmapScale, len(rows[0]), len(rows[0]))
+    res += f"// Side {side.id}\n"
+    res += (
+        "{\n" +
+        "mesh\n" +
+        "{\n" +
+        "" + material + "\n" +
+        "lightmap_gray\n"
+        "" + str(len(rows[0])) + " " + str(len(rows[0])
+                                              ) + " " + str(side.lightmapScale) + " 8\n"
+    )
 
     for i in range(numVerts):
         row = rows[i]
+        res += "(\n"
         for j in range(numVerts):
             if disp["row"][j]["alphas"][i] != 0 and alpha != True:
                 alpha = True
             col = row[j]
-            pos = (col["pos"] + Vector3(0, 0, disp["elevation"]) +
+            pos = (col["pos"] + Vector((0, 0, float(disp["elevation"]))) +
                    (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
-            uv = (col["uv"] * side.texSize) * 1
+            uv = Vector(((col["uv"].x * side.texSize.x), (col["uv"].y * side.texSize.y)))
             lm = col["uv"] * (side.lightmapScale)
-            res.addVert(i, j, MapVert((pos - origin) * scale, uv, lm))
-    
+            pos = (pos - origin) * scale
+            res += f"v {pos.x} {pos.y} {pos.z} t {uv.x} {uv.y} {lm.x} {lm.y}\n"
+        res += ")\n"
+    res += ("}\n" +
+            "}\n")
+
     if not alpha:
-        return str(res)
+        return res
     if material + "_" not in matSize:
-        return str(res)
-    
-    res2 = MapMesh(material + "_", "lightmap_gray", side.lightmapScale, len(rows[0]), len(rows[0]))
+        return res
+
+    res += (
+        "{\n" +
+        "mesh\n" +
+        "{\n" +
+        "" + material + "_\n" +
+        "lightmap_gray\n" +
+        "" + str(len(rows[0])) + " " + str(len(rows[0])
+                                              ) + " " + str(side.lightmapScale) + " 8\n"
+    )
+
     for i in range(numVerts):
         row = rows[i]
+        res += "(\n"
         for j in range(numVerts):
-            if disp["row"][j]["alphas"][i] != 0 and alpha != True:
-                alpha = True
             col = row[j]
-            pos = (col["pos"] + Vector3(0, 0, disp["elevation"]) +
+            pos = (col["pos"] + Vector((0, 0, float(disp["elevation"]))) +
                    (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
-            uv = (col["uv"] * side.texSize) * 1
+            uv = Vector(((col["uv"].x * side.texSize.x), (col["uv"].y * side.texSize.y)))
             lm = col["uv"] * (side.lightmapScale)
             if disp["row"][j]["alphas"][i] == 0:
-                res2.addVert(i, j, MapVert((pos - origin) * scale, uv, lm, "255 255 255 0"))
+                pos = (pos - origin) * scale
+                res += f"v {pos.x} {pos.y} {pos.z} c 255 255 255 0 t {uv.x} {uv.y} {lm.x} {lm.y}\n"
             else:
-                res2.addVert(i, j, MapVert((pos - origin) * scale, uv, lm, "255 255 255 " + str(disp["row"][j]["alphas"][i])))
-    
-    return str(res) + str(res2)
+                color = "255 255 255 " + str(disp["row"][j]["alphas"][i])
+                pos = (pos - origin) * scale
+                res += f"v {pos.x} {pos.y} {pos.z} c {color} t {uv.x} {uv.y} {lm.x} {lm.y}\n"
+        res += ")\n"
+    res += ("}\n" +
+            "}\n")
 
-def convertBrush(brush, world=True, BO3=False, mapName="", origin=Vector3(0, 0, 0), scale=1):
+    return res
+
+def convertBrush(brush, world=True, BO3=False, mapName="", origin=Vector((0, 0, 0)), scale=1):
     # BO3 doesn't need hint/skip brushes or portals for optimization
     if BO3:
         if brush.entity == "func_areaportal" or brush.entity == "func_areaportalwindow":
@@ -172,9 +225,9 @@ def convertBrush(brush, world=True, BO3=False, mapName="", origin=Vector3(0, 0, 
         "toolsskybox": "sky" if BO3 else f"{mapName}_sky"
     }
 
-    res = MapBrush()
+    res = "{\n"
     if not world:
-        res.contents = "detail"
+        res += "contents detail;\n"
     else:
         pass  # do nothing. structural brushes and portals don't need to be specified like detail brushes
 
@@ -189,8 +242,14 @@ def convertBrush(brush, world=True, BO3=False, mapName="", origin=Vector3(0, 0, 
                 material = tools[mat]
         else:
             material = "caulk"
-        res.sides.append(MapSide((side.p1 - origin) * scale, (side.p2 - origin) * scale, (side.p3 - origin) * scale, material))
 
+        p1 = (side.p1 - origin) * scale
+        p2 = (side.p2 - origin) * scale
+        p3 = (side.p3 - origin) * scale
+
+        res += f"( {p1.x} {p1.y} {p1.z} ) ( {p2.x} {p2.y} {p2.z} ) ( {p3.x} {p3.y} {p3.z} ) {material} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+
+    res += "}\n"
     return res
 
 def convertLight(entity):
@@ -202,11 +261,11 @@ def convertLight(entity):
     else:
         _color = [0, 0, 0, 500]
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
-    color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
+    color = (Vector((float(_color[0]), float(_color[1]), float(_color[2]))) / 255)
 
     res.classname = "light"
     res.origin = entity["origin"]
-    res._color = color
+    res._color = f"{color.x} {color.y} {color.z}"
     res.radius = _color[3]
     res.intensity = 1
 
@@ -220,9 +279,9 @@ def convertSpotLight(entity, BO3=False):
     else:
         _color = [0, 0, 0, 500]
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
-    color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
+    color = (Vector((float(_color[0]), float(_color[1]), float(_color[2]))) / 255)
     _origin = entity["origin"].split(" ")
-    origin = Vector3(_origin[0], _origin[1], _origin[2])
+    origin = Vector((float(_origin[0]), float(_origin[1]), float(_origin[2])))
     if "_fifty_percent_distance" in entity and "_zero_percent_distance" not in entity:
         radius = int(entity["_fifty_percent_distance"])
     elif "_zero_percent_distance" in entity and "_fifty_percent_distance" not in entity:
@@ -236,7 +295,7 @@ def convertSpotLight(entity, BO3=False):
         res = MapEntity(entity["id"])
         res.classname = "light"
         res.origin = entity["origin"]
-        res._color = color
+        res._color = f"{color.x} {color.y} {color.z}"
         res.radius = radius
         res.intensity = "1"
         res.target = "spotlight_" + entity["id"]
@@ -245,42 +304,33 @@ def convertSpotLight(entity, BO3=False):
 
         res2 = MapEntity()
         res2.classname = "info_null"
-        res2.origin = origin + Vector3(0, 0, -float(_color[3]))
+        _origin = origin + Vector((0, 0, -float(_color[3])))
+        res2.origin = f"{_origin.x} {_origin.y} {origin.z}"
         res2.targetname = "spotlight_" + entity["id"]
 
         return str(res) + str(res2)
     else:
         angles = Vector3FromStr(entity["angles"])
         pitch = float(entity["pitch"])
-        rot = Vector3(deg2rad(-90), 0, 0)
-        new = rot.rotate(Vector3(
-            deg2rad(angles.z),
-            deg2rad(-pitch),
-            deg2rad(angles.y)
-        ))
-        newAngles = Vector3(
-            rad2deg(new.y),
-            rad2deg(new.z),
-            rad2deg(new.x)
-        )
+        angles = f"{pitch} {angles.y} {angles.z}"
         res = MapEntity(entity["id"])
         res.classname = "light"
         res.origin = entity["origin"]
-        res._color = color
+        res._color = f"{color.x} {color.y} {color.z}"
         res.PRIMARY_TYPE = "PRIMARY_SPOT"
-        res.angles = newAngles
+        res.angles = angles
         res.radius = radius
         res.fov_outer = entity["_cone"]
         res.fov_inner = entity["_inner_cone"]
 
         return res
 
-def convertRope(entity, skyOrigin=Vector3(0, 0, 0), scale=1):
+def convertRope(entity, skyOrigin=Vector((0, 0, 0)), scale=1):
     if entity["classname"] == "move_rope":
         origin = (Vector3FromStr(entity["origin"]) - skyOrigin) * scale
         res = MapEntity(entity["id"])
         res.classname = "rope"
-        res.origin = origin
+        res.origin = f"{origin.x} {origin.y} {origin.z}"
         res.target = entity["NextKey"] if "NextKey" in entity else entity["id"]
         res.length_scale = float(entity["Slack"]) / 128
         res.width = float(entity["Width"]) * 3
@@ -288,8 +338,8 @@ def convertRope(entity, skyOrigin=Vector3(0, 0, 0), scale=1):
         if "targetname" in entity:
             origin = (Vector3FromStr(entity["origin"]) - skyOrigin) * scale
             res2 = MapEntity()
-            res2.classname = "info_null",
-            res2.origin = origin,
+            res2.classname = "info_null"
+            res2.origin = f"{origin.x} {origin.y} {origin.z}"
             res2.targetname = entity["targetname"] if "targetname" in entity else entity["id"]
 
             return str(res) + str(res2)
@@ -299,13 +349,13 @@ def convertRope(entity, skyOrigin=Vector3(0, 0, 0), scale=1):
         origin = (Vector3FromStr(entity["origin"]) - skyOrigin) * scale
         res = MapEntity(entity["id"])
         res.classname = "info_null"
-        res.origin = origin
+        res.origin = f"{origin.x} {origin.y} {origin.z}"
         res.targetname = entity["targetname"]
 
         if "NextKey" in entity:
             res2 = MapEntity()
             res2.classname = "rope"
-            res2.origin = origin
+            res2.origin = f"{origin.x} {origin.y} {origin.z}"
             res2.target = entity["NextKey"]
             res2.length_scale = float(entity["Slack"]) / 125
             res2.width = entity["width"] if "width" in entity else "1"
@@ -314,14 +364,14 @@ def convertRope(entity, skyOrigin=Vector3(0, 0, 0), scale=1):
         else:
             return str(res)
 
-def convertProp(entity, BO3=False, skyOrigin=Vector3(0, 0, 0), scale=1):
+def convertProp(entity, BO3=False, skyOrigin=Vector((0, 0, 0)), scale=1):
     origin = (Vector3FromStr(entity["origin"]) - skyOrigin) * scale
     modelScale = float(entity["uniformscale"] if "uniformscale" in entity else entity["modelscale"] if "modelscale" in entity else "1") * scale
     if "model" not in entity:
         res = MapEntity(entity["id"])
         res.classname = "info_null"
         res.original_classname = entity["classname"]
-        res.origin = origin
+        res.origin = f"{origin.x} {origin.y} {origin.z}"
         return res
 
     modelName = "m_" + splitext(basename(entity["model"].lower()))[0]
@@ -334,7 +384,7 @@ def convertProp(entity, BO3=False, skyOrigin=Vector3(0, 0, 0), scale=1):
     res = MapEntity(entity["id"])
     res.classname = "dyn_model" if entity["classname"].startswith("prop_physics") else "misc_model"
     res.model = modelName
-    res.origin = origin
+    res.origin = f"{origin.x} {origin.y} {origin.z}"
     res.angles = entity["angles"]
     res.spawnflags = "16" if entity["classname"].startswith("prop_physics") else ""
     res.modelscale = modelScale
@@ -365,7 +415,7 @@ def convertSpawner(entity):
     origin.z += 32 # otherwise they go through the floor
     res = MapEntity(entity["id"])
     res.classname = classname
-    res.origin = origin
+    res.origin = f"{origin.x} {origin.y} {origin.z}"
     res.angles = entity["angles"]
 
     if classname == "info_player_start":
@@ -523,16 +573,18 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
         elif entity["classname"] == "light_environment":
             sundirection = Vector3FromStr(entity["angles"])
             sundirection.x = float(entity["pitch"]) * -1
-            worldSpawnSettings["sundirection"] = sundirection
+            worldSpawnSettings["sundirection"] = f"{sundirection.x} {sundirection.y} {sundirection.z}"
             worldSpawnSettings["sunglight"] = "1",
             worldSpawnSettings["sundiffusecolor"] = "0.75 0.82 0.85",
             worldSpawnSettings["diffusefraction"] = ".2",
             worldSpawnSettings["ambient"] = ".116",
             worldSpawnSettings["reflection_ignore_portals"] = "1",
             if "ambient" in entity:
-                worldSpawnSettings["_color"] = (Vector3FromStr(entity["_ambient"] if "_ambient" in entity else entity["ambient"]) / 255).round(3).__str__(),
+                _ambient = (Vector3FromStr(entity["_ambient"] if "_ambient" in entity else entity["ambient"]) / 255)
+                worldSpawnSettings["_color"] = f"{_ambient.x} {_ambient.y} {_ambient.z}",
             if "_light" in entity:
-                worldSpawnSettings["suncolor"] = (Vector3FromStr(entity["_light"]) / 255).round(3).__str__(),
+                _suncolor = (Vector3FromStr(entity["_light"]) / 255)
+                worldSpawnSettings["suncolor"] = f"{_suncolor.x} {_suncolor.y} {_suncolor.z}",
 
     # convert 3d skybox geo & entities
     for brush in mapData["skyBrushes"]:
@@ -583,7 +635,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
     if not BO3:
         open(f"{copyDir}/converted/bin/_convert_{mapName}_assets.bat", "w").write(gdtFile.toBat())
 
-    res = "iwmap4\n"
+    res = "iwmap 4\n"
 
     if BO3:
         worldSpawn.lightingquality = "1024"
@@ -610,7 +662,9 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
                 + '"The Map" flags expanded \n'
         )
     else:
-        worldSpawn.sundirection = worldSpawnSettings["sundirection"]
+        _sundirection = Vector3FromStr(worldSpawnSettings["sundirection"])
+        _sundirection.y -= 180
+        worldSpawn.sundirection = f"{_sundirection.x} {_sundirection.y} {_sundirection.z}"
         worldSpawn.sunglight = worldSpawnSettings["sunglight"]
         worldSpawn.sundiffusecolor = worldSpawnSettings["sundiffusecolor"]
         worldSpawn.diffusefraction = worldSpawnSettings["diffusefraction"]
