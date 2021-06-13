@@ -1,6 +1,6 @@
+from math import isnan
 from mathutils import Vector
 from .Side import Side
-from .Static import getPlaneIntersection
 
 def isLegal(point, sides):
     for side in sides:
@@ -8,6 +8,22 @@ def isLegal(point, sides):
         if facing.dot(side.normal().normalized()) < -0.001:
             return False
     return True
+
+def getPlaneIntersection(side1: Side, side2: Side, side3: Side) -> Vector:
+    normal1: Vector = side1.normal().normalized()
+    normal2: Vector = side2.normal().normalized()
+    normal3: Vector = side3.normal().normalized()
+
+    determinant = normal1.dot(normal2.cross(normal3))
+
+    if (determinant <= 0.001 and determinant >= -0.001) or (isnan(determinant)):
+        return None
+    else:
+        return (
+            normal2.cross(normal3) * side1.distance() +
+            normal3.cross(normal1) * side2.distance() +
+            normal1.cross(normal2) * side3.distance()
+        ) / determinant
 
 class Brush:
     def __init__(self, sides: list, entity: str = "world", id="0"):

@@ -1,35 +1,13 @@
 from mathutils import Vector
-from .Side import Side
-from math import pi as PI, isnan
 from os.path import basename, splitext
-import re
 
 def Vector3FromStr(s: str):
     s = s.replace("[","").replace("]","").replace("{","").replace("}","").strip()
     tok = s.split(" ")
     return Vector((float(tok[0]), float(tok[1]), float(tok[2])))
 
-def deg2rad(deg: float):
-    return deg * (PI / 180)
-
-def rad2deg(rad: float):
-    return rad * (180 / PI)
-
-def getPlaneIntersection(side1: Side, side2: Side, side3: Side) -> Vector:
-    normal1: Vector = side1.normal().normalized()
-    normal2: Vector = side2.normal().normalized()
-    normal3: Vector = side3.normal().normalized()
-
-    determinant = normal1.dot(normal2.cross(normal3))
-
-    if (determinant <= 0.001 and determinant >= -0.001) or (isnan(determinant)):
-        return None
-    else:
-        return (
-            normal2.cross(normal3) * side1.distance() +
-            normal3.cross(normal1) * side2.distance() +
-            normal1.cross(normal2) * side3.distance()
-        ) / determinant
+def Vector2Str(vec: Vector):
+    return ' '.join([f'{v:.5g}' for v in vec])
 
 # some texture files have longer names than waw's limit.
 # removing the characters from the middle of the file is a dirty but nice way to solve this issue.
