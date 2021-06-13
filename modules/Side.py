@@ -1,8 +1,10 @@
-from mathutils import Vector
-from math import pow, sqrt
+from mathutils import Vector, Matrix
+from numpy.linalg import solve
+from math import pow, sqrt, degrees
 import re
 import functools
-
+from .Static import Vector2Str
+from os.path import basename
 
 def parseTriplets(tri: str):
     res = []
@@ -127,3 +129,65 @@ class Side:
                 "alphas": parseSinglets(data["alphas"]["row" + str(i)])
             })
         return result
+    
+    def texCoords(self):
+        # based on https://github.com/c-d-a/io_export_qmap/blob/master/io_export_qmap.py#L190
+        # first two vertices in 3d space 
+        world01 = self.points[1] - self.points[0]
+        world02 = self.points[2] - self.points[0]
+
+        maxNormal = max(abs(round(crd, 5)) for crd in self.normal())
+
+        # 01 and 02 projected along the closest axis
+        for i in [2, 0, 1]:
+            if round(abs(self.normal()[i]), 5) == maxNormal:
+                axis = i
+                break
+        
+        # 01 and 02 in UV space (scaled to texture size)
+        world01_2d = Vector((world01[:axis] + world01[(axis+1):]))
+        world02_2d = Vector((world02[:axis] + world02[(axis+1):]))
+
+        tex01 = self.uvs[1] - self.uvs[0]
+        tex02 = self.uvs[2] - self.uvs[0]
+        tex01.x *= self.texSize.x
+        tex02.x *= self.texSize.x
+        tex01.y *= self.texSize.y
+        tex02.y *= self.texSize.y
+
+        # Find affine transformation between 2D and UV
+        texCoordsVec = Vector((tex01.x, tex01.y, tex02.x, tex02.y))
+        world2DMatrix = Matrix((
+            (world01_2d.x, world01_2d.y, 0, 0),
+            (0, 0, world01_2d.x, world01_2d.y),
+            (world02_2d.x, world02_2d.y, 0, 0),
+            (0, 0, world02_2d.x, world02_2d.y)
+        ))
+
+        try:
+            mCoeffs = solve(world2DMatrix, texCoordsVec)
+        except:
+            return False
+        
+        # Build the transformation matrix and decompose it
+        tformMtx = Matrix((
+            (mCoeffs[0], mCoeffs[1], 0),
+            (mCoeffs[2], mCoeffs[3], 0),
+            (0, 0, 1)
+        ))
+        t0 = Vector((self.uvs[0].x * self.texSize.x, self.uvs[0].y * self.texSize.y)).to_3d()
+        v0 = Vector((self.points[0][:axis] + self.points[0][(axis+1):])).to_3d()
+
+        offset = t0 - ( tformMtx @ v0 )
+        rotation = degrees(tformMtx.inverted_safe().to_euler().z)
+        scale = tformMtx.inverted_safe().to_scale() # always positive
+
+        # Compare normals between UV and projection to get the scale sign
+        tn = tex01.to_3d().cross(tex02.to_3d())
+        vn = world01_2d.to_3d().cross(world02_2d.to_3d())
+        if tn.dot(vn) < 0: scale.x *= -1
+
+        return (
+            f" {scale.x * self.texSize.x:.5g} {scale.y * self.texSize.y:.5g} {offset.x:.5g} {offset.y:.5g} {rotation:.5g}"
+            + f" 0 lightmap_gray {1024 * self.lightmapScale} {1024 * self.lightmapScale} 0 0 0 0"
+        )
