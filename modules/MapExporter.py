@@ -1,3 +1,4 @@
+from modules.Brush import Brush
 from modules.SourceDir import SourceDir
 from .Side import Side
 from .MapReader import readMap
@@ -9,10 +10,10 @@ from tempfile import gettempdir
 from .AssetExporter import *
 from .AssetConverter import convertImages, convertModels
 from shutil import rmtree
-from .Static import rgbToHex, Vector3FromStr
+from .Static import rgbToHex, Vector3FromStr, Vector2Str
+from .CoDMap import *
 
 sides = {}
-disps = {}
 
 def convertSide(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
     # skip invalid sides
@@ -20,9 +21,11 @@ def convertSide(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
         print(f"Brush face {side.id} has less than 3 vertices. Skipping...")
         return ""
 
+    sides[side.id] = side
+
     res = ""
     points = side.points
-
+    
     # get uv points
     for point in side.points:
         side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
@@ -33,6 +36,8 @@ def convertSide(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
         uvs.append(uvs[-1])
     count = len(points)
     rows = int(count / 2)
+
+    print(side.toBrushFace())
 
     if side.material.lower().strip().startswith("liquids"):
         side.material = "clip_water"
@@ -197,7 +202,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
 
     return res
 
-def convertBrush(brush, world=True, BO3=False, mapName="", origin=Vector((0, 0, 0)), scale=1):
+def convertBrush(brush: Brush, world=True, BO3=False, mapName="", origin=Vector((0, 0, 0)), scale=1):
     # BO3 doesn't need hint/skip brushes or portals for optimization
     if BO3:
         if brush.entity == "func_areaportal" or brush.entity == "func_areaportalwindow":
@@ -225,6 +230,8 @@ def convertBrush(brush, world=True, BO3=False, mapName="", origin=Vector((0, 0, 
         "toolsskybox": "sky" if BO3 else f"{mapName}_sky"
     }
 
+    resPatch = ""
+
     res = "{\n"
     if not world:
         res += "contents detail;\n"
@@ -247,10 +254,10 @@ def convertBrush(brush, world=True, BO3=False, mapName="", origin=Vector((0, 0, 
         p2 = (side.p2 - origin) * scale
         p3 = (side.p3 - origin) * scale
 
-        res += f"( {p1.x} {p1.y} {p1.z} ) ( {p2.x} {p2.y} {p2.z} ) ( {p3.x} {p3.y} {p3.z} ) {material} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+        res += f"( {Vector2Str(p1)} ) ( {Vector2Str(p2)} ) ( {Vector2Str(p3)} ) {material} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
 
     res += "}\n"
-    return res
+    return res + resPatch
 
 def convertLight(entity):
     res = MapEntity(entity["id"])
@@ -662,18 +669,21 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
                 + '"The Map" flags expanded \n'
         )
     else:
-        _sundirection = Vector3FromStr(worldSpawnSettings["sundirection"])
-        _sundirection.y -= 180
-        worldSpawn.sundirection = f"{_sundirection.x} {_sundirection.y} {_sundirection.z}"
-        worldSpawn.sunglight = worldSpawnSettings["sunglight"]
-        worldSpawn.sundiffusecolor = worldSpawnSettings["sundiffusecolor"]
-        worldSpawn.diffusefraction = worldSpawnSettings["diffusefraction"]
-        worldSpawn.ambient = worldSpawnSettings["ambient"]
-        worldSpawn.reflection_ignore_portals = worldSpawnSettings["reflection_ignore_portals"]
-        if "_color" in worldSpawnSettings:
-            worldSpawn._color = worldSpawnSettings["_color"]
-        if "suncolor" in worldSpawnSettings:
-            worldSpawn.suncolor = worldSpawnSettings["suncolor"]
+        try: # just skip if a map doesn't have GI settings
+            _sundirection = Vector3FromStr(worldSpawnSettings["sundirection"])
+            _sundirection.y -= 180
+            worldSpawn.sundirection = f"{_sundirection.x} {_sundirection.y} {_sundirection.z}"
+            worldSpawn.sunglight = worldSpawnSettings["sunglight"]
+            worldSpawn.sundiffusecolor = worldSpawnSettings["sundiffusecolor"]
+            worldSpawn.diffusefraction = worldSpawnSettings["diffusefraction"]
+            worldSpawn.ambient = worldSpawnSettings["ambient"]
+            worldSpawn.reflection_ignore_portals = worldSpawnSettings["reflection_ignore_portals"]
+            if "_color" in worldSpawnSettings:
+                worldSpawn._color = worldSpawnSettings["_color"]
+            if "suncolor" in worldSpawnSettings:
+                worldSpawn.suncolor = worldSpawnSettings["suncolor"]
+        except:
+            pass
 
     res += str(worldSpawn)
 
