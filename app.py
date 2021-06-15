@@ -65,7 +65,13 @@ class App:
             else:
                 currentGameMenu.add_radiobutton(label=gameDef[i]["gameName"], variable=self.currentGame, value=i, command=self.setCurrentGame)
 
+        self.convertBrush = tk.BooleanVar(value=settings["convertBrush"])
+        brushConversionMenu = tk.Menu(menuBar, tearoff=0)
+        brushConversionMenu.add_radiobutton(label="Patch meshes (default)", variable=self.convertBrush, value=False, command=lambda: self.setBrushConversion(False))
+        brushConversionMenu.add_radiobutton(label="Plain brushes (experimental)", variable=self.convertBrush, value=True, command=lambda: self.setBrushConversion(True))
+
         settingsMenu.add_cascade(label="Select game profile", menu=currentGameMenu)
+        settingsMenu.add_cascade(label="Brush conversion method", menu=brushConversionMenu)
         settingsMenu.add_separator()
         settingsMenu.add_command(label="Set Steam directory", command=self.setSteamDir)
 
@@ -314,6 +320,10 @@ class App:
         if gameName == "<none>":
             print("Warning: If you going to convert a map from a game that isn't included in the list, make sure you add all the VPK files and the directories of the game to the lists above.")
 
+    def setBrushConversion(self, val):
+        settings["convertBrush"] = val
+        open("res/settings.json", "w").write(json.dumps(settings, indent=4))
+
     def chooseVmfDialog_command(self):
         file = filedialog.askopenfile(mode="r", filetypes=[("Source Engine map file", "*.vmf")])
         if file is not None:
@@ -423,7 +433,7 @@ class App:
         vmfFile = open(vmfPath).read()
         print("Reading VMF file...")
         BO3 = self.BO3.get()
-        res = exportMap(vmfFile, vpkFiles, gameDirs, BO3, self.skipMats.get(), self.skipModels.get(), vmfName)
+        res = exportMap(vmfFile, vpkFiles, gameDirs, BO3, self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"])
         # prepare the necessary stuff to move and write files
         try:
             makedirs(f"{outputDir}/map_source")
