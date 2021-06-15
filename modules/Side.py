@@ -34,7 +34,7 @@ class Side:
         self.p2: Vector = Vector((float(p[6]), float(p[7]), float(p[8])))
         self.p3: Vector = Vector((float(p[11]), float(p[12]), float(p[13])))
 
-        self.material = data["material"].lower()
+        self.material: str = data["material"].lower().strip()
 
         u = re.split(r"[\[|\]| ]", data["uaxis"])
         v = re.split(r"[\[|\]| ]", data["vaxis"])
@@ -148,6 +148,10 @@ class Side:
         world01_2d = Vector((world01[:axis] + world01[(axis+1):]))
         world02_2d = Vector((world02[:axis] + world02[(axis+1):]))
 
+        # get uv points
+        for point in self.points:
+            self.uvs.append(self.getUV(point, self.texSize))
+
         tex01 = self.uvs[1] - self.uvs[0]
         tex02 = self.uvs[2] - self.uvs[0]
         tex01.x *= self.texSize.x
@@ -188,6 +192,6 @@ class Side:
         if tn.dot(vn) < 0: scale.x *= -1
 
         return (
-            f" {scale.x * self.texSize.x:.5g} {scale.y * self.texSize.y:.5g} {offset.x:.5g} {offset.y:.5g} {rotation:.5g}"
+            f"{scale.x * self.texSize.x:.5g} {scale.y * self.texSize.y * -1:.5g} {offset.x:.5g} {offset.y:.5g} {rotation:.5g}"
             + f" 0 lightmap_gray {1024 * self.lightmapScale} {1024 * self.lightmapScale} 0 0 0 0"
         )
