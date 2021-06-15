@@ -1,6 +1,7 @@
 {
     "steamDir": "",
     "currentGame": -1,
+    "convertBrush": false,
     "vpkFiles": [],
     "gameDirs": []
 }
