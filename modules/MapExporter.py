@@ -28,7 +28,7 @@ def convertSide(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
     
     # get uv points
     for point in side.points:
-        side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
+        side.uvs.append(side.getUV(point, matSize[basename(side.material)]))
     uvs: list[Vector] = side.uvs
 
     if len(points) % 2 == 1:
@@ -36,8 +36,6 @@ def convertSide(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
         uvs.append(uvs[-1])
     count = len(points)
     rows = int(count / 2)
-
-    print(side.toBrushFace())
 
     if side.material.lower().strip().startswith("liquids"):
         side.material = "clip_water"
@@ -68,8 +66,8 @@ def convertSide(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
         }
         res += (
             "(\n" +
-            f'v {p1["pos"].x} {p1["pos"].y} {p1["pos"].z} t {p1["uv"].x} {p1["uv"].y} {p1["lm"].x} {p1["lm"].y}\n' +
-            f'v {p2["pos"].x} {p2["pos"].y} {p2["pos"].z} t {p2["uv"].x} {p2["uv"].y} {p2["lm"].x} {p2["lm"].y}\n' +
+            f'v {Vector2Str(p1["pos"])} t {Vector2Str(p1["uv"])} {Vector2Str(p1["lm"])}\n' +
+            f'v {Vector2Str(p2["pos"])} t {Vector2Str(p2["uv"])} {Vector2Str(p2["lm"])}\n' +
             ")\n"
         )
 
@@ -94,8 +92,8 @@ def convertDisplacement(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
     points = side.points
     # get uv points
     for point in side.points:
-        side.uvs.append(side.getUV(point, matSize[basename(side.material).strip()]))
-
+        side.uvs.append(side.getUV(point, matSize[basename(side.material)]))
+    
     if len(points) != 4:
         print(f"Displacement has {len(points)}. Displacements can have 4 points only. Side id: {side.id}\n")
         for point in points:
@@ -160,7 +158,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
             uv = Vector(((col["uv"].x * side.texSize.x), (col["uv"].y * side.texSize.y)))
             lm = col["uv"] * (side.lightmapScale)
             pos = (pos - origin) * scale
-            res += f"v {pos.x} {pos.y} {pos.z} t {uv.x} {uv.y} {lm.x} {lm.y}\n"
+            res += f"v {Vector2Str(pos)} t {Vector2Str(uv)} {Vector2Str(lm)}\n"
         res += ")\n"
     res += ("}\n" +
             "}\n")
@@ -189,32 +187,16 @@ def convertDisplacement(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
                    (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
             uv = Vector(((col["uv"].x * side.texSize.x), (col["uv"].y * side.texSize.y)))
             lm = col["uv"] * (side.lightmapScale)
-            if disp["row"][j]["alphas"][i] == 0:
-                pos = (pos - origin) * scale
-                res += f"v {pos.x} {pos.y} {pos.z} c 255 255 255 0 t {uv.x} {uv.y} {lm.x} {lm.y}\n"
-            else:
-                color = "255 255 255 " + str(disp["row"][j]["alphas"][i])
-                pos = (pos - origin) * scale
-                res += f"v {pos.x} {pos.y} {pos.z} c {color} t {uv.x} {uv.y} {lm.x} {lm.y}\n"
+            color = "255 255 255 0" if  disp["row"][j]["alphas"][i] == 0 else  "255 255 255 " + str(disp["row"][j]["alphas"][i])
+            pos = (pos - origin) * scale
+            res += f"v {Vector2Str(pos)} c {color} t {Vector2Str(uv)} {Vector2Str(lm)}\n"
         res += ")\n"
     res += ("}\n" +
             "}\n")
 
     return res
 
-def convertBrush(brush: Brush, world=True, BO3=False, mapName="", origin=Vector((0, 0, 0)), scale=1):
-    # BO3 doesn't need hint/skip brushes or portals for optimization
-    if BO3:
-        if brush.entity == "func_areaportal" or brush.entity == "func_areaportalwindow":
-            return ""
-        if brush.sides[0].material == "tools/toolshint" or brush.sides[0].material == "tools/toolsskip":
-            return ""
-
-    classnames = ["func_detail", "func_brush", "func_illusionary", "func_breakable", "func_breakable_surf", "func_door", "func_door_rotating",
-                  "func_ladder", "func_door", "func_movelinear", "func_lod", "func_lookdoor", "func_physbox", "func_physbox_multiplayer",
-                  "func_rotating", "func_tank", "func_tankairboatgun", "func_tankapcrocket", "func_tanklaser", "func_tankmortar",
-                  "func_tankphyscannister", "func_tankpulselaser", "func_tankrocket", "func_tanktrain", "func_trackautochange", "func_trackchange",
-                  "func_tracktrain", "func_traincontrols", "func_wall", "func_wall_toggle", "func_water_analog"]
+def convertBrush(brush: Brush, world=True, BO3=False, mapName="", origin=Vector((0, 0, 0)), scale=1, matSizes={}, brushConversion=False):
     tools = {
         "toolsnodraw": "caulk",
         "toolsclip": "clip",
@@ -230,34 +212,58 @@ def convertBrush(brush: Brush, world=True, BO3=False, mapName="", origin=Vector(
         "toolsskybox": "sky" if BO3 else f"{mapName}_sky"
     }
 
+    resBrush = "{\n"
+    if not world:
+        resBrush += "contents detail;\n"
     resPatch = ""
 
-    res = "{\n"
-    if not world:
-        res += "contents detail;\n"
-    else:
-        pass  # do nothing. structural brushes and portals don't need to be specified like detail brushes
-
-    material = ""
-
-    for side in brush.sides:
-        if side.material.startswith("tools"):
-            mat = basename(side.material)
-            if mat not in tools:
-                return ""
-            else:
-                material = tools[mat]
-        else:
-            material = "caulk"
-
+    for side in brush.sides:        
+        if side.hasDisp:
+            resPatch += convertDisplacement(side, matSizes, origin, scale)
+            continue;
+        
+        if brush.hasDisp and not side.hasDisp:
+            continue
+        
         p1 = (side.p1 - origin) * scale
         p2 = (side.p2 - origin) * scale
         p3 = (side.p3 - origin) * scale
+        resBrush += f"( {Vector2Str(p1) } ) ( {Vector2Str(p2) } ) ( {Vector2Str(p3) } ) "
 
-        res += f"( {Vector2Str(p1)} ) ( {Vector2Str(p2)} ) ( {Vector2Str(p3)} ) {material} 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+        if side.material.startswith("tools"):
+            mat = basename(side.material)
+            if mat in tools:
+                resBrush += tools[mat] + " 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+                continue
+            else:
+                resBrush += "clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+                continue
 
-    res += "}\n"
-    return res + resPatch
+        elif side.material.startswith("liquid"):
+                resBrush += "caulk 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+                continue
+        
+        elif not brushConversion:
+            resBrush += "caulk 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+            resPatch += convertSide(side, matSizes, origin, scale)
+        
+        else:
+            mat = basename(side.material)
+            side.texSize = matSizes[mat]
+            tex = side.texCoords()
+            if tex:
+                resBrush += f"{mat} {tex}\n"
+            else:
+                resBrush += "caulk 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+                resPatch += convertSide(side, matSizes, origin, scale)
+        
+    
+    resBrush += "}\n"
+    
+    if brush.hasDisp:
+        return resPatch
+
+    return resBrush + resPatch
 
 def convertLight(entity):
     res = MapEntity(entity["id"])
@@ -433,7 +439,7 @@ def convertSpawner(entity):
     else:
         return res
 
-def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, skipModels=False, mapName=""):
+def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, skipModels=False, mapName="", brushConversion=False):
     # create temporary directories to extract assets
     copyDir = gettempdir() + "/corvid"
     try:
@@ -537,30 +543,12 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
     for brush in mapData["worldBrushes"]:
         print(f"{i}|{total}|done", end="")
         i += 1
-        if not brush.hasDisp:
-            worldSpawn.addGeo(convertBrush(brush, True, BO3, mapName))
-        for side in brush.sides:
-            if side.material.startswith("tools") or side.material.startswith("liquids"):
-                continue
-            if side.hasDisp:
-                worldSpawn.addGeo(convertDisplacement(side, matSizes))
-            if brush.hasDisp:
-                continue
-            worldSpawn.addGeo(convertSide(side, matSizes))
+        worldSpawn.addGeo(convertBrush(brush, True, BO3, mapName, matSizes=matSizes, brushConversion=brushConversion))
 
     for brush in mapData["entityBrushes"]:
         print(f"{i}|{total}|done", end="")
         i += 1
-        if not brush.hasDisp:
-            worldSpawn.addGeo(convertBrush(brush, False, BO3, mapName))
-        for side in brush.sides:
-            if side.material.startswith("tools") or side.material.startswith("liquids"):
-                continue
-            if side.hasDisp:
-                worldSpawn.addGeo(convertDisplacement(side, matSizes))
-            if brush.hasDisp:
-                continue
-            worldSpawn.addGeo(convertSide(side, matSizes))
+        worldSpawn.addGeo(convertBrush(brush, False, BO3, mapName, matSizes=matSizes, brushConversion=brushConversion))
 
     for entity in mapData["entities"]:
         print(f"{i}|{total}|done", end="")
@@ -597,30 +585,12 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
     for brush in mapData["skyBrushes"]:
         print(f"{i}|{total}|done", end="")
         i += 1
-        if not brush.hasDisp:
-            worldSpawn.addGeo(convertBrush(brush, True, BO3, mapName, mapData["skyBoxOrigin"], mapData["skyBoxScale"]))
-        for side in brush.sides:
-            if side.material.startswith("tools") or side.material.startswith("liquids"):
-                continue
-            if side.hasDisp:
-                worldSpawn.addGeo(convertDisplacement(side, matSizes, mapData["skyBoxOrigin"], mapData["skyBoxScale"]))
-            if brush.hasDisp:
-                continue
-            worldSpawn.addGeo(convertSide(side, matSizes, mapData["skyBoxOrigin"], mapData["skyBoxScale"]))
+        worldSpawn.addGeo(convertBrush(brush, True, BO3, mapName, mapData["skyBoxOrigin"], mapData["skyBoxScale"], matSizes, brushConversion=brushConversion))
 
     for brush in mapData["skyEntityBrushes"]:
         print(f"{i}|{total}|done", end="")
         i += 1
-        if not brush.hasDisp:
-            worldSpawn.addGeo(convertBrush(brush, False, BO3, mapName, mapData["skyBoxOrigin"], mapData["skyBoxScale"]))
-        for side in brush.sides:
-            if side.material.startswith("tools") or side.material.startswith("liquids"):
-                continue
-            if side.hasDisp:
-                worldSpawn.addGeo(convertDisplacement(side, matSizes, mapData["skyBoxOrigin"], mapData["skyBoxScale"]))
-            if brush.hasDisp:
-                continue
-            worldSpawn.addGeo(convertSide(side, matSizes, mapData["skyBoxOrigin"], mapData["skyBoxScale"]))
+        worldSpawn.addGeo(convertBrush(brush, False, BO3, mapName, mapData["skyBoxOrigin"], mapData["skyBoxScale"], matSizes, brushConversion=brushConversion))
 
     for entity in mapData["skyEntities"]:
         print(f"{i}|{total}|done", end="")
