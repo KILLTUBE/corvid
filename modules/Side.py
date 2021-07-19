@@ -77,11 +77,6 @@ class Side:
         return center / len(self.points)
 
     def sortVertices(self):
-        # remove duplicate verts
-        temp = {}
-        for point in self.points:
-            temp[f"{round(point.x)} {round(point.y)} {round(point.z)}"] = point
-        self.points = list(temp.values())
         center: Vector = self.pointCenter()
         normal: Vector = self.normal()
 
@@ -129,6 +124,12 @@ class Side:
                 "alphas": parseSinglets(data["alphas"]["row" + str(i)])
             })
         return result
+    
+    def hasPoint(self, point: Vector):
+        for p in self.points:
+            if p == point:
+                return True
+        return False
     
     def texCoords(self):
         # based on https://github.com/c-d-a/io_export_qmap/blob/master/io_export_qmap.py#L190
