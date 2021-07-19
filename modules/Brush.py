@@ -44,9 +44,12 @@ class Brush:
                             self.sides[i], self.sides[j], self.sides[k]
                         )
                         if intersectionPoint is not None and isLegal(intersectionPoint, self.sides):
-                            self.sides[i].points.append(intersectionPoint)
-                            self.sides[j].points.append(intersectionPoint)
-                            self.sides[k].points.append(intersectionPoint)
+                            if not self.sides[i].hasPoint(intersectionPoint):
+                                self.sides[i].points.append(intersectionPoint)
+                            if not self.sides[j].hasPoint(intersectionPoint):
+                                self.sides[j].points.append(intersectionPoint)
+                            if not self.sides[k].hasPoint(intersectionPoint):
+                                self.sides[k].points.append(intersectionPoint)
 
         for i in range(n):
             if len(self.sides[i].points) != 0:
