@@ -1,6 +1,5 @@
-from .Vector3 import Vector3
-from .Vector2 import Vector2
 from mathutils import Vector
+from .Static import Vector2Str
 
 class MapSide:
     def __init__(self,
@@ -125,7 +124,7 @@ class MapEntity:
             if key.startswith("__") and key.endswith("__"):
                 continue
             if isinstance(value, Vector):
-                value = f"{value.x} {value.y} {value.z}"
+                value = f"{Vector2Str(value)}"
             res += f'"{key}" "{value}"\n'
         for geo in self.__geo__:
             res += str(geo)
