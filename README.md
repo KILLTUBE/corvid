@@ -25,6 +25,7 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
 - 2d skyboxes in Black ops 3 (currently buggy)
 - Spot lights
 - Infected shaders
+- Proper brush conversion for plain brushes
 
 ## Currently not supported
 - Decals / overlays
@@ -94,6 +95,6 @@ To run Corvid, launch `app.py`. Choose your Steam director and the game of the m
 - [masterex1000](https://github.com/masterex1000) for helping me understand the intricacies of map files, mesh generation and helping with calculating UV maps.
 - Geekidos, HitmanVere, OldmanCats, ThomasCat for testing the maps converted by Corvid and help me figure out the issues we had on Black Ops 3. Without their help, Corvid couldn't have Black Ops 3 support at all.
 
-For special requests and support, you contact me on Discord: -johndoe#4944
+For special requests and support, contact me on Discord: -johndoe#4944
 
 Icon file created by [Freepik](https://www.flaticon.com/authors/freepik)
