@@ -158,19 +158,22 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, BO3=False):
         print(f"{i}|{total}|done", end=""); i += 1;
         mdlName = splitext(basename(model))[0]
         tints = modelTints[mdlName] if mdlName in modelTints else []
-        mdl = Mdl(f"{tempDir}/mdl/{mdlName}.mdl")
-        mdl.read()
-        for material in mdl.materials:
-            for path in mdl.materials_paths:
-                path = Path(path).as_posix()
-                name = basename(material.name)
-                name = f"{path}/{name}".lower()
-                if name not in materials:
-                    materials.append((name, mdl.header.surface_prop, tints))
+        try:
+            mdl = Mdl(f"{tempDir}/mdl/{mdlName}.mdl")
+            mdl.read()
+            for material in mdl.materials:
+                for path in mdl.materials_paths:
+                    path = Path(path).as_posix()
+                    name = basename(material.name)
+                    name = f"{path}/{name}".lower()
+                    if name not in materials:
+                        materials.append((name, mdl.header.surface_prop, tints))
 
-                name = Path(material.name).as_posix().lower()
-                if name not in materials:
-                    materials.append((name, mdl.header.surface_prop, tints))
+                    name = Path(material.name).as_posix().lower()
+                    if name not in materials:
+                        materials.append((name, mdl.header.surface_prop, tints))
+        except:
+            pass
 
     total = len(materials)
     i = 0
