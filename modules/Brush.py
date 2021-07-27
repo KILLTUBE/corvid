@@ -5,7 +5,7 @@ from .Side import Side
 def isLegal(point, sides):
     for side in sides:
         facing = (point - side.center()).normalized()
-        if facing.dot(side.normal().normalized()) < -0.001:
+        if facing.dot(side.normal().normalized()) < -1e-5:
             return False
     return True
 
@@ -16,7 +16,7 @@ def getPlaneIntersection(side1: Side, side2: Side, side3: Side) -> Vector:
 
     determinant = normal1.dot(normal2.cross(normal3))
 
-    if (determinant <= 0.001 and determinant >= -0.001) or (isnan(determinant)):
+    if (determinant <= 1e-5 and determinant >= -1e-5) or (isnan(determinant)):
         return None
     else:
         return (
