@@ -567,7 +567,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
             mapEnts.append(convertSpawner(entity))
         elif entity["classname"] == "light_environment":
             sundirection = Vector3FromStr(entity["angles"])
-            sundirection.x = float(entity["pitch"]) * -1
+            sundirection.x = float(entity["pitch"])
             worldSpawnSettings["sundirection"] = f"{sundirection.x} {sundirection.y} {sundirection.z}"
             worldSpawnSettings["sunglight"] = "1",
             worldSpawnSettings["sundiffusecolor"] = "0.75 0.82 0.85",
@@ -642,7 +642,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
         try: # just skip if a map doesn't have GI settings
             _sundirection = Vector3FromStr(worldSpawnSettings["sundirection"])
             _sundirection.y -= 180
-            worldSpawn.sundirection = f"{_sundirection.x} {_sundirection.y} {_sundirection.z}"
+            worldSpawn.sundirection = f"{Vector2Str(_sundirection)}"
             worldSpawn.sunglight = worldSpawnSettings["sunglight"]
             worldSpawn.sundiffusecolor = worldSpawnSettings["sundiffusecolor"]
             worldSpawn.diffusefraction = worldSpawnSettings["diffusefraction"]

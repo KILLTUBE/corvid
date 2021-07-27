@@ -709,6 +709,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         output.initImage(4096, 2048)
         output.reprojectToThis(source)
         output.saveImage(f"{convertDir}/i_{mapName}_sky.tif")
+        sunDirection = Vector3FromStr(worldSpawnSettings["sundirection"])
         # create GDTs for the skybox assets
         gdt.add(f"i_{mapName}_sky", "image", {
             "imageType": "Texture",
@@ -743,7 +744,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         })
         gdt.add(f"{mapName}_ssi", "ssi", {
             "bounceCount": "4",
-            "colorSRGB": f"{worldSpawnSettings['suncolor']} 1",
+            "colorSRGB": f"{Vector3FromStr(worldSpawnSettings['suncolor']) / 255} 1",
             "dynamicShadow": "1",
             "enablesun": "1",
             "ev": "15",
@@ -754,7 +755,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "lensFlarePitchOffset": "0",
             "lensFlareYawOffset": "0",
             "penumbra_inches": "1.5",
-            "pitch": worldSpawnSettings['sundirection'].x,
+            "pitch": sunDirection.x,
             "skyboxmodel": f"{mapName}_skybox",
             "spec_comp": "0",
             "stops": "14",
@@ -769,7 +770,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "sunCookieScrollY": "0",
             "sunVolumetricCookie": "0",
             "type": "ssi",
-            "yaw": worldSpawnSettings['sundirection'].y
+            "yaw": sunDirection.y
         })
     else:
         gdt.add(f"{mapName}_sky", "material", {
