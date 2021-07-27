@@ -77,6 +77,12 @@ class Side:
         return center / len(self.points)
 
     def sortVertices(self):
+        # remove duplicate verts. looks like checking the point list manually doesn't always give perfect results.
+        temp = {}
+        for point in self.points:
+            temp[f"{round(point.x)} {round(point.y)} {round(point.z)}"] = point
+        self.points = list(temp.values()) 
+
         center: Vector = self.pointCenter()
         normal: Vector = self.normal()
 
