@@ -395,7 +395,7 @@ class App:
         vmfPath = self.vmfPath.get()
         # check if the selected file is a valid VMF file
         if len(vmfPath) == "0":
-            ("Please select a VMF file!")
+            alert.showerror("Please select a VMF file!")
             return False
         if not os.path.isfile(vmfPath):
             alert.showerror(title="Error", message="Please select a valid file!")
@@ -452,6 +452,8 @@ class App:
         open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res)
         end = time.time()
         print(f"Conversion finished in {round(end - start)} seconds")
+
+        open(f"{outputDir}/log.txt", "w").write(self.consoleTextBox.get(1.0, tkinter.constants.END))
 
     def convertButton_thread(self):
         t1 = Thread(target=self.convertButton_command)
