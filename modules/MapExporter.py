@@ -15,7 +15,7 @@ from .CoDMap import *
 
 sides = {}
 
-def convertSide(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
+def convertSide(side: Side, matSize: dict, origin=Vector((0, 0, 0)), scale=1):
     # skip invalid sides
     if len(side.points) < 3:
         print(f"Brush face {side.id} has less than 3 vertices. Skipping...")
@@ -28,7 +28,7 @@ def convertSide(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
     
     # get uv points
     for point in side.points:
-        side.uvs.append(side.getUV(point, matSize[basename(side.material)]))
+        side.uvs.append(side.getUV(point, matSize.get(basename(side.material), Vector((512, 512)))))
     uvs: list[Vector] = side.uvs
 
     if len(points) % 2 == 1:
@@ -87,17 +87,17 @@ def getDispPoints(p1: Vector, p2: Vector, uv1: Vector, uv2: Vector, power: int):
         })
     return res
 
-def convertDisplacement(side: Side, matSize, origin=Vector((0, 0, 0)), scale=1):
+def convertDisplacement(side: Side, matSize: dict, origin=Vector((0, 0, 0)), scale=1):
     res = ""
     points = side.points
     # get uv points
     for point in side.points:
-        side.uvs.append(side.getUV(point, matSize[basename(side.material)]))
+        side.uvs.append(side.getUV(point, matSize.get(basename(side.material), Vector((512, 512)))))
     
     if len(points) != 4:
-        print(f"Displacement has {len(points)}. Displacements can have 4 points only. Side id: {side.id}\n")
+        print(f"Displacement has {len(points)} points. Displacements can have 4 points only. Side id: {side.id}")
         for point in points:
-            print(point)
+            print(Vector2Str(point))
         return ""
     
     sides[side.id] = side
@@ -249,7 +249,7 @@ def convertBrush(brush: Brush, world=True, BO3=False, mapName="", origin=Vector(
         
         else:
             mat = basename(side.material)
-            side.texSize = matSizes[mat]
+            side.texSize = matSizes.get(basename(mat), Vector((512, 512)))
             tex = side.texCoords()
             if tex:
                 resBrush += f"{mat} {tex}\n"
@@ -296,11 +296,11 @@ def convertSpotLight(entity, BO3=False):
     _origin = entity["origin"].split(" ")
     origin = Vector((float(_origin[0]), float(_origin[1]), float(_origin[2])))
     if "_fifty_percent_distance" in entity and "_zero_percent_distance" not in entity:
-        radius = int(entity["_fifty_percent_distance"])
+        radius = float(entity["_fifty_percent_distance"])
     elif "_zero_percent_distance" in entity and "_fifty_percent_distance" not in entity:
-        radius = int(entity["_zero_percent_distance"])
+        radius = float(entity["_zero_percent_distance"])
     elif "_fifty_percent_distance" in entity and "_zero_percent_distance" in entity:
-        radius = (int(entity["_fifty_percent_distance"]) * 2 + int(entity["_zero_percent_distance"])) / 2
+        radius = (float(entity["_fifty_percent_distance"]) * 2 + float(entity["_zero_percent_distance"])) / 2
     else:
         radius = 250
     
