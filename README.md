@@ -95,6 +95,6 @@ To run Corvid, launch `app.py`. Choose your Steam director and the game of the m
 - [masterex1000](https://github.com/masterex1000) for helping me understand the intricacies of map files, mesh generation and helping with calculating UV maps.
 - Geekidos, HitmanVere, OldmanCats, ThomasCat for testing the maps converted by Corvid and help me figure out the issues we had on Black Ops 3. Without their help, Corvid couldn't have Black Ops 3 support at all.
 
-For special requests and support, contact me on Discord: -johndoe#4944
+For further information and support, join the KILLTUBE [Discord server](https://discordapp.com/invite/mqBchQZ)
 
 Icon file created by [Freepik](https://www.flaticon.com/authors/freepik)
