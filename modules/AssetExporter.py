@@ -692,7 +692,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
                     break
             texture = splitext(basename(mat[texture]))[0]
             dir.copy(f"materials/skybox/{texture}.vtf", f"{tempDir}/matTex/{name}.vtf")
-            convertImage(f"{tempDir}/matTex/{name}.vtf", f"{convertDir}/{name}.{ext}", format="rgb")
+            convertImage(f"{tempDir}/matTex/{name}.vtf", f"{convertDir}/{name}.{ext}", format="rgb", resize=True)
         else:
             return gdt # return an empty gdt in case the sky materials can't be found
     if BO3:

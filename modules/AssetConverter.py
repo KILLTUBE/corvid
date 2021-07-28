@@ -11,7 +11,7 @@ from mathutils import Vector
 
 tempDir = gettempdir() + "/corvid"
 
-def convertImage(src, dest, format="rgba", invert=False):
+def convertImage(src, dest, format="rgba", invert=False, resize=False):
     if not exists(src):
         print(f"{src} could not be found")
         return False
@@ -21,6 +21,8 @@ def convertImage(src, dest, format="rgba", invert=False):
     width = image.width()
     height = image.height()
     rgba = Image.frombuffer("RGBA", (width, height), image.convert_to_rgba8888().contents)
+    if resize:
+        rgba.resize((512, 512))
     if invert:
         rgba = ImageOps.invert(rgba.convert("RGB"))
     if format == "RGBA":
