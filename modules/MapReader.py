@@ -3,7 +3,8 @@ from .Side import Side
 from .Brush import Brush
 from vmf_tool.parser import parse
 from os.path import basename, splitext
-from .Static import Vector3FromStr
+from .Vector3 import Vector3
+
 def readMap(vmf):
     mapData = parse(vmf)
     worldBrushes = []
@@ -16,7 +17,7 @@ def readMap(vmf):
 
     skyBoxId = -1
     skyBoxScale = 16
-    skyBoxOrigin = Vector3FromStr("0 0 0")
+    skyBoxOrigin = Vector3.FromStr("0 0 0")
 
     materials = []
     models = []
@@ -99,7 +100,7 @@ def readMap(vmf):
                 else:
                     entityBrushes.append(Brush(sides, entity.classname, solid.id))
         elif entity.classname == "sky_camera":
-            skyBoxOrigin = Vector3FromStr(entity.origin)
+            skyBoxOrigin = Vector3.FromStr(entity.origin)
             skyBoxScale = float(entity.scale)
         else:
             if "editor" in entity:
