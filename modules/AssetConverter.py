@@ -1,13 +1,14 @@
 import os
-from os.path import basename, splitext, exists
+from os.path import basename, splitext, exists, dirname
 os.environ["NO_BPY"] = "1"
 from PIL import Image, ImageOps
 from SourceIO.source1.vtf.VTFWrapper import VTFLib
+from .Vector2 import Vector2
+from .Vector3 import Vector3
 from tempfile import gettempdir
-from .Static import rgbToHex, uniqueName
-from subprocess import call
+from .Static import uniqueName
 from PyCoD import Model
-from mathutils import Vector
+from .ModelConverter import convertModel
 
 tempDir = gettempdir() + "/corvid"
 
@@ -65,7 +66,7 @@ def convertImages(images, src, dest, ext="tga"):
 def getTexSize(src):
     image = VTFLib.VTFLib()
     image.image_load(src)
-    return Vector((image.width(), image.height()))
+    return Vector2(image.width(), image.height())
 
 def convertModels(models, modelTints, BO3=False):
     codModel = Model()
@@ -74,12 +75,12 @@ def convertModels(models, modelTints, BO3=False):
     total = len(models)
     i = 0
     for model in models:
-        print(f"{i}|{total}|done", end=""); i += 1;
+        print(f"{i}|{total}|done", end=""); i += 1
         model = splitext(basename(model))[0]
         if BO3 and model in modelTints:
             for tint in modelTints[model]:
-                hex = rgbToHex(tint)
-                call(["bin/mdl2xmodel.exe", f"{mdlDir}/{model}", convertDir, "_" + hex])
+                hex = Vector3.FromStr(tint).toHex()
+                convertModel(f"{mdlDir}/{model}", convertDir, hex)
                 try:
                     codModel.LoadFile_Raw(f"{convertDir}/{model}_{hex}.xmodel_export")
                     codModel.WriteFile_Bin(f"{convertDir}/{model}_{hex}.xmodel_bin")
@@ -87,7 +88,7 @@ def convertModels(models, modelTints, BO3=False):
                     print(f"Could not convert {model}_{hex} to xmodel_bin...")
                 else:
                     os.remove(f"{convertDir}/{model}_{hex}.xmodel_export")
-        call(["bin/mdl2xmodel.exe", f"{mdlDir}/{model}", convertDir])
+        convertModel(f"{mdlDir}/{model}", convertDir)
         if BO3:
             try:
                 codModel.LoadFile_Raw(f"{convertDir}/{model}.xmodel_export")
