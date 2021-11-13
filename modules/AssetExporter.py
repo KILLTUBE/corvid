@@ -1,9 +1,10 @@
 from genericpath import exists
 from PIL import Image
-from mathutils import Vector
+from modules.Vector3 import Vector3
+from modules.Vector2 import Vector2
 from modules.vdfutils import parse_vdf
 from os.path import basename, splitext, dirname
-from .Static import fixVmt, rgbToHex, uniqueName, Vector3FromStr
+from .Static import fixVmt, uniqueName
 from .Gdt import Gdt
 from tempfile import gettempdir
 from .AssetConverter import getTexSize, convertImage
@@ -50,7 +51,7 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
         if not exists(vmtPath):
             print(f"Could not find material {fileName}. Creating an empty material for it...")
             res["vmts"][fileName] = 'lightmappedgeneric\n{\n"$basetexture" "404"\n}'
-            res["sizes"][file.strip()] = Vector((512, 512))
+            res["sizes"][file.strip()] = Vector2(512, 512)
             return res
         vmt = parse_vdf(fixVmt(open(vmtPath).read()))
         res["vmts"][fileName] = vmt
@@ -89,7 +90,7 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
             if "$basetexture" in mat:
                 res["sizes"][file.strip()] = getTexSize(f"{tempDir}/{vtfDir}/{name}.vtf")
             else:
-                res["sizes"][file.strip()] = Vector((512, 512))
+                res["sizes"][file.strip()] = Vector2(512, 512)
         if "$basetexture" in mat:
             if "$translucent" in mat or "$alpha" in mat or "$alphatest" in mat:
                 res["colorMapsAlpha"].append(name)
@@ -158,22 +159,19 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, BO3=False):
         print(f"{i}|{total}|done", end=""); i += 1;
         mdlName = splitext(basename(model))[0]
         tints = modelTints[mdlName] if mdlName in modelTints else []
-        try:
-            mdl = Mdl(f"{tempDir}/mdl/{mdlName}.mdl")
-            mdl.read()
-            for material in mdl.materials:
-                for path in mdl.materials_paths:
-                    path = Path(path).as_posix()
-                    name = basename(material.name)
-                    name = f"{path}/{name}".lower()
-                    if name not in materials:
-                        materials.append((name, mdl.header.surface_prop, tints))
+        mdl = Mdl(f"{tempDir}/mdl/{mdlName}.mdl")
+        mdl.read()
+        for material in mdl.materials:
+            for path in mdl.materials_paths:
+                path = Path(path).as_posix()
+                name = basename(material.name)
+                name = f"{path}/{name}".lower()
+                if name not in materials:
+                    materials.append((name, mdl.header.surface_prop, tints))
 
-                    name = Path(material.name).as_posix().lower()
-                    if name not in materials:
-                        materials.append((name, mdl.header.surface_prop, tints))
-        except:
-            pass
+                name = Path(material.name).as_posix().lower()
+                if name not in materials:
+                    materials.append((name, mdl.header.surface_prop, tints))
 
     total = len(materials)
     i = 0
@@ -194,9 +192,8 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, BO3=False):
             # create new a material for each tint value used for the model
             if BO3 and len(tints) > 0:
                 for tint in tints:
-                    hex = rgbToHex(tint)
-                    tint = (Vector3FromStr(tint) / 255)
-                    tint = f"{tint.x} {tint.y} {tint.z}"
+                    hex = Vector3.FromStr(tint).toHex()
+                    tint = (Vector3.FromStr(tint) / 255).round(3)
                     try:
                         file = open(f"{tempDir}/mdlMats/{name}.vmt")
                         new = file.read().replace("{\n", f'{{\n"$colortint" "{tint} 1"\n', 1)
@@ -486,22 +483,18 @@ def createMaterialGdtBo3(vmts: dict):
 
         if "$color" in mat:
             if mat["$color"].startswith("{"):
-                _colorTint = (Vector3FromStr(mat["$color"]) / 255)
-                data["colorTint"] = f"{_colorTint.x} {_colorTint.y} {_colorTint.z}"
+                data["colorTint"] = (Vector3.FromStr(mat["$color"]) / 255).round(3)
             else:
-                _colorTint = Vector3FromStr(mat["$color"])
-                data["colorTint"] = f"{_colorTint.x} {_colorTint.y} {_colorTint.z}"
+                data["colorTint"] = Vector3.FromStr(mat["$color"])
 
         if "$colortint" in mat:
             data["colorTint"] = mat["$colortint"]
 
         if "$layertint1" in mat:
             if mat["$layertint1"].startswith("{"):
-                _colorTint = (Vector3FromStr(mat["$layertint1"]) / 255).round(3)
-                data["colorTint"] = f"{_colorTint.x} {_colorTint.y} {_colorTint.z}"
+                data["colorTint"] = (Vector3.FromStr(mat["$layertint1"]) / 255).round(3)
             else:
-                _colorTint = Vector3FromStr(mat["$layertint1"])
-                data["colorTint"] = f"{_colorTint.x} {_colorTint.y} {_colorTint.z}"
+                data["colorTint"] = Vector3.FromStr(mat["$layertint1"])
 
         if "$basetexture2" in mat:
             data2 = {}
@@ -538,13 +531,11 @@ def createMaterialGdtBo3(vmts: dict):
 
             if "$layertint2" in mat:
                 if mat["$layertint2"].startswith("{"):
-                    _colorTint = (Vector3FromStr(mat["$layertint2"]) / 255)
-                    data2["colorTint"] = f"{_colorTint.x} {_colorTint.y} {_colorTint.z}"
+                    data2["colorTint"] = (Vector3.FromStr(mat["$layertint2"]) / 255).round(3)
                 else:
-                    _colorTint = Vector3FromStr(mat["$layertint2"])
-                    data2["colorTint"] = f"{_colorTint.x} {_colorTint.y} {_colorTint.z}"
+                    data2["colorTint"] = Vector3.FromStr(mat["$layertint2"])            
 
-            gdt.add(assetName + "_", "material", data2, "tinted" if "$colortint" in mat else "")
+            gdt.add(assetName + "_", "material", data2)
         
         gdt.add(assetName, "material", data)
     
@@ -566,13 +557,13 @@ def createModelGdt(models, BO3=False, modelTints={}):
         })
         if BO3 and name in modelTints:
             for tint in modelTints[name]:
-                hex = rgbToHex(tint)
+                hex = Vector3.FromStr(tint).toHex()
                 gdt.add(f"m_{assetName}_{hex}", "xmodel", {
                     "collisionLOD" if not BO3 else "BulletCollisionLOD": "High",
                     "filename": f"corvid\\\\{name}_{hex}." + ("xmodel_export" if not BO3 else "xmodel_bin"),
                     "type": "rigid",
                     "physicsPreset": "default"
-                }, "tinted")
+                })
 
     return gdt
 
@@ -709,7 +700,6 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         output.initImage(4096, 2048)
         output.reprojectToThis(source)
         output.saveImage(f"{convertDir}/i_{mapName}_sky.tif")
-        sunDirection = Vector3FromStr(worldSpawnSettings["sundirection"])
         # create GDTs for the skybox assets
         gdt.add(f"i_{mapName}_sky", "image", {
             "imageType": "Texture",
@@ -744,7 +734,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         })
         gdt.add(f"{mapName}_ssi", "ssi", {
             "bounceCount": "4",
-            "colorSRGB": f"{Vector3FromStr(worldSpawnSettings['suncolor']) / 255} 1",
+            "colorSRGB": f"{worldSpawnSettings['suncolor']} 1",
             "dynamicShadow": "1",
             "enablesun": "1",
             "ev": "15",
@@ -755,7 +745,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "lensFlarePitchOffset": "0",
             "lensFlareYawOffset": "0",
             "penumbra_inches": "1.5",
-            "pitch": sunDirection.x,
+            "pitch": worldSpawnSettings['sundirection'].x,
             "skyboxmodel": f"{mapName}_skybox",
             "spec_comp": "0",
             "stops": "14",
@@ -770,7 +760,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "sunCookieScrollY": "0",
             "sunVolumetricCookie": "0",
             "type": "ssi",
-            "yaw": sunDirection.y
+            "yaw": worldSpawnSettings['sundirection'].y
         })
     else:
         gdt.add(f"{mapName}_sky", "material", {
