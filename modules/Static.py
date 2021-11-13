@@ -1,15 +1,6 @@
-from mathutils import Vector
+from .Vector3 import Vector3
 from os.path import basename, splitext
 
-def Vector3FromStr(s: str):
-    s = s.replace("[","").replace("]","").replace("{","").replace("}","").strip()
-    tok = s.split(" ")
-    return Vector((float(tok[0]), float(tok[1]), float(tok[2])))
-
-def Vector2Str(vec: Vector):
-    return ' '.join([f'{v:.5g}' for v in vec])
-
-# some texture files have longer names than waw's limit.
 # removing the characters from the middle of the file is a dirty but nice way to solve this issue.
 def uniqueName(name: str):
     name = splitext(basename(name).strip())[0]
@@ -40,10 +31,10 @@ def fixVmt(vmt: str):
         if value == "{":
             line = key + "\n{"
         else:
-            line = f'"{key}" "{value}"'
+            if "//" in value:
+                value = value.split("//")
+                line = f'"{key}" "{value[0].strip()}" // {value[1]}'
+            else:
+                line = f'"{key}" "{value}"'
         result += line + "\n" + res2
-    return result;
-
-def rgbToHex(rgb):
-    rgb = Vector3FromStr(rgb)
-    return "%02x%02x%02x" % (int(rgb.x), int(rgb.y), int(rgb.z))
+    return result
