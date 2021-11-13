@@ -116,6 +116,9 @@ class Vector3:
 
     def ToBpy(self):
         return Vector((self.x, self.y, self.z))
+    
+    def toHex(self):
+        return "%02x%02x%02x" % (int(self.x), int(self.y), int(self.z))
 
     @staticmethod
     def Zero() -> 'Vector3':
