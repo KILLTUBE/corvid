@@ -1,22 +1,26 @@
-from math import isnan
-from mathutils import Vector
+from .Vector3 import Vector3
 from .Side import Side
+from math import isnan
 
-def isLegal(point, sides):
-    for side in sides:
-        facing = (point - side.center()).normalized()
-        if facing.dot(side.normal().normalized()) < -1e-5:
-            return False
-    return True
-
-def getPlaneIntersection(side1: Side, side2: Side, side3: Side) -> Vector:
-    normal1: Vector = side1.normal().normalized()
-    normal2: Vector = side2.normal().normalized()
-    normal3: Vector = side3.normal().normalized()
-
-    determinant = normal1.dot(normal2.cross(normal3))
-
-    if (determinant <= 1e-5 and determinant >= -1e-5) or (isnan(determinant)):
+def getPlaneIntersectıon(side1: Side, side2: Side, side3: Side) -> Vector3:
+    normal1: Vector3 = side1.normal().normalize()
+    normal2: Vector3 = side2.normal().normalize()
+    normal3: Vector3 = side3.normal().normalize()
+    determinant = (
+        (
+            normal1.x * normal2.y * normal3.z +
+            normal1.y * normal2.z * normal3.x +
+            normal1.z * normal2.x * normal3.y
+        )
+        -
+        (
+            normal1.z * normal2.y * normal3.x +
+            normal1.y * normal2.x * normal3.z +
+            normal1.x * normal2.z * normal3.y
+        )
+    )
+    # can't intersect parallel planes
+    if (determinant <= 0.001 and determinant >= -0.001) or (isnan(determinant)):
         return None
     else:
         return (
@@ -40,16 +44,13 @@ class Brush:
             for j in range(n - 1):
                 for k in range(n):
                     if i != j and i != k and j != k:
-                        intersectionPoint: Vector = getPlaneIntersection(
+                        intersectionPoint: Vector3 = getPlaneIntersectıon(
                             self.sides[i], self.sides[j], self.sides[k]
                         )
-                        if intersectionPoint is not None and isLegal(intersectionPoint, self.sides):
-                            if not self.sides[i].hasPoint(intersectionPoint):
-                                self.sides[i].points.append(intersectionPoint)
-                            if not self.sides[j].hasPoint(intersectionPoint):
-                                self.sides[j].points.append(intersectionPoint)
-                            if not self.sides[k].hasPoint(intersectionPoint):
-                                self.sides[k].points.append(intersectionPoint)
+                        if intersectionPoint is not None and intersectionPoint.isLegal(self.sides):
+                            self.sides[i].points.append(intersectionPoint)
+                            self.sides[j].points.append(intersectionPoint)
+                            self.sides[k].points.append(intersectionPoint)
 
         for i in range(n):
             if len(self.sides[i].points) != 0:
