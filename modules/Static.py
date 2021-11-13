@@ -1,10 +1,15 @@
 from .Vector3 import Vector3
 from os.path import basename, splitext
+from hashlib import shake_256
 
-# removing the characters from the middle of the file is a dirty but nice way to solve this issue.
-def uniqueName(name: str):
+# cod 4 and waw don't like images when their names contain more than 42 charcters including the extension
+# so we need to make sure they won't cause any problems while being converted
+def uniqueName(name: str, length=15):
     name = splitext(basename(name).strip())[0]
-    return name[:14] + name[-14:] if len(name) > 28 else name
+    return name[:length] + name[-length:] if len(name) > (length * 2) else name
+
+def shortenPath(path: str, dig=4):
+    return shake_256(path.encode()).hexdigest(dig)
 
 # some vmt files are written so badly, we have to fix them make sure they will be parsed correctly
 def fixVmt(vmt: str):
