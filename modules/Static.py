@@ -8,6 +8,10 @@ def uniqueName(name: str, length=15):
     name = splitext(basename(name).strip())[0]
     return name[:length] + name[-length:] if len(name) > (length * 2) else name
 
+# unlike in cod, you can store your assets in subfolders in source
+# however, this means there can be assets that have the same name in different folders
+# if a map has any assets that have the same name, one of them will override the others
+# we can solve this issue by hashing the path to each file and adding that hash to the beggining of each asset's name
 def shortenPath(path: str, dig=4):
     return shake_256(path.encode()).hexdigest(dig)
 
