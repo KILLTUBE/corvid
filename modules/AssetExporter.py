@@ -195,7 +195,7 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, BO3=False):
             if BO3 and len(tints) > 0:
                 for tint in tints:
                     hex = Vector3.FromStr(tint).toHex()
-                    tint = (Vector3.FromStr(tint) / 255).round(3)
+                    tint = (Vector3.FromStr(tint) / 256).round(3)
                     try:
                         file = open(f"{tempDir}/mdlMats/{name}.vmt")
                         new = file.read().replace("{\n", f'{{\n"$colortint" "{tint} 1"\n', 1)
@@ -490,7 +490,7 @@ def createMaterialGdtBo3(vmts: dict):
 
         if "$color" in mat:
             if mat["$color"].startswith("{"):
-                data["colorTint"] = (Vector3.FromStr(mat["$color"]) / 255).round(3)
+                data["colorTint"] = (Vector3.FromStr(mat["$color"]) / 256).round(3)
             else:
                 data["colorTint"] = Vector3.FromStr(mat["$color"])
 
@@ -499,7 +499,7 @@ def createMaterialGdtBo3(vmts: dict):
 
         if "$layertint1" in mat:
             if mat["$layertint1"].startswith("{"):
-                data["colorTint"] = (Vector3.FromStr(mat["$layertint1"]) / 255).round(3)
+                data["colorTint"] = (Vector3.FromStr(mat["$layertint1"]) / 256).round(3)
             else:
                 data["colorTint"] = Vector3.FromStr(mat["$layertint1"])
 
@@ -538,7 +538,7 @@ def createMaterialGdtBo3(vmts: dict):
 
             if "$layertint2" in mat:
                 if mat["$layertint2"].startswith("{"):
-                    data2["colorTint"] = (Vector3.FromStr(mat["$layertint2"]) / 255).round(3)
+                    data2["colorTint"] = (Vector3.FromStr(mat["$layertint2"]) / 256).round(3)
                 else:
                     data2["colorTint"] = Vector3.FromStr(mat["$layertint2"])            
 
