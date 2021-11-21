@@ -190,16 +190,16 @@ class App:
         radioBO3["font"] = ft
         radioBO3["fg"] = "#333333"
         radioBO3["justify"] = "left"
-        radioBO3["text"] = "Black ops 3"
-        radioBO3.place(x=134,y=270,width=84,height=30)
+        radioBO3["text"] = "Black Ops 3"
+        radioBO3.place(x=134,y=270,width=88,height=30)
         radioBO3["value"] = True
 
         radioOld=tk.Radiobutton(root, variable=self.BO3)
         radioOld["font"] = ft
         radioOld["fg"] = "#333333"
         radioOld["justify"] = "left"
-        radioOld["text"] = "Cod 4/5/7"
-        radioOld.place(x=270,y=270,width=80,height=30)
+        radioOld["text"] = "Cod 4 / WaW / Black Ops"
+        radioOld.place(x=270,y=270,width=168,height=30)
         radioOld["value"] = False
         
         radioBO3.select() # default value
