@@ -35,7 +35,7 @@ class Side:
         self.p2: Vector3 = Vector3(p[6], p[7], p[8])
         self.p3: Vector3 = Vector3(p[11], p[12], p[13])
 
-        self.material = data["material"].lower()
+        self.material: str = data["material"].lower()
 
         u = re.split(r"[\[|\]| ]", data["uaxis"])
         v = re.split(r"[\[|\]| ]", data["vaxis"])
@@ -110,26 +110,31 @@ class Side:
             (self.vOffset / texSize.y)
         )
 
+    # based on https://github.com/c-d-a/io_export_qmap
     def getTexCoords(self):
-        # offsetU offsetV rotation scaleU scaleV
-        dummy = ' 0 0 0 1 1\n'
+        if len(self.points) < 3:
+            return None
+        
+        V = [v.ToBpy() for v in self.points]
+        T = [self.getUV(t, self.texSize) for t in self.points]
 
-        # 01 and 02 in 3D space
-        world01 = self.points[1].ToBpy() - self.points[0].ToBpy()
-        world02 = self.points[2].ToBpy() - self.points[0].ToBpy()
+        n = self.normal().normalize().ToBpy()
+        
+        world01 = V[1] - V[0]
+        world02 = V[2] - V[0]
 
         # 01 and 02 projected along the closest axis
-        maxn = max(abs(round(crd,5)) for crd in self.normal().ToBpy())
+        maxn = max(abs(round(crd, 5)) for crd in n)
         for i in [2,0,1]: # axis priority for 45 degree angles
-            if round(abs(self.normal.ToBpy()[i]),5) == maxn:
+            if round(abs(n[i]), 5) == maxn:
                 axis = i
                 break
         world01_2d = Vector((world01[:axis] + world01[(axis+1):]))
         world02_2d = Vector((world02[:axis] + world02[(axis+1):]))
 
         # 01 and 02 in UV space (scaled to texture size)
-        tex01 = self.uvs[1] - self.uvs[0]
-        tex02 = self.uvs[2] - self.uvs[0]
+        tex01 = T[1] - T[0]
+        tex02 = T[2] - T[0]
         tex01.x *= self.texSize.x
         tex02.x *= self.texSize.x
         tex01.y *= self.texSize.y
@@ -144,6 +149,7 @@ class Side:
         try:
             mCoeffs = solve(world2DMatrix, texCoordsVec)
         except:
+            print("couldn't solve")
             return None
 
         # Build the transformation matrix and decompose it
@@ -152,17 +158,18 @@ class Side:
                             (0,          0,          1) ))
         rotation = degrees(tformMtx.inverted_safe().to_euler().z)
         scale = tformMtx.inverted_safe().to_scale() # never zero
-        scale.x *= copysign(1,tformMtx.determinant())
+        scale.x *= copysign(1, tformMtx.determinant())
 
         # Calculate offsets
-        t0 = Vector((self.uvs[0].x * self.texSize.x, self.uvs[0].y * self.texSize.y))
-        v0 = Vector((self.points[0].ToBpy()[:axis] + self.points[0].ToBpy()[(axis+1):]))
-        v0.rotate(Matrix.Rotation(radians(-rotation), 2))
+        t0 = Vector((T[0].x * self.texSize.x, T[0].y * self.texSize.y))
+        v0 = Vector((V[0][:axis] + V[0][(axis+1):]))
+        v0 = v0.to_3d()
+        v0.rotate(Matrix.Rotation(radians(-rotation), 3, 'Z'))
         v0 = Vector((v0.x/scale.x, v0.y/scale.y))
         offset = t0 - v0
         offset.y *= -1 # V is flipped
 
-        return f"{scale.x * self.texSize.x} {scale.y * self.texSize.y} {offset.x} {offset.y} {rotation} 0 lightmap_gray 16384 16384 0 0 0 0"
+        return f"{scale.x * self.texSize.x} {scale.y * self.texSize.y * -1} {offset.x} {offset.y} {rotation} 0 lightmap_gray 16384 16384 0 0 0 0"
 
     def processDisplacement(self, data):
         result = {
@@ -183,3 +190,6 @@ class Side:
                 "alphas": parseSinglets(data["alphas"]["row" + str(i)])
             })
         return result
+
+    def __repr__(self) -> str:
+        return f"<Side {self.id} ( {self.p1} ) ( {self.p2} ) ( {self.p3} ) {self.material}>"
