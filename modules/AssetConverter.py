@@ -6,7 +6,7 @@ from SourceIO.source1.vtf.VTFWrapper import VTFLib
 from .Vector2 import Vector2
 from .Vector3 import Vector3
 from tempfile import gettempdir
-from .Static import newPath, uniqueName
+from .Static import newPath
 from PyCoD import Model
 from .ModelConverter import convertModel
 
