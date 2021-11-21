@@ -1,11 +1,12 @@
+from typing import List
 import vpk
-from os.path import isdir, isfile, basename
+from os.path import isdir, isfile, exists
 from shutil import copyfile
 from pathlib import Path
 class SourceDir:
     def __init__(self):
         self.dirs = []
-        self.paks = [vpk.VPK]
+        self.paks: List[vpk.VPK] = []
 
     def add(self, path):
         if isfile(path):
