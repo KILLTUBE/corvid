@@ -2,6 +2,7 @@
     "steamDir": "",
     "currentGame": -1,
     "convertBrush": false,
+    "convertRopeAsCurve": false,
     "vpkFiles": [],
     "gameDirs": []
 }

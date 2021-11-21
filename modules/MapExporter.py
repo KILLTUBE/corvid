@@ -340,40 +340,114 @@ def convertSpotLight(entity, BO3=False):
         }, entity["id"])
     return res
 
-def convertRope(entity, skyOrigin=Vector3(0, 0, 0), scale=1):
-    res = "";
-    if entity["classname"] == "move_rope":
-        origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
-        res += convertEntity({
-            "classname": "rope",
-            "origin": origin,
-            "target": entity["NextKey"] if "NextKey" in entity else entity["id"],
-            "length_scale": float(entity["Slack"]) / 128,
-            "width": float(entity["Width"]) * 3
-        }, entity["id"])
-        if "targetname" in entity:
+def convertRope(entity, skyOrigin=Vector3(0, 0, 0), scale=1, curve=False, ropeDict: dict={}):
+    # sadly, cod 4 does not support rope entities, so we have to create curve patches for them instead
+    if curve:
+        if entity["classname"] == "move_rope":
+            ropeDict["start"][entity["NextKey"] if "NextKey" in entity else entity["id"]] = {
+                "origin": (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale,
+                "target": entity["NextKey"] if "NextKey" in entity else entity["id"],
+                "slack": float(entity["Slack"]),
+                "width": float(entity["Width"]),
+                "id": entity["id"]
+            }
+            if "targetname" in entity:
+                ropeDict["end"][entity["targetname"] if "targetname" in entity else entity["id"]] = {
+                    "origin": (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale,
+                    "targetname": entity["targetname"] if "targetname" in entity else entity["id"],
+                    "id": entity["id"]
+                }
+        else:
+            ropeDict["end"][entity["targetname"]] = {
+                "origin": (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale,
+                "targetname": entity["targetname"],
+                "id": entity["id"]
+            }
+            if "NextKey" in entity:
+                ropeDict["start"][entity["NextKey"]] = {
+                    "origin": (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale,
+                    "target": entity["NextKey"],
+                    "slack": float(entity["Slack"]),
+                    "width": float(entity["Width"]),
+                    "id": entity["id"]
+                }
+    else:
+        res = ""
+        if entity["classname"] == "move_rope":
+            origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
+            res += convertEntity({
+                "classname": "rope",
+                "origin": origin,
+                "target": entity["NextKey"] if "NextKey" in entity else entity["id"],
+                "length_scale": float(entity["Slack"]) / 128,
+                "width": float(entity["Width"]) * 3
+            }, entity["id"])
+            if "targetname" in entity:
+                origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
+                res += convertEntity({
+                    "classname": "info_null",
+                    "origin": origin,
+                    "targetname": entity["targetname"] if "targetname" in entity else entity["id"]
+                }, entity["id"])
+        else:
             origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
             res += convertEntity({
                 "classname": "info_null",
                 "origin": origin,
-                "targetname": entity["targetname"] if "targetname" in entity else entity["id"]
-            }, entity["id"]);
-    else:
-        origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
-        res += convertEntity({
-            "classname": "info_null",
-            "origin": origin,
-            "targetname": entity["targetname"]
-        }, entity["id"])
-        if "NextKey" in entity:
-            res += convertEntity({
-                "classname": "rope",
-                "origin": origin,
-                "target": entity["NextKey"],
-                "length_scale": float(entity["Slack"]) / 125,
-                "width": entity["width"] if "width" in entity else "1"
+                "targetname": entity["targetname"]
             }, entity["id"])
-    return res
+            if "NextKey" in entity:
+                res += convertEntity({
+                    "classname": "rope",
+                    "origin": origin,
+                    "target": entity["NextKey"],
+                    "length_scale": float(entity["Slack"]) / 125,
+                    "width": entity["width"] if "width" in entity else "1"
+                }, entity["id"])
+        return res
+
+def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=1):
+    mid: Vector3 = start.lerp(end, 0.5)
+    mid.z -= slack
+
+    normal = (start - mid).cross(end -mid).normalize()
+    n = normal * width
+    up = Vector3(0, 0, width)
+    return (
+        "{\n"
+        + "curve\n"
+        + "{\n"
+        + "global_wires\n"
+        + "lightmap_gray\n"
+        + "5 3 16 8\n"
+        + "(\n"
+        + f"v {start} t 1 1\n"
+        + f"v {mid} t 1 1\n"
+        + f"v {end} t 1 1\n"
+        + ")\n"
+        + "(\n"
+        + f"v {start + n} t 1 1\n"
+        + f"v {mid + n} t 1 1\n"
+        + f"v {end + n} t 1 1\n"
+        + ")\n"
+        + "(\n"
+        + f"v {start + n} t 1 1\n"
+        + f"v {mid + n} t 1 1\n"
+        + f"v {end + n} t 1 1\n"
+        + ")\n"
+        + "(\n"
+        + f"v {start - n + up} t 1 1\n"
+        + f"v {mid - n + up} t 1 1\n"
+        + f"v {end - n + up} t 1 1\n"
+        + ")\n"
+        + "(\n"
+        + f"v {start} t 1 1\n"
+        + f"v {mid} t 1 1\n"
+        + f"v {end} t 1 1\n"
+        + ")\n"
+        + "}\n"
+        + "}\n"
+    )
 
 def convertProp(entity, BO3=False, skyOrigin=Vector3(0, 0, 0), scale=1):
     origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
@@ -435,7 +509,7 @@ def convertSpawner(entity):
 
     return res
 
-def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, skipModels=False, mapName="", brushConversion=False):
+def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, skipModels=False, mapName="", brushConversion=False, ropeCurve=False):
     # create temporary directories to extract assets
     copyDir = gettempdir() + "/corvid"
     try:
@@ -532,6 +606,12 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
     sideDict: Dict[str, Side] = {}
     overlays = []
 
+    # store rope entity info in a dictionary to convert them as curve patches if needed
+    ropeDict: Dict[str, dict] = {
+        "start": {},
+        "end": {}
+    }
+
     total = (
         len(mapData["worldBrushes"]) + len(mapData["entityBrushes"]) + len(mapData["entities"])
         + len(mapData["skyBrushes"]) + len(mapData["skyEntityBrushes"]) + len(mapData["skyEntities"])
@@ -559,7 +639,10 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
         elif entity["classname"] == "light_spot":
             mapEnts += convertSpotLight(entity, BO3)
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
-            mapEnts += convertRope(entity)
+            if ropeCurve:
+                convertRope(entity, curve=True, ropeDict=ropeDict)
+            else:
+                mapEnts += convertRope(entity)
         elif entity["classname"] == "env_cubemap":
             mapEnts += convertCubemap(entity)
         elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
@@ -599,8 +682,21 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
         if entity["classname"].startswith("prop_"):
             mapEnts += convertProp(entity, BO3, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
-            mapEnts += convertRope(entity, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
+            if ropeCurve:
+                convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"], curve=True, ropeDict=ropeDict)
+            else:
+                mapEnts += convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"])
     
+    # convert ropes to curve patches for cod 4
+    if ropeCurve:
+        for val in ropeDict["start"].values(): 
+            mapGeo += convertRopeAsCurve(
+                val["origin"],
+                ropeDict["end"][val["target"]]["origin"],
+                val["slack"],
+                val["width"]
+            )
+
     # convert overlays
     for overlay in overlays:
         decal = Overlay(overlay, sideDict, matSizes)

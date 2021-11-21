@@ -67,11 +67,18 @@ class App:
 
         self.convertBrush = tk.BooleanVar(value=settings["convertBrush"])
         brushConversionMenu = tk.Menu(menuBar, tearoff=0)
-        brushConversionMenu.add_radiobutton(label="Patch meshes (default)", variable=self.convertBrush, value=False, command=lambda: self.setBrushConversion(False))
+        brushConversionMenu.add_radiobutton(label="Terrain patches (default)", variable=self.convertBrush, value=False, command=lambda: self.setBrushConversion(False))
         brushConversionMenu.add_radiobutton(label="Plain brushes (experimental)", variable=self.convertBrush, value=True, command=lambda: self.setBrushConversion(True))
+
+        self.convertRopeAsCurve = tk.BooleanVar(value=settings["convertRopeAsCurve"])
+        convertRopeMenu = tk.Menu(menuBar, tearoff=0)
+        convertRopeMenu.add_radiobutton(label="Rope entities (default)", variable=self.convertRopeAsCurve, value=False, command=lambda: self.setConvertRope(False))
+        convertRopeMenu.add_radiobutton(label="Curve patches (for CoD 4)", variable=self.convertRopeAsCurve, value=True, command=lambda: self.setConvertRope(True))
+
 
         settingsMenu.add_cascade(label="Select game profile", menu=currentGameMenu)
         settingsMenu.add_cascade(label="Brush conversion method", menu=brushConversionMenu)
+        settingsMenu.add_cascade(label="Rope conversion method", menu=convertRopeMenu)
         settingsMenu.add_separator()
         settingsMenu.add_command(label="Set Steam directory", command=self.setSteamDir)
 
@@ -324,6 +331,10 @@ class App:
         settings["convertBrush"] = val
         open("res/settings.json", "w").write(json.dumps(settings, indent=4))
 
+    def setConvertRope(self, val):
+        settings["convertRopeAsCurve"] = val
+        open("res/settings.json", "w").write(json.dumps(settings, indent=4))
+
     def chooseVmfDialog_command(self):
         file = filedialog.askopenfile(mode="r", filetypes=[("Source Engine map file", "*.vmf")])
         if file is not None:
@@ -433,7 +444,7 @@ class App:
         vmfFile = open(vmfPath).read()
         print("Reading VMF file...")
         BO3 = self.BO3.get()
-        res = exportMap(vmfFile, vpkFiles, gameDirs, BO3, self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"])
+        res = exportMap(vmfFile, vpkFiles, gameDirs, BO3, self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"], settings["convertRopeAsCurve"])
         # prepare the necessary stuff to move and write files
         try:
             makedirs(f"{outputDir}/map_source")
