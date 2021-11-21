@@ -1,7 +1,11 @@
+from genericpath import exists
 import os
 from posixpath import basename
+from tempfile import gettempdir
 import numpy as np
 import time
+
+from modules.Static import newPath
 os.environ["NO_BPY"] = "1"
 from typing import Iterable, List, Sized
 from pathlib import Path
@@ -49,6 +53,7 @@ def merge_meshes(model, vtx_model):
     return vtx_vertices, np.hstack(indices_array), np.hstack(mat_arrays)
 
 def convertModel(filePath, writePath, tint=""):
+    tempDir = f"{gettempdir()}/corvid/mdlMats"
     # read mdl, vtx and vvd files
     mdl = Mdl(f"{filePath}.mdl")
     mdl.read()
@@ -66,11 +71,27 @@ def convertModel(filePath, writePath, tint=""):
     vvd = Vvd(f"{filePath}.vvd")
     vvd.read()
 
-    # check for tint, if it's defined, add it after each material's name
-    if tint != "":
-        materials = [basename(mat.name).lower() + f"_{tint}" for mat in mdl.materials]
-    else:
-        materials = [basename(mat.name).lower() for mat in mdl.materials]
+    materials = []
+    # check for the following and add if a material file exists with that name
+    for mat in mdl.materials:
+        # if the model contains the full path
+        name = newPath(mat.name)
+        if exists(f"{tempDir}/{name}.vmt"):
+            materials.append(name)
+            continue
+        
+        for path in mdl.materials_paths:
+            # if path/materialname exists
+            name = newPath(f"{path}/{mat.name}")
+            if exists(f"{tempDir}/{name}.vmt"):
+                materials.append(name)
+                continue
+
+            # sometimes a material might contain both. we don't really need this but it won't hurt to have extra measures.
+            name = newPath(f"{path}/{basename(mat.name)}")
+            if exists(f"{tempDir}/{name}.vmt"):
+                materials.append(name)
+                continue
 
     verts: List[Vector3] = []
     normals: List[Vector3] = []

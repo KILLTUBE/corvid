@@ -1,4 +1,6 @@
 from pprint import pprint
+
+from modules.Static import newPath
 from .Side import Side
 from .Brush import Brush
 from vmf_tool.parser import parse
@@ -62,7 +64,7 @@ def readMap(vmf):
             # need to create duplicates of a model and its materails in order to apply tint
             if "rendercolor" in entity:
                 if entity.rendercolor != "255 255 255":
-                    mdlName = splitext(basename(mdlName))[0]
+                    mdlName = splitext(newPath(mdlName))[0]
                     if mdlName not in modelTints:
                         modelTints[mdlName] = []
                     if entity.rendercolor not in modelTints[mdlName]:
@@ -102,6 +104,11 @@ def readMap(vmf):
         elif entity.classname == "sky_camera":
             skyBoxOrigin = Vector3.FromStr(entity.origin)
             skyBoxScale = float(entity.scale)
+        elif entity.classname == "info_overlay":
+            matName = entity.material.lower()
+            if matName not in materials:
+                materials.append(matName)
+            entities.append(entity)
         else:
             if "editor" in entity:
                 if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
