@@ -7,7 +7,7 @@ import time
 
 from modules.Static import newPath
 os.environ["NO_BPY"] = "1"
-from typing import Iterable, List, Sized
+from typing import Dict, Iterable, List, Sized
 from pathlib import Path
 from SourceIO.source1.mdl.mdl_file import Mdl
 from SourceIO.source1.vtx.vtx import Vtx
@@ -94,6 +94,7 @@ def convertModel(filePath, writePath, tint=""):
                 continue
 
     verts: List[Vector3] = []
+    vertDict: Dict[str, int] = {}
     normals: List[Vector3] = []
     uvs: List[Vector2] = []
     groups = []
@@ -118,15 +119,17 @@ def convertModel(filePath, writePath, tint=""):
             [uvs.append(Vector2.FromArray(t)) for t in vertices["uv"]]
 
             groups.append(model.name.replace("/", "_").replace("\\", "_").replace(".", "_").replace("-", "_"))
-            
+
             for i in range(0, len(indices_array), 3):
+                if i % 1000 == 0 and i != 0:
+                    groups.append((model.name + "_" + str(i / 1000)).replace("/", "_").replace("\\", "_").replace(".", "_").replace("-", "_"))
                 faces.append({
                     "points":[
                         {"vert": indices_array[i + 1], "normal": normals[indices_array[i + 1]], "uv": uvs[indices_array[i + 1]]},
                         {"vert": indices_array[i + 2], "normal": normals[indices_array[i + 2]], "uv": uvs[indices_array[i + 2]]},
                         {"vert": indices_array[i], "normal": normals[indices_array[i]], "uv": uvs[indices_array[i]]}
                     ],
-                    "group": len(groups) - 1,
+                    "group": (len(groups) - 1),
                     "material": material_indices_array[int(i / 3)]
                 })
     if tint != "":
