@@ -83,12 +83,13 @@ To run Corvid, launch `app.py`. Choose your Steam director and the game of the m
 - [Zeroy](https://zeroy.com)'s article on [Call of Duty map format](https://wiki.zeroy.com/index.php?title=Call_of_Duty_4:_.MAP_file_structure)
 - [Valve Map Format](https://developer.valvesoftware.com/wiki/Valve_Map_Format) on [Valve Developer Wiki](https://developer.valvesoftware.com/)
 
-## Third party libraries
+## Third party libraries and references
 - [PyCoD](https://github.com/SE2Dev/PyCoD)
 - [SourceIO](https://github.com/REDxEYE/SourceIO/)
 - [vrProjector](https://github.com/bhautikj/vrProjector/)
-- [Source MDL](https://github.com/myuce/source-mdl)
 - [VDFUtils](https://github.com/darthryking/vdfutils)
+- [io_export_qmap](https://github.com/c-d-a/io_export_qmap/)
+- [io_import_vmf](https://github.com/lasa01/io_import_vmf)
 
 ## Special thanks to
 - [Dylancyclone](https://github.com/Dylancyclone) for [VMF2OBJ](https://github.com/Dylancyclone/VMF2OBJ) tool which helped me understand a lot of things about Source Engine maps and inspired me to work on this tool.
