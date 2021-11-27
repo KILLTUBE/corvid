@@ -73,7 +73,7 @@ class App:
         self.convertRopeAsCurve = tk.BooleanVar(value=settings["convertRopeAsCurve"])
         convertRopeMenu = tk.Menu(menuBar, tearoff=0)
         convertRopeMenu.add_radiobutton(label="Rope entities (default)", variable=self.convertRopeAsCurve, value=False, command=lambda: self.setConvertRope(False))
-        convertRopeMenu.add_radiobutton(label="Curve patches (for CoD 4)", variable=self.convertRopeAsCurve, value=True, command=lambda: self.setConvertRope(True))
+        convertRopeMenu.add_radiobutton(label="Curve patches (recommended for CoD 4)", variable=self.convertRopeAsCurve, value=True, command=lambda: self.setConvertRope(True))
 
 
         settingsMenu.add_cascade(label="Select game profile", menu=currentGameMenu)
@@ -494,6 +494,7 @@ class TextRedirector(object):
             "Converting textures...",
             "Converting models...",
             "Generating .map file...",
+            #"Converting decals...",
             "Moving all converted assets to",
             "Writing",
             "Conversion finished"

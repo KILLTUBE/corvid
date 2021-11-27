@@ -698,11 +698,16 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], BO3=False, skipMats=False, sk
             )
 
     # convert overlays
-    for overlay in overlays:
-        decal = Overlay(overlay, sideDict, matSizes)
-        if decal is not None:
-            mapGeo += str(decal)
-        del decal
+    # i = 0
+    # total = len(overlays)
+    # print("Converting decals...")
+    # for overlay in overlays:
+    #     i += 1
+    #     print(f"{i}|{total}|done", end="")
+    #     decal = Overlay(overlay, sideDict, matSizes)
+    #     if decal is not None:
+    #         mapGeo += str(decal)
+    #     del decal
 
     # convert the skybox textures
     if not skipMats and mapData["sky"] != "sky":

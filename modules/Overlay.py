@@ -1,10 +1,11 @@
-from typing import Dict, List, Tuple
 from math import isclose
+from typing import Dict, List, Tuple
 
-from modules.Static import newPath
+from .Static import newPath
 from .Vector3 import Vector3
 from .Vector2 import Vector2
 from .Side import Side
+
 from mathutils import Vector, Matrix, geometry
 
 # based on https://github.com/lasa01/io_import_vmf/blob/master/io_import_vmf/import_vmf.py#L871
@@ -19,68 +20,74 @@ def _vertices_center(verts) -> Vector:
 
 class Overlay:
     id: int
-    BasisNormal: Vector
-    BasisOrigin: Vector
-    BasisU: Vector
-    BasisV: Vector
+    origin: Vector3
+    angles: Vector3
+    BasisNormal: Vector3
+    BasisOrigin: Vector3
+    BasisU: Vector3
+    BasisV: Vector3
+
+    StartU: float
+    StartV: float
     EndU: float
     EndV: float
+    
     material: str
     RenderOrder: int = 0
     sides: List[Side] = []
-    StartU: float
-    StartV: float
-    uv_points: List[Vector]
-    origin: Vector
-    matSize: Vector
-
-    verts: List[Vector3] = []
-    uvs: List[Vector2] = []
-
     texSize: Vector2 = Vector2(512, 512)
+    
+    uv0: Vector3
+    uv1: Vector3
+    uv2: Vector3
+    uv3: Vector3
 
     empty: bool = False
 
-    face_vertices = []
-    face_vert_idxs = []
-    face_uvs = []
-    # face_idx
-    face_loop_uvs = []
+    points: List[Vector3]
+    uvs: List[Vector2]
+    polys: List
+
+    epsilon: float = 0.001
 
     def __init__(self, entity: Dict[str, str], sideDict: Dict[str, Side], matSizes):
-        self.id = entity["id"]
-        self.BasisNormal = Vector3.FromStr(entity["BasisNormal"]).ToBpy()
-        self.BasisOrigin = Vector3.FromStr(entity["BasisOrigin"]).ToBpy()
-        self.BasisU = Vector3.FromStr(entity["BasisU"]).ToBpy()
-        self.BasisV = Vector3.FromStr(entity["BasisV"]).ToBpy()
-        self.EndU = float(entity["EndU"])
-        self.EndV = float(entity["EndV"])
-        self.material = entity["material"]
-        if "RenderOrder" in entity:
-            self.RenderOrder = int(entity["RenderOrder"])
-        if entity["sides"] != "":
-            self.sides = [sideDict[side] for side in entity["sides"].split(" ")]
+        self.id = int(entity["id"])
 
-        if len(self.sides) == 0:
-            print(f"No brush sides defined for overlay {self.id}")
-            return None
+        self.origin = Vector3.FromStr(entity["origin"])
+        if "angles" in entity:
+            self.angles = Vector3.FromStr(entity["angles"])
+        self.BasisNormal = Vector3.FromStr(entity["BasisNormal"])
+        self.BasisOrigin = Vector3.FromStr(entity["BasisOrigin"])
+        self.BasisU = Vector3.FromStr(entity["BasisU"])
+        self.BasisV = Vector3.FromStr(entity["BasisV"])
 
         self.StartU = float(entity["StartU"])
         self.StartV = float(entity["StartV"])
-        self.uv_points = [
-            Vector3.FromStr(entity["uv0"]).ToBpy(),
-            Vector3.FromStr(entity["uv1"]).ToBpy(),
-            Vector3.FromStr(entity["uv2"]).ToBpy(),
-            Vector3.FromStr(entity["uv3"]).ToBpy()
-        ]
-        self.origin = Vector3.FromStr(entity["origin"]).ToBpy()
+        self.EndU = float(entity["EndU"])
+        self.EndV = float(entity["EndV"])
 
-        self.texSize = matSizes[newPath(entity["material"])]
+        self.material = newPath(entity["material"])
+        self.texSize = matSizes[self.material]
+        
+        if "RenderOrder" in entity:
+            self.RenderOrder = int(entity["RenderOrder"])
 
-        origin = Vector(self.BasisOrigin)
-        normal = Vector(self.BasisNormal)
-        u_axis = Vector(self.BasisU)
-        v_axis = Vector(self.BasisV)
+        if entity["sides"] != "":
+            for side in entity["sides"].split(" "):
+                self.sides.append(sideDict[side])
+        else:
+            self.empty = True
+            return None
+        
+        self.uv0 = Vector3.FromStr(entity["uv0"]).ToBpy()
+        self.uv1 = Vector3.FromStr(entity["uv1"]).ToBpy()
+        self.uv2 = Vector3.FromStr(entity["uv2"]).ToBpy()
+        self.uv3 = Vector3.FromStr(entity["uv3"]).ToBpy()
+
+        origin = self.BasisOrigin.ToBpy()
+        normal = self.BasisNormal.ToBpy()
+        u_axis = self.BasisU.ToBpy()
+        v_axis = self.BasisV.ToBpy()
 
         # matrix to convert coords from uv rotation space to world space (hopefully)
         uv_rot_to_global_matrix = Matrix((
@@ -91,59 +98,46 @@ class Overlay:
 
         global_to_uv_rot_matrix = uv_rot_to_global_matrix.inverted()
 
-        vertices: List[Vector] = []
+        vertices: List[Vector3] = []
         face_vertices: List[List[int]] = []
-        face_normals: List[Vector] = []
+        face_normals: List[Vector] = [side.normal().normalize().ToBpy() for side in self.sides]
 
-        offset = 0.5
-        if self.RenderOrder is not None:
-            offset *= (1 + self.RenderOrder)
+        offset = 0.1
+        offset *= (1 + self.RenderOrder)
 
-        vertex_idx_map = {}
         for side in self.sides:
-            current_face_vertices = []
-
+            face_vertices.append([])
             for point in side.points:
-                add = True
+                if point not in vertices:
+                    vertices.append(point)
+                    face_vertices[-1].append(vertices.index(point))
 
-                for vert in vertices:
-                    v = Vector3.FromArray(vert)
-                    if point == v:
-                        add = False
-                        break
+        vertices = [vert.ToBpy() for vert in vertices.copy()]
 
-                if add:
-                    last_idx = len(vertices)
-                    vertex_idx_map[str(point.round())] = last_idx
-                    current_face_vertices.append(last_idx)
-                    vertices.append(point.ToBpy())
-
-            face_vertices.append(current_face_vertices)
-            face_normals.append(side.normal().ToBpy())
-
-        if len(face_vertices) == 0:
-            print(f"NO OVERLAY TARGET FACES FOUND FOR OVERLAY {self.id}")
+        if len(vertices) == 0:
+            self.empty = True
             return None
-
-        for i in range(len(self.sides)):
-            side_normal = face_normals[i]
-            for point in self.sides[i].points:
-                idx = vertex_idx_map[str(point.round())]
-                vertices[idx] += vertices[idx] + (side_normal * offset)
 
         # uv point space versions of overlay vertices
         uv_rot_vertices = [global_to_uv_rot_matrix @ (v - origin) for v in vertices]
+
+        uv_points = (
+            Vector(self.uv0),
+            Vector(self.uv1),
+            Vector(self.uv2),
+            Vector(self.uv3)
+        )
 
         up_vector = Vector((0, 0, 1))
         remove_vertices = set()
 
         # cut faces partially outside the uv range and mark vertices outside for removal
-        for side_vert_a, side_vert_b in (self.uv_points[:2], self.uv_points[1:3], self.uv_points[2:4], (self.uv_points[3], self.uv_points[0])):
+        for side_vert_a, side_vert_b in (uv_points[:2], uv_points[1:3], uv_points[2:4], (uv_points[3], uv_points[0])):
             cut_plane_normal: Vector = up_vector.cross(side_vert_b - side_vert_a)
             # find out which vertices are outside this uv side
             outside_vertices = {
                 i for i, v in enumerate(uv_rot_vertices)
-                if geometry.distance_point_to_plane(v, side_vert_a, cut_plane_normal) > 0.001
+                if geometry.distance_point_to_plane(v, side_vert_a, cut_plane_normal) > self.epsilon
             }
             if len(outside_vertices) == 0:
                 continue
@@ -175,7 +169,7 @@ class Overlay:
                 for other_idx, other_vert in enumerate(vertices):
                     if other_idx in remove_vertices:
                         continue
-                    if _vec_isclose(other_vert, new_vertice, 0.001, 0.001):
+                    if _vec_isclose(other_vert, new_vertice, self.epsilon, self.epsilon):
                         new_vert_idx1 = other_idx
                         break
                 else:
@@ -192,7 +186,7 @@ class Overlay:
                 for other_idx, other_vert in enumerate(vertices):
                     if other_idx in remove_vertices:
                         continue
-                    if _vec_isclose(other_vert, new_vertice, 0.001, 0.001):
+                    if _vec_isclose(other_vert, new_vertice, self.epsilon, self.epsilon):
                         new_vert_idx2 = other_idx
                         break
                 else:
@@ -203,11 +197,11 @@ class Overlay:
                 face_vert_idxs[out_idx1:out_idx2 + 1] = new_vert_idx1, new_vert_idx2
 
         # ensure no new vertices are outside
-        for side_vert_a, side_vert_b in (self.uv_points[:2], self.uv_points[1:3], self.uv_points[2:4], (self.uv_points[3], self.uv_points[0])):
+        for side_vert_a, side_vert_b in (uv_points[:2], uv_points[1:3], uv_points[2:4], (uv_points[3], uv_points[0])):
             cut_plane_normal = up_vector.cross(side_vert_b - side_vert_a)
             remove_vertices |= {
                 i for i, v in enumerate(uv_rot_vertices)
-                if geometry.distance_point_to_plane(v, side_vert_a, cut_plane_normal) > 0.001
+                if geometry.distance_point_to_plane(v, side_vert_a, cut_plane_normal) > self.epsilon
             }
 
         # remove marked vertices and faces referencing them
@@ -233,8 +227,8 @@ class Overlay:
             face_vertices.append([vertice_idx_map[v_idx] for v_idx in face_vert_idxs])
             face_normals.append(old_face_normals[face_idx])
 
-        if len(face_vertices) == 0:
-            print(f"IMPORTED OVERLAY FOR {self.id} IS EMPTY")
+        if len(vertices) == 0:
+            print(f"Could not calculate overlay for {self.id}")
             self.empty = True
             return None
 
@@ -244,14 +238,14 @@ class Overlay:
 
         # compute matrix for mapping global coordinates to basis vectors
         coeff_matrix = Matrix((
-            (self.uv_points[0].x, self.uv_points[1].x, self.uv_points[2].x),
-            (self.uv_points[0].y, self.uv_points[1].y, self.uv_points[2].y),
+            (uv_points[0].x, uv_points[1].x, uv_points[2].x),
+            (uv_points[0].y, uv_points[1].y, uv_points[2].y),
             (1, 1, 1)
         ))
-        coeffs: Vector = coeff_matrix.inverted() @ Vector((self.uv_points[3].x, self.uv_points[3].y, 1))
+        coeffs: Vector = coeff_matrix.inverted() @ Vector((uv_points[3].x, uv_points[3].y, 1))
         basis_to_global = Matrix((
-            (coeffs.x * self.uv_points[0].x, coeffs.y * self.uv_points[1].x, coeffs.z * self.uv_points[2].x),
-            (coeffs.x * self.uv_points[0].y, coeffs.y * self.uv_points[1].y, coeffs.z * self.uv_points[2].y),
+            (coeffs.x * uv_points[0].x, coeffs.y * uv_points[1].x, coeffs.z * uv_points[2].x),
+            (coeffs.x * uv_points[0].y, coeffs.y * uv_points[1].y, coeffs.z * uv_points[2].y),
             (coeffs.x, coeffs.y, coeffs.z)
         ))
         global_to_basis = basis_to_global.inverted()
@@ -284,12 +278,9 @@ class Overlay:
                 face_uvs.append((product_vec.x / product_vec.z, product_vec.y / product_vec.z))
             face_loop_uvs.append(face_uvs)
 
-        if len(vertices) == 0:
-            self.empty = True
-            return None
         center = _vertices_center(vertices)
 
-        self.verts = [Vector3.FromArray(v - center + self.BasisOrigin) for v in vertices]
+        self.verts = [Vector3.FromArray(v - center + self.BasisOrigin.ToBpy()) for v in vertices]
         self.uvs = [Vector2.FromArray(v) for v in face_uvs]
         self.face_vertices = face_vertices # nested lists of vertex indices
         self.face_vert_idxs = face_vert_idxs # 
@@ -297,18 +288,8 @@ class Overlay:
         self.face_idx = face_idx
         self.face_loop_uvs = face_loop_uvs
 
-        # [print(vert) for vert in self.verts]
-        # [print(uv) for uv in self.uvs]
-
-        # print(face_vertices)
-        # print(face_vert_idxs)
-        # print(face_uvs)
-        # print(face_idx)
-        # print(face_loop_uvs)
-
     def __str__(self):
         if self.empty:
-            print(f"No vertices could be calculated for overlay {self.id}")
             return ""
 
         res = f"// Overlay {self.id}\n"
@@ -325,8 +306,13 @@ class Overlay:
 
             count = int(len(verts))
             rows = int(count / 2)
-            mat = newPath(self.material)
+
+            if rows == 0:
+                continue
+
+            mat = self.material
             # mat = "icbm_bunkermural2"
+
 
             res += (
                 "{\n"
@@ -340,11 +326,11 @@ class Overlay:
             for i in range(rows):
                 p1 = {
                     "pos": str((verts[i])),
-                    "uv": str(uvs[i] * self.texSize)
+                    "uv": str(uvs[i] * self.texSize * 2)
                 }
                 p2 = {
                     "pos": str((verts[count - i - 1])),
-                    "uv": str(uvs[count - i - 1] * self.texSize)
+                    "uv": str(uvs[count - i - 1] * self.texSize * 2)
                 }
                 res += (
                     "(\n" +
@@ -358,4 +344,5 @@ class Overlay:
                 + "}\n"
             )
 
-        return res
+        return res 
+
