@@ -2,6 +2,7 @@ from genericpath import exists
 from PIL import Image
 from modules.Vector3 import Vector3
 from modules.Vector2 import Vector2
+from modules.cube2equi import find_corresponding_pixel
 from modules.vdfutils import parse_vdf
 from os.path import basename, splitext, dirname
 from .Static import fixVmt, newPath
@@ -11,8 +12,6 @@ from .AssetConverter import getTexSize, convertImage
 from SourceIO.source1.mdl.mdl_file import Mdl
 from pathlib import Path
 from .SourceDir import SourceDir
-from vrProjector.vrProjector.CubemapProjection import CubemapProjection
-from vrProjector.vrProjector import CubemapProjection, EquirectangularProjection
 
 tempDir = f"{gettempdir()}/corvid"
 
@@ -151,7 +150,7 @@ def copyModels(models, dir: SourceDir):
         for ext in ["dx90.vtx", "vtx", "vvd"]:
             dir.copy(f"{path}/{modelName}.{ext}", f"{tempDir}/mdl/{newName}.{ext}", True)
 
-def copyModelMaterials(models, dir: SourceDir, modelTints, BO3=False):
+def copyModelMaterials(models, dir: SourceDir, modelTints, game="WaW"):
     materials = []
     res = []
     total = len(models)
@@ -192,7 +191,7 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, BO3=False):
             res.append(name)
 
             # create new a material for each tint value used for the model
-            if BO3 and len(tints) > 0:
+            if game == "BO3" and len(tints) > 0:
                 for tint in tints:
                     hex = Vector3.FromStr(tint).toHex()
                     tint = (Vector3.FromStr(tint) / 256).round(3)
@@ -311,8 +310,8 @@ def surfaceType(surface):
             "gloss": "<full>"
         }
     
-def createMaterialGdt(vmts: dict, BO3=False):
-    if BO3:
+def createMaterialGdt(vmts: dict, game="WaW"):
+    if game == "BO3":
         return createMaterialGdtBo3(vmts)
     gdt = Gdt()
     textureDir = "texture_assets\\\\corvid\\\\"
@@ -548,7 +547,7 @@ def createMaterialGdtBo3(vmts: dict):
     
     return gdt
 
-def createModelGdt(models, BO3=False, modelTints={}):
+def createModelGdt(models, game="WaW", modelTints={}):
     gdt = Gdt()
     total = len(models)
     i = 0
@@ -557,16 +556,16 @@ def createModelGdt(models, BO3=False, modelTints={}):
         name = splitext(newPath(model))[0]
         assetName = name.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
         gdt.add("m_" + name, "xmodel", {
-            "collisionLOD" if not BO3 else "BulletCollisionLOD": "High",
-            "filename": f"corvid\\\\{name}." + ("xmodel_export" if not BO3 else "xmodel_bin"),
+            "collisionLOD" if game != "BO3" else "BulletCollisionLOD": "High",
+            "filename": f"corvid\\\\{name}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
             "type": "rigid"
         })
-        if BO3 and name in modelTints:
+        if game == "BO3" and name in modelTints:
             for tint in modelTints[name]:
                 hex = Vector3.FromStr(tint).toHex()
                 gdt.add(f"m_{name}_{hex}", "xmodel", {
-                    "collisionLOD" if not BO3 else "BulletCollisionLOD": "High",
-                    "filename": f"corvid\\\\{name}_{hex}." + ("xmodel_export" if not BO3 else "xmodel_bin"),
+                    "collisionLOD" if game != "BO3" else "BulletCollisionLOD": "High",
+                    "filename": f"corvid\\\\{name}_{hex}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
                     "type": "rigid"
                 })
 
@@ -655,11 +654,11 @@ def createImageGdt(images):
         })
     return gdt
 
-def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir, BO3=False):
+def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir, game="WaW"):
     skyName = skyName.lower()
     faces = ["up", "dn", "lf", "rt", "ft", "bk"]
     gdt = Gdt()
-    ext = "tif" if BO3 else "tga"
+    ext = "tif" if game == "BO3" else "tga"
     convertDir = f"{tempDir}/converted/texture_assets/corvid/"
     for face in faces:
         name = f"{mapName}_sky_{face}"
@@ -678,20 +677,40 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             convertImage(f"{tempDir}/matTex/{name}.vtf", f"{convertDir}/{name}.{ext}", format="rgb", resize=True)
         else:
             return gdt # return an empty gdt in case the sky materials can't be found
-    if BO3:
-        # convert cubemap images to an equirectangular image
+    if game == "BO3":
+        # load all sides of the cubemap
+        images = {}
         for face in faces:
-            Image.open(f"{convertDir}/{mapName}_sky_{face}.tif").resize((1024, 1024)).save(f"{convertDir}/{mapName}_sky_{face}.tif")
-        source = CubemapProjection()
-        source.loadImages(
-            f"{convertDir}/{mapName}_sky_ft.tif", f"{convertDir}/{mapName}_sky_rt.tif",
-            f"{convertDir}/{mapName}_sky_bk.tif", f"{convertDir}/{mapName}_sky_lf.tif",
-            f"{convertDir}/{mapName}_sky_up.tif", f"{convertDir}/{mapName}_sky_dn.tif"
-        )
-        output = EquirectangularProjection()
-        output.initImage(4096, 2048)
-        output.reprojectToThis(source)
-        output.saveImage(f"{convertDir}/i_{mapName}_sky.tif")
+            images[face] = Image.open(f"{convertDir}/{mapName}_sky_{face}.tif").resize((512, 512))
+        
+        # create an empty image and paste all sides in it
+        cubemap = Image.new(mode="RGB", size=(2048, 1536), color=(255, 255, 255))
+
+        cubemap.paste(images["rt"], (0, 512))
+        cubemap.paste(images["ft"], (512, 512))
+        cubemap.paste(images["up"], (512, 0))
+        cubemap.paste(images["lf"], (1024, 512))
+        cubemap.paste(images["bk"], (1536, 512))
+        cubemap.paste(images["dn"], (512, 1024))
+        cubemap.save(f"{convertDir}/cubemap.tif")
+        # create an equirectangular image from the new cubemap image
+        # based on https://github.com/adamb70/Python-Spherical-Projection/blob/master/Example/Example%201/SingleExample.py
+        wo, ho = cubemap.size
+
+        h = int(wo/3)
+        w = int(2*h)
+        n = ho/3
+
+        res = Image.new(mode="RGB", size=(w, h), color=(0, 255, 239))
+
+        for ycoord in range(0, h):
+            for xcoord in range(0, w):
+                corrx, corry = find_corresponding_pixel(xcoord, ycoord, w, h, n)
+
+                res.putpixel((xcoord, ycoord), cubemap.getpixel((corrx, corry)))
+
+        res.save(f"{convertDir}/i_{mapName}_sky.tif")
+
         # create GDTs for the skybox assets
         gdt.add(f"i_{mapName}_sky", "image", {
             "imageType": "Texture",
