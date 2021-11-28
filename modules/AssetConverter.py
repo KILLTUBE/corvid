@@ -68,7 +68,7 @@ def getTexSize(src):
     image.image_load(src)
     return Vector2(image.width(), image.height())
 
-def convertModels(models, modelTints, BO3=False):
+def convertModels(models, modelTints, game="WaW"):
     codModel = Model()
     mdlDir = f"{tempDir}/mdl"
     convertDir = f"{tempDir}/converted/model_export/corvid"
@@ -77,7 +77,7 @@ def convertModels(models, modelTints, BO3=False):
     for model in models:
         print(f"{i}|{total}|done", end=""); i += 1
         model = splitext(newPath(model))[0]
-        if BO3 and model in modelTints:
+        if game == "BO3" and model in modelTints:
             for tint in modelTints[model]:
                 hex = Vector3.FromStr(tint).toHex()
                 convertModel(f"{mdlDir}/{model}", convertDir, hex)
@@ -89,7 +89,7 @@ def convertModels(models, modelTints, BO3=False):
                 else:
                     os.remove(f"{convertDir}/{model}_{hex}.xmodel_export")
         convertModel(f"{mdlDir}/{model}", convertDir)
-        if BO3:
+        if game == "BO3":
             try:
                 codModel.LoadFile_Raw(f"{convertDir}/{model}.xmodel_export")
                 codModel.WriteFile_Bin(f"{convertDir}/{model}.xmodel_bin")

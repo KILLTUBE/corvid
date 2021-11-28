@@ -70,15 +70,8 @@ class App:
         brushConversionMenu.add_radiobutton(label="Terrain patches (default)", variable=self.convertBrush, value=False, command=lambda: self.setBrushConversion(False))
         brushConversionMenu.add_radiobutton(label="Plain brushes (experimental)", variable=self.convertBrush, value=True, command=lambda: self.setBrushConversion(True))
 
-        self.convertRopeAsCurve = tk.BooleanVar(value=settings["convertRopeAsCurve"])
-        convertRopeMenu = tk.Menu(menuBar, tearoff=0)
-        convertRopeMenu.add_radiobutton(label="Rope entities (default)", variable=self.convertRopeAsCurve, value=False, command=lambda: self.setConvertRope(False))
-        convertRopeMenu.add_radiobutton(label="Curve patches (recommended for CoD 4)", variable=self.convertRopeAsCurve, value=True, command=lambda: self.setConvertRope(True))
-
-
         settingsMenu.add_cascade(label="Select game profile", menu=currentGameMenu)
         settingsMenu.add_cascade(label="Brush conversion method", menu=brushConversionMenu)
-        settingsMenu.add_cascade(label="Rope conversion method", menu=convertRopeMenu)
         settingsMenu.add_separator()
         settingsMenu.add_command(label="Set Steam directory", command=self.setSteamDir)
 
@@ -184,23 +177,31 @@ class App:
         addGameDirButton["command"] = self.addGameDirButton_command
 
         # decide what game the map is going to be converted for
-        self.BO3 = tk.BooleanVar()
+        self.game = tk.StringVar()
 
-        radioBO3=tk.Radiobutton(root, variable=self.BO3)
+        radioBO3=tk.Radiobutton(root, variable=self.game)
         radioBO3["font"] = ft
         radioBO3["fg"] = "#333333"
         radioBO3["justify"] = "left"
         radioBO3["text"] = "Black Ops 3"
         radioBO3.place(x=134,y=270,width=88,height=30)
-        radioBO3["value"] = True
+        radioBO3["value"] = "BO3"
 
-        radioOld=tk.Radiobutton(root, variable=self.BO3)
+        radioOld=tk.Radiobutton(root, variable=self.game)
         radioOld["font"] = ft
         radioOld["fg"] = "#333333"
         radioOld["justify"] = "left"
-        radioOld["text"] = "Cod 4 / WaW / Black Ops"
-        radioOld.place(x=270,y=270,width=168,height=30)
-        radioOld["value"] = False
+        radioOld["text"] = "WaW / Black Ops"
+        radioOld.place(x=248,y=270,width=168,height=30)
+        radioOld["value"] = "WaW"
+
+        radioOld=tk.Radiobutton(root, variable=self.game)
+        radioOld["font"] = ft
+        radioOld["fg"] = "#333333"
+        radioOld["justify"] = "left"
+        radioOld["text"] = "Cod 4"
+        radioOld.place(x=406,y=270,width=168,height=30)
+        radioOld["value"] = "CoD4"
         
         radioBO3.select() # default value
 
@@ -331,10 +332,6 @@ class App:
         settings["convertBrush"] = val
         open("res/settings.json", "w").write(json.dumps(settings, indent=4))
 
-    def setConvertRope(self, val):
-        settings["convertRopeAsCurve"] = val
-        open("res/settings.json", "w").write(json.dumps(settings, indent=4))
-
     def chooseVmfDialog_command(self):
         file = filedialog.askopenfile(mode="r", filetypes=[("Source Engine map file", "*.vmf")])
         if file is not None:
@@ -443,8 +440,8 @@ class App:
         print(f"Opening VMF file \"{vmfPath}\"...")
         vmfFile = open(vmfPath).read()
         print("Reading VMF file...")
-        BO3 = self.BO3.get()
-        res = exportMap(vmfFile, vpkFiles, gameDirs, BO3, self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"], settings["convertRopeAsCurve"])
+        game = self.game.get()
+        res = exportMap(vmfFile, vpkFiles, gameDirs, game, self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"])
         # prepare the necessary stuff to move and write files
         try:
             makedirs(f"{outputDir}/map_source")
