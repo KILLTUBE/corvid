@@ -194,7 +194,7 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, game="WaW"):
             if game == "BO3" and len(tints) > 0:
                 for tint in tints:
                     hex = Vector3.FromStr(tint).toHex()
-                    tint = (Vector3.FromStr(tint) / 256).round(3)
+                    tint = (Vector3.FromStr(tint) / 255).round(3)
                     try:
                         file = open(f"{tempDir}/mdlMats/{name}.vmt")
                         new = file.read().replace("{\n", f'{{\n"$colortint" "{tint} 1"\n', 1)
@@ -397,7 +397,7 @@ def createMaterialGdt(vmts: dict, game="WaW"):
             if "$alphatest" in mat or "$alpha" in mat:
                 data2["alphaTest"] = "GE128"
 
-            gdt.add(assetName.strip() + "~blend", "material", data2)
+            gdt.add(assetName.strip() + "_blend", "material", data2)
 
         gdt.add(assetName.strip(), "material", data)
     return gdt
@@ -419,7 +419,7 @@ def createMaterialGdtBo3(vmts: dict):
         data["materialType"] = "lit"
 
         if "$basetexture" in mat:
-            data["colorMap"] = "i_" + newPath(mat["$basetexture"])
+            data["colorMap"] = "i_" + newPath(mat["$basetexture"], shorten=True)
         else:
             data["colorMap"] = "404.tif"
         
@@ -429,17 +429,17 @@ def createMaterialGdtBo3(vmts: dict):
             data["usage"] = "tools" # probably not a good idea
 
         if "$bumpmap" in mat and "$ssbump" not in mat:
-            data["normalMap"] = "i_" + newPath(mat["$bumpmap"])
+            data["normalMap"] = "i_" + newPath(mat["$bumpmap"], shorten=True)
         if "$envmapmask" in mat:
-            data["cosinePowerMap"] = "i_" + newPath(mat["$envmapmask"])
+            data["cosinePowerMap"] = "i_" + newPath(mat["$envmapmask"], shorten=True)
             data["materialCategory"] = "Geometry Plus"
             data["materialType"] = "lit_plus"
         if "$basealphaenvmapmask" in mat and "$envmapmask" not in mat:
-            data["cosinePowerMap"] = "i_" + newPath(mat["$basetexture"]) + "_"
+            data["cosinePowerMap"] = "i_" + newPath(mat["$basetexture"], shorten=True) + "_"
             data["materialCategory"] = "Geometry Plus"
             data["materialType"] = "lit_plus"
         if "$normalmapalphaenvmapmask" in mat and "$envmapmask" not in mat and "$bumpmap" in mat:
-            data["cosinePowerMap"] = "i_" + newPath(mat["$bumpmap"]) + "_"
+            data["cosinePowerMap"] = "i_" + newPath(mat["$bumpmap"], shorten=True) + "_"
             data["materialCategory"] = "Geometry Plus"
             data["materialType"] = "lit_plus"
 
@@ -489,7 +489,7 @@ def createMaterialGdtBo3(vmts: dict):
 
         if "$color" in mat:
             if mat["$color"].startswith("{"):
-                data["colorTint"] = (Vector3.FromStr(mat["$color"]) / 256).round(3)
+                data["colorTint"] = (Vector3.FromStr(mat["$color"]) / 255).round(3)
             else:
                 data["colorTint"] = Vector3.FromStr(mat["$color"])
 
@@ -498,7 +498,7 @@ def createMaterialGdtBo3(vmts: dict):
 
         if "$layertint1" in mat:
             if mat["$layertint1"].startswith("{"):
-                data["colorTint"] = (Vector3.FromStr(mat["$layertint1"]) / 256).round(3)
+                data["colorTint"] = (Vector3.FromStr(mat["$layertint1"]) / 255).round(3)
             else:
                 data["colorTint"] = Vector3.FromStr(mat["$layertint1"])
 
@@ -507,21 +507,21 @@ def createMaterialGdtBo3(vmts: dict):
             data2["materialCategory"] = "Decal"
             data2["materialType"] = "lit_decal_reveal"
 
-            data2["colorMap"] = "i_" + newPath(mat["$basetexture2"])
+            data2["colorMap"] = "i_" + newPath(mat["$basetexture2"], shorten=True)
             data2["usage"] = "tools" # probably not a good idea
                     
             if "$bumpmap2" in mat and "$ssbump2" not in mat:
-                data2["normalMap"] = "i_" + newPath(mat["$bumpmap2"])
+                data2["normalMap"] = "i_" + newPath(mat["$bumpmap2"], shorten=True)
             if "$blendmodulatetexture" in mat:
-                data2["alphaRevealMap"] = "i_" + newPath(mat["$blendmodulatetexture"])
+                data2["alphaRevealMap"] = "i_" + newPath(mat["$blendmodulatetexture"], shorten=True)
             if "$envmapmask2" in mat:
-                data2["cosinePowerMap2"] = "i_" + newPath(mat["$envmapmask2"])
+                data2["cosinePowerMap2"] = "i_" + newPath(mat["$envmapmask2"], shorten=True)
                 data2["materialType"] = "lit_decal_reveal_plus"
             if "$basealphaenvmapmask2" in mat and "$envmapmask2" not in mat:
-                data2["cosinePowerMap2"] = "i_" + newPath(mat["$basetexture2"]) + "_"
+                data2["cosinePowerMap2"] = "i_" + newPath(mat["$basetexture2"], shorten=True) + "_"
                 data2["materialType"] = "lit_decal_reveal_plus"
             if "$normalmapalphaenvmapmask2" in mat and "$envmapmask2" not in mat and "$bumpmap2" in mat:
-                data2["cosinePowerMap"] = "i_" + newPath(mat["$bumpmap2"]) + "_"
+                data2["cosinePowerMap"] = "i_" + newPath(mat["$bumpmap2"], shorten=True) + "_"
                 data2["materialType"] = "lit_decal_reveal_plus"
 
             if "$surfaceprop2" in mat:
@@ -537,11 +537,11 @@ def createMaterialGdtBo3(vmts: dict):
 
             if "$layertint2" in mat:
                 if mat["$layertint2"].startswith("{"):
-                    data2["colorTint"] = (Vector3.FromStr(mat["$layertint2"]) / 256).round(3)
+                    data2["colorTint"] = (Vector3.FromStr(mat["$layertint2"]) / 255).round(3)
                 else:
                     data2["colorTint"] = Vector3.FromStr(mat["$layertint2"])            
 
-            gdt.add(assetName + "~blend", "material", data2)
+            gdt.add(assetName + "_blend", "material", data2)
         
         gdt.add(assetName, "material", data)
     
@@ -678,20 +678,24 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         else:
             return gdt # return an empty gdt in case the sky materials can't be found
     if game == "BO3":
+        print("Converting skybox...")
         # load all sides of the cubemap
         images = {}
         for face in faces:
-            images[face] = Image.open(f"{convertDir}/{mapName}_sky_{face}.tif").resize((512, 512))
+            images[face] = Image.open(f"{convertDir}/{mapName}_sky_{face}.tif").resize((1024, 1024))
         
         # create an empty image and paste all sides in it
-        cubemap = Image.new(mode="RGB", size=(2048, 1536), color=(255, 255, 255))
+        cubemap = Image.new(mode="RGB", size=(4096, 3072), color=(255, 255, 255))
 
-        cubemap.paste(images["rt"], (0, 512))
-        cubemap.paste(images["ft"], (512, 512))
-        cubemap.paste(images["up"], (512, 0))
-        cubemap.paste(images["lf"], (1024, 512))
-        cubemap.paste(images["bk"], (1536, 512))
-        cubemap.paste(images["dn"], (512, 1024))
+        # rt ft lf bk
+        # bk rt ft lf
+
+        cubemap.paste(images["bk"], (0, 1024))
+        cubemap.paste(images["rt"], (1024, 1024))
+        cubemap.paste(images["up"], (1024, 0))
+        cubemap.paste(images["ft"], (2048, 1024))
+        cubemap.paste(images["lf"], (3072, 1024))
+        cubemap.paste(images["dn"], (1024, 2048))
         cubemap.save(f"{convertDir}/cubemap.tif")
         # create an equirectangular image from the new cubemap image
         # based on https://github.com/adamb70/Python-Spherical-Projection/blob/master/Example/Example%201/SingleExample.py
@@ -706,7 +710,6 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         for ycoord in range(0, h):
             for xcoord in range(0, w):
                 corrx, corry = find_corresponding_pixel(xcoord, ycoord, w, h, n)
-
                 res.putpixel((xcoord, ycoord), cubemap.getpixel((corrx, corry)))
 
         res.save(f"{convertDir}/i_{mapName}_sky.tif")
