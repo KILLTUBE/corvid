@@ -84,7 +84,7 @@ def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, power: i
         })
     return res
 
-def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
+def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, game="WaW"):
     res = f"// Side {side.id}\n"
     points = side.points
     material = newPath(side.material)
@@ -131,65 +131,130 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
 
     # material = "me_floorsmoothconcrete"
 
-    res += (
-        "{\n" +
-        "mesh\n" +
-        "{\n" +
-        "" + material + "\n" +
-        "lightmap_gray\n"
-        "" + str(len(rows[0])) + " " + str(len(rows[0])) + " " + str(side.lightmapScale) + " 8\n"
-    )
+    # CoD 4 can't handle terrain patches bigger than 16x16
+    # So when we're converting a map for that game, we're going to slice them into 9x9 patches
+    if game == "CoD4" and numVerts == 17:
+        for k in range(2):
+            for l in range(2):
+                res += (
+                    "{\n" +
+                    "mesh\n" +
+                    "{\n" +
+                    "" + material + "\n" +
+                    "lightmap_gray\n"
+                    "9 9 " + str(side.lightmapScale) + " 8\n"
+                )
+                for i in range(k * 8, k * 8 + 9):
+                    row = rows[i]
+                    res += "(\n"
+                    for j in range(l * 8, l * 8 + 9):
+                        if disp["row"][j]["alphas"][i] != 0 and alpha != True:
+                            alpha = True
+                        col = row[j]
+                        pos = (col["pos"] + Vector3(0, 0, disp["elevation"]) +
+                            (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
+                        uv = (col["uv"] * side.texSize) * 1
+                        lm = col["uv"] * (side.lightmapScale)
+                        res += f"v {(pos - origin) * scale} t {uv} {lm}\n"
+                    res += ")\n"
+                res += ("}\n" +
+                        "}\n")
+        
+        if not alpha:
+            return res
+        if material + "_" not in matSize:
+            return res
 
-    for i in range(numVerts):
-        row = rows[i]
-        res += "(\n"
-        for j in range(numVerts):
-            if disp["row"][j]["alphas"][i] != 0 and alpha != True:
-                alpha = True
-            col = row[j]
-            pos = (col["pos"] + Vector3(0, 0, disp["elevation"]) +
-                   (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
-            uv = (col["uv"] * side.texSize) * 1
-            lm = col["uv"] * (side.lightmapScale)
-            res += f"v {(pos - origin) * scale} t {uv} {lm}\n"
-        res += ")\n"
-    res += ("}\n" +
-            "}\n")
-
-    if not alpha:
+        for k in range(2):
+            for l in range(2):
+                res += (
+                    "{\n" +
+                    "mesh\n" +
+                    "{\n" +
+                    "" + material + "\n" +
+                    "lightmap_gray\n"
+                    "9 9 " + str(side.lightmapScale) + " 8\n"
+                )
+                for i in range(k * 8, k * 8 + 9):
+                    row = rows[i]
+                    res += "(\n"
+                    for j in range(l * 8, l * 8 + 9):
+                        col = row[j]
+                        pos = (col["pos"] + Vector3(0, 0, disp["elevation"]) +
+                            (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
+                        uv = (col["uv"] * side.texSize) * 1
+                        lm = col["uv"] * (side.lightmapScale)
+                        if disp["row"][j]["alphas"][i] == 0:
+                            res += f"v {(pos - origin) * scale} c 255 255 255 0 t {uv} {lm}\n"
+                        else:
+                            color = "255 255 255 " + str(disp["row"][j]["alphas"][i])
+                            res += f"v {(pos - origin) * scale} c {color} t {uv} {lm}\n"
+                    res += ")\n"
+                res += ("}\n" +
+                        "}\n")
+        
         return res
-    if material + "_" not in matSize:
+
+    else:
+        res += (
+            "{\n" +
+            "mesh\n" +
+            "{\n" +
+            "" + material + "\n" +
+            "lightmap_gray\n"
+            "" + str(len(rows[0])) + " " + str(len(rows[0])) + " " + str(side.lightmapScale) + " 8\n"
+        )
+
+        for i in range(numVerts):
+            row = rows[i]
+            res += "(\n"
+            for j in range(numVerts):
+                if disp["row"][j]["alphas"][i] != 0 and alpha != True:
+                    alpha = True
+                col = row[j]
+                pos = (col["pos"] + Vector3(0, 0, disp["elevation"]) +
+                    (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
+                uv = (col["uv"] * side.texSize) * 1
+                lm = col["uv"] * (side.lightmapScale)
+                res += f"v {(pos - origin) * scale} t {uv} {lm}\n"
+            res += ")\n"
+        res += ("}\n" +
+                "}\n")
+
+        if not alpha:
+            return res
+        if material + "_" not in matSize:
+            return res
+
+        res += (
+            "{\n" +
+            "mesh\n" +
+            "{\n" +
+            "" + material + "_blend\n" +
+            "lightmap_gray\n" +
+            "" + str(len(rows[0])) + " " + str(len(rows[0])
+                                                ) + " " + str(side.lightmapScale) + " 8\n"
+        )
+
+        for i in range(numVerts):
+            row = rows[i]
+            res += "(\n"
+            for j in range(numVerts):
+                col = row[j]
+                pos = (col["pos"] + Vector3(0, 0, disp["elevation"]) +
+                    (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
+                uv = (col["uv"] * side.texSize) * 1
+                lm = col["uv"] * (side.lightmapScale)
+                if disp["row"][j]["alphas"][i] == 0:
+                    res += f"v {(pos - origin) * scale} c 255 255 255 0 t {uv} {lm}\n"
+                else:
+                    color = "255 255 255 " + str(disp["row"][j]["alphas"][i])
+                    res += f"v {(pos - origin) * scale} c {color} t {uv} {lm}\n"
+            res += ")\n"
+        res += ("}\n" +
+                "}\n")
+
         return res
-
-    res += (
-        "{\n" +
-        "mesh\n" +
-        "{\n" +
-        "" + material + "~blend\n" +
-        "lightmap_gray\n" +
-        "" + str(len(rows[0])) + " " + str(len(rows[0])
-                                              ) + " " + str(side.lightmapScale) + " 8\n"
-    )
-
-    for i in range(numVerts):
-        row = rows[i]
-        res += "(\n"
-        for j in range(numVerts):
-            col = row[j]
-            pos = (col["pos"] + Vector3(0, 0, disp["elevation"]) +
-                   (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
-            uv = (col["uv"] * side.texSize) * 1
-            lm = col["uv"] * (side.lightmapScale)
-            if disp["row"][j]["alphas"][i] == 0:
-                res += f"v {(pos - origin) * scale} c 255 255 255 0 t {uv} {lm}\n"
-            else:
-                color = "255 255 255 " + str(disp["row"][j]["alphas"][i])
-                res += f"v {(pos - origin) * scale} c {color} t {uv} {lm}\n"
-        res += ")\n"
-    res += ("}\n" +
-            "}\n")
-
-    return res
 
 def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector3(0, 0, 0), scale=1, matSizes: dict={}, brushConversion=False, sideDict: dict={}):
     tools = {
@@ -218,7 +283,7 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
             sideDict[side.id] = side
 
         if side.hasDisp:
-            resPatch += convertDisplacement(side, matSizes, origin, scale)
+            resPatch += convertDisplacement(side, matSizes, origin, scale, game)
             continue
         
         if brush.hasDisp and not side.hasDisp:
@@ -655,15 +720,15 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
             sundirection = Vector3.FromStr(entity["angles"])
             sundirection.x = float(entity["pitch"]) * -1
             worldSpawnSettings["sundirection"] = sundirection
-            worldSpawnSettings["sunglight"] = "1",
-            worldSpawnSettings["sundiffusecolor"] = "0.75 0.82 0.85",
-            worldSpawnSettings["diffusefraction"] = ".2",
-            worldSpawnSettings["ambient"] = ".116",
-            worldSpawnSettings["reflection_ignore_portals"] = "1",
+            worldSpawnSettings["sunglight"] = "1"
+            worldSpawnSettings["sundiffusecolor"] = "0.75 0.82 0.85"
+            worldSpawnSettings["diffusefraction"] = ".2"
+            worldSpawnSettings["ambient"] = ".116"
+            worldSpawnSettings["reflection_ignore_portals"] = "1"
             if "ambient" in entity:
-                worldSpawnSettings["_color"] = (Vector3.FromStr(entity["_ambient"] if "_ambient" in entity else entity["ambient"]) / 255).round(3),
+                worldSpawnSettings["_color"] = (Vector3.FromStr(entity["_ambient"] if "_ambient" in entity else entity["ambient"]) / 255).round(3)
             if "_light" in entity:
-                worldSpawnSettings["suncolor"] = (Vector3.FromStr(entity["_light"]) / 255).round(3),
+                worldSpawnSettings["suncolor"] = (Vector3.FromStr(entity["_light"]) / 255).round(3)
             
 
     # convert 3d skybox geo & entities
