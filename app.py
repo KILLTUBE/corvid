@@ -538,11 +538,10 @@ if __name__ == "__main__":
     
     steamAppsDirs.append(settings["steamDir"])
 
-    try:
-        libraryFolders = parse_vdf(open(f'{settings["steamDir"]}/steamapps/libraryfolders.vdf').read())["LibraryFolders"]
-        for i in range(1, len(libraryFolders) - 1):
-            steamAppsDirs.append(Path(libraryFolders[str(i)]).as_posix());
-    except:
-        pass
+    libraryFolders = parse_vdf(open(f'{settings["steamDir"]}/steamapps/libraryfolders.vdf').read())["libraryfolders"]
+    for i in range(1, len(libraryFolders) - 1):
+        steamAppsDirs.append(Path(libraryFolders[str(i)]["path"]).as_posix())
+    
+    print(steamAppsDirs)
 
     root.mainloop()
