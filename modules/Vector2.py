@@ -59,6 +59,9 @@ class Vector2:
             self.y + (rhs.y - self.y) * alpha
         )
 
+    def round(self, digits=0) -> 'Vector2':
+        return Vector2(round(self.x, digits), round(self.y, digits))
+
     def flip(self):
         self.x, self.y = self.y, self.x
     
