@@ -24,6 +24,7 @@ def readMap(vmf):
     materials = []
     models = []
     modelTints = {}
+    modelSkins = {}
 
     if "visgroups" in mapData:
         if "visgroups" in mapData.visgroups:
@@ -69,6 +70,16 @@ def readMap(vmf):
                         modelTints[mdlName] = []
                     if entity.rendercolor not in modelTints[mdlName]:
                         modelTints[mdlName].append(entity.rendercolor)
+            # need to create duplicates of a model and its materails in order to use different skins
+            if "skin" in entity:
+                if entity.skin != "0":
+                    skin = int(entity.skin)
+                    mdlName = splitext(newPath(mdlName))[0]
+                    if mdlName not in modelSkins:
+                        modelSkins[mdlName] = []
+                    if skin not in modelSkins[mdlName]:
+                        modelSkins[mdlName].append(skin)
+
         elif "solids" in entity:
             for solid in entity.solids:
                 sides = []
@@ -139,6 +150,7 @@ def readMap(vmf):
         "materials": materials,
         "models": models,
         "modelTints": modelTints,
+        "modelSkins": modelSkins,
         
         "sky": mapData.world.skyname.lower() if "skyname" in mapData.world else "sky"
     }

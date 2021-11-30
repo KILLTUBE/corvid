@@ -602,7 +602,7 @@ def createMaterialGdtBo3(vmts: dict):
     
     return gdt
 
-def createModelGdt(models, game="WaW", modelTints={}):
+def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}):
     gdt = Gdt()
     total = len(models)
     i = 0
@@ -621,6 +621,13 @@ def createModelGdt(models, game="WaW", modelTints={}):
                 gdt.add(f"m_{name}_{hex}", "xmodel", {
                     "collisionLOD" if game != "BO3" else "BulletCollisionLOD": "High",
                     "filename": f"corvid\\\\{name}_{hex}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
+                    "type": "rigid"
+                })
+        if name in modelSkins:
+            for skin in modelSkins[name]:
+                gdt.add(f"m_{name}_skin{skin}", "xmodel", {
+                    "collisionLOD" if game != "BO3" else "BulletCollisionLOD": "High",
+                    "filename": f"corvid\\\\{name}_skin{skin}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
                     "type": "rigid"
                 })
 

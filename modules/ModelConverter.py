@@ -65,10 +65,16 @@ def convertModel(filePath, writePath, tint="", skin=0):
         vtx = Vtx(f"{filePath}.dx90.vtx")
         vtx.read()
     else:
-        print("Can't find vtx file for the model. Exiting...")
+        print("Can't find vtx file for the model. Skipping...")
+        return
 
     vvd = Vvd(f"{filePath}.vvd")
     vvd.read()
+
+    # replace the material names when they have different skins
+    if skin != 0:
+        for i in range(len(mdl.skin_groups[skin])):
+            mdl.materials[i].name = mdl.skin_groups[skin][i]
 
     materials = []
     # check for the following and add if a material file exists with that name
@@ -145,6 +151,8 @@ def convertModel(filePath, writePath, tint="", skin=0):
 
     if tint != "":
         fileName = basename(filePath) + f"_{tint}"
+    elif skin != 0:
+        fileName = basename(filePath) + f"_skin{skin}"
     else:
         fileName = basename(filePath)
 

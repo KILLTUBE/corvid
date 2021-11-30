@@ -526,6 +526,10 @@ def convertProp(entity, game="WaW", skyOrigin=Vector3(0, 0, 0), scale=1):
 
     modelName = "m_" + splitext(newPath(entity["model"]))[0]
 
+    if "skin" in entity:
+        if entity["skin"] != "0":
+            modelName += f'_skin{entity["skin"]}'
+
     if game == "BO3" and "rendercolor" in entity:
         if entity["rendercolor"] != "255 255 255":
             modelName += "_" + Vector3.FromStr(entity["rendercolor"]).toHex()
@@ -638,7 +642,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
     if game != "BO3" and not skipModels:
         batFile += modelMats.toBat()
     if not skipModels:
-        models = createModelGdt(mapData["models"], game, mapData["modelTints"])
+        models = createModelGdt(mapData["models"], game, mapData["modelTints"], mapData["modelSkins"])
         gdtFile += models
     if game != "BO3" and not skipModels:
         batFile += models.toBat()
@@ -659,7 +663,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
     # convert the models
     if not skipModels:
         print("Converting models...")
-        convertModels(mapData["models"], mapData["modelTints"], game)
+        convertModels(mapData["models"], mapData["modelTints"], mapData["modelSkins"], game)
 
     # generate map geometry
     print("Generating .map file...")

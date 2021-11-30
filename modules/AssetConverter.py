@@ -68,7 +68,7 @@ def getTexSize(src):
     image.image_load(src)
     return Vector2(image.width(), image.height())
 
-def convertModels(models, modelTints, game="WaW"):
+def convertModels(models, modelTints, modelSkins, game="WaW"):
     codModel = Model()
     mdlDir = f"{tempDir}/mdl"
     convertDir = f"{tempDir}/converted/model_export/corvid"
@@ -77,10 +77,11 @@ def convertModels(models, modelTints, game="WaW"):
     for model in models:
         print(f"{i}|{total}|done", end=""); i += 1
         model = splitext(newPath(model))[0]
+        # convert models with tints
         if game == "BO3" and model in modelTints:
             for tint in modelTints[model]:
                 hex = Vector3.FromStr(tint).toHex()
-                convertModel(f"{mdlDir}/{model}", convertDir, hex)
+                convertModel(f"{mdlDir}/{model}", convertDir, tint=hex)
                 try:
                     codModel.LoadFile_Raw(f"{convertDir}/{model}_{hex}.xmodel_export")
                     codModel.WriteFile_Bin(f"{convertDir}/{model}_{hex}.xmodel_bin")
@@ -89,6 +90,19 @@ def convertModels(models, modelTints, game="WaW"):
                 else:
                     os.remove(f"{convertDir}/{model}_{hex}.xmodel_export")
         convertModel(f"{mdlDir}/{model}", convertDir)
+
+        # convert models with skins
+        for skin in modelSkins[model]:
+            convertModel(f"{mdlDir}/{model}", convertDir, skin=skin)
+            if game == "BO3":
+                try:
+                    codModel.LoadFile_Raw(f"{convertDir}/{model}_skin{skin}.xmodel_export")
+                    codModel.WriteFile_Bin(f"{convertDir}/{model}_skin{skin}.xmodel_bin")
+                except:
+                    print(f"Could not convert {model} to xmodel_bin...")
+                else:
+                    os.remove(f"{convertDir}/{model}_skin{skin}.xmodel_export")
+
         if game == "BO3":
             try:
                 codModel.LoadFile_Raw(f"{convertDir}/{model}.xmodel_export")
