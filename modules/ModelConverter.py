@@ -1,18 +1,17 @@
-from genericpath import exists
 import os
-from posixpath import basename
-from tempfile import gettempdir
 import numpy as np
 import time
 
-from modules.Static import newPath
 os.environ["NO_BPY"] = "1"
-from typing import Dict, Iterable, List, Sized
-from pathlib import Path
+
+from os.path import exists
+from posixpath import basename
+from tempfile import gettempdir
+from typing import Dict, List
 from SourceIO.source1.mdl.mdl_file import Mdl
 from SourceIO.source1.vtx.vtx import Vtx
 from SourceIO.source1.vvd.vvd import Vvd
-from io import TextIOWrapper
+from .Static import newPath
 from .Vector3 import Vector3
 from .Vector2 import Vector2
 
@@ -52,7 +51,7 @@ def merge_meshes(model, vtx_model):
 
     return vtx_vertices, np.hstack(indices_array), np.hstack(mat_arrays)
 
-def convertModel(filePath, writePath, tint=""):
+def convertModel(filePath, writePath, tint="", skin=0):
     tempDir = f"{gettempdir()}/corvid/mdlMats"
     # read mdl, vtx and vvd files
     mdl = Mdl(f"{filePath}.mdl")
@@ -103,7 +102,12 @@ def convertModel(filePath, writePath, tint=""):
     desired_lod = 0
     all_vertices = vvd.lod_data[desired_lod]
 
+    stop = False
+
     for mdl_parts, vtx_parts in zip(mdl.body_parts, vtx.body_parts):
+        if stop:
+            break
+
         for vtx_model, model in zip(vtx_parts.models, mdl_parts.models):
             if model.vertex_count == 0:
                 continue
@@ -114,15 +118,15 @@ def convertModel(filePath, writePath, tint=""):
             indices_array = np.array(indices_array, dtype=np.uint32)
             vertices = model_vertices[vtx_vertices]
 
-            [verts.append(Vector3.FromArray(v)) for v in vertices["vertex"]]
-            [normals.append(Vector3.FromArray(n)) for n in vertices["normal"]]
-            [uvs.append(Vector2.FromArray(t)) for t in vertices["uv"]]
+            [verts.append(Vector3.FromArray(v).round(6)) for v in vertices["vertex"]]
+            [normals.append(Vector3.FromArray(n).round(6)) for n in vertices["normal"]]
+            [uvs.append(Vector2.FromArray(t).round(6)) for t in vertices["uv"]]
 
-            groups.append(model.name.replace("/", "_").replace("\\", "_").replace(".", "_").replace("-", "_"))
+            groups.append("corvid_0")
 
             for i in range(0, len(indices_array), 3):
                 if i % 1000 == 0 and i != 0:
-                    groups.append((model.name + "_" + str(i / 1000)).replace("/", "_").replace("\\", "_").replace(".", "_").replace("-", "_"))
+                    groups.append("corvid_" + len(groups))
                 faces.append({
                     "points":[
                         {"vert": indices_array[i + 1], "normal": normals[indices_array[i + 1]], "uv": uvs[indices_array[i + 1]]},
@@ -132,6 +136,13 @@ def convertModel(filePath, writePath, tint=""):
                     "group": (len(groups) - 1),
                     "material": material_indices_array[int(i / 3)]
                 })
+            
+            # If the last group has no faces, remove it. otherwise Cod4/WaW will not accept the model.
+            if faces[0]["group"] != len(groups) - 1:
+                del groups[len(groups) - 1]
+
+            stop = True
+
     if tint != "":
         fileName = basename(filePath) + f"_{tint}"
     else:
@@ -162,7 +173,7 @@ def convertModel(filePath, writePath, tint=""):
         for i in range(len(verts)):
             file.write(
                 f"VERT {i}\n"
-                + f"OFFSET {round(verts[i].x, 6)} {round(verts[i].y, 6)} {round(verts[i].z, 6)}\n"
+                + f"OFFSET {verts[i].x} {verts[i].y} {verts[i].z}\n"
                 + "BONES 1\n"
                 + "BONE 0 1.000000\n\n"
             )
@@ -171,11 +182,13 @@ def convertModel(filePath, writePath, tint=""):
         for i in range(len(faces)):
             file.write(f'TRI {faces[i]["group"]} {faces[i]["material"]} 0 0\n')
             for point in faces[i]["points"]:
+                if point["normal"].x + point["normal"].y + point["normal"].z == 0.0:
+                    point["normal"].y = 1.000000
                 file.write(
                     f'VERT {point["vert"]}\n'
                     + f'NORMAL {point["normal"].x} {point["normal"].y} {point["normal"].z}\n'
                     + "COLOR 1.000000 1.000000 1.000000 1.000000\n"
-                    + f'UV 1 {round(point["uv"].x, 6)} {round(point["uv"].y, 6)}\n\n'
+                    + f'UV 1 {point["uv"].x} {point["uv"].y}\n\n'
                 )
         
         file.write(f"NUMOBJECTS {len(groups)}\n")
