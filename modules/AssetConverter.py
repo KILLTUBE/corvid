@@ -92,16 +92,17 @@ def convertModels(models, modelTints, modelSkins, game="WaW"):
         convertModel(f"{mdlDir}/{model}", convertDir)
 
         # convert models with skins
-        for skin in modelSkins[model]:
-            convertModel(f"{mdlDir}/{model}", convertDir, skin=skin)
-            if game == "BO3":
-                try:
-                    codModel.LoadFile_Raw(f"{convertDir}/{model}_skin{skin}.xmodel_export")
-                    codModel.WriteFile_Bin(f"{convertDir}/{model}_skin{skin}.xmodel_bin")
-                except:
-                    print(f"Could not convert {model} to xmodel_bin...")
-                else:
-                    os.remove(f"{convertDir}/{model}_skin{skin}.xmodel_export")
+        if model in modelSkins:
+            for skin in modelSkins[model]:
+                convertModel(f"{mdlDir}/{model}", convertDir, skin=skin)
+                if game == "BO3":
+                    try:
+                        codModel.LoadFile_Raw(f"{convertDir}/{model}_skin{skin}.xmodel_export")
+                        codModel.WriteFile_Bin(f"{convertDir}/{model}_skin{skin}.xmodel_bin")
+                    except:
+                        print(f"Could not convert {model} to xmodel_bin...")
+                    else:
+                        os.remove(f"{convertDir}/{model}_skin{skin}.xmodel_export")
 
         if game == "BO3":
             try:
