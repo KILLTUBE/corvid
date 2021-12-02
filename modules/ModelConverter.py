@@ -72,7 +72,7 @@ def convertModel(filePath, writePath, tint="", skin=0):
     vvd.read()
 
     # replace the material names when they have different skins
-    if skin != 0:
+    if skin != 0 and skin < len(mdl.skin_groups):
         for i in range(len(mdl.skin_groups[skin])):
             mdl.materials[i].name = mdl.skin_groups[skin][i]
 
@@ -109,11 +109,9 @@ def convertModel(filePath, writePath, tint="", skin=0):
     all_vertices = vvd.lod_data[desired_lod]
 
     stop = False
+    groups.append("corvid_0")
 
     for mdl_parts, vtx_parts in zip(mdl.body_parts, vtx.body_parts):
-        if stop:
-            break
-
         for vtx_model, model in zip(vtx_parts.models, mdl_parts.models):
             if model.vertex_count == 0:
                 continue
@@ -124,30 +122,38 @@ def convertModel(filePath, writePath, tint="", skin=0):
             indices_array = np.array(indices_array, dtype=np.uint32)
             vertices = model_vertices[vtx_vertices]
 
+            numVerts = len(verts)
+            numNormals = len(normals)
+            numUVs = len(uvs)
             [verts.append(Vector3.FromArray(v).round(6)) for v in vertices["vertex"]]
             [normals.append(Vector3.FromArray(n).round(6)) for n in vertices["normal"]]
             [uvs.append(Vector2.FromArray(t).round(6)) for t in vertices["uv"]]
 
-            groups.append("corvid_0")
-
             for i in range(0, len(indices_array), 3):
                 if i % 1000 == 0 and i != 0:
-                    groups.append("corvid_" + len(groups))
+                    groups.append(f"corvid_{len(groups)}")
+                    
                 faces.append({
                     "points":[
-                        {"vert": indices_array[i + 1], "normal": normals[indices_array[i + 1]], "uv": uvs[indices_array[i + 1]]},
-                        {"vert": indices_array[i + 2], "normal": normals[indices_array[i + 2]], "uv": uvs[indices_array[i + 2]]},
-                        {"vert": indices_array[i], "normal": normals[indices_array[i]], "uv": uvs[indices_array[i]]}
+                        {
+                            "vert": numVerts + indices_array[i + 1],
+                            "normal": normals[numNormals + indices_array[i + 1]],
+                            "uv": uvs[numUVs + indices_array[i + 1]]
+                        },
+                        {
+                            "vert": numVerts + indices_array[i + 2],
+                            "normal": normals[numNormals + indices_array[i + 2]],
+                            "uv": uvs[numUVs + indices_array[i + 2]]
+                        },
+                        {
+                            "vert": numVerts + indices_array[i],
+                            "normal": normals[numNormals + indices_array[i]],
+                            "uv": uvs[numUVs + indices_array[i]]
+                        }
                     ],
                     "group": (len(groups) - 1),
                     "material": material_indices_array[int(i / 3)]
                 })
-            
-            # If the last group has no faces, remove it. otherwise Cod4/WaW will not accept the model.
-            if faces[0]["group"] != len(groups) - 1:
-                del groups[len(groups) - 1]
-
-            stop = True
 
     if tint != "":
         fileName = basename(filePath) + f"_{tint}"
