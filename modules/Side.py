@@ -79,10 +79,12 @@ class Side:
 
     def sortVertices(self):
         # remove duplicate verts
-        temp = {}
+        temp = []
         for point in self.points:
-            temp[str(point.round())] = point
-        self.points = list(temp.values())
+            p = Vector3.FromStr(f"{point}")
+            if p not in temp:
+                temp.append(p)
+        self.points = list(temp)
         center: Vector3 = self.pointCenter()
         normal: Vector3 = self.normal()
 
