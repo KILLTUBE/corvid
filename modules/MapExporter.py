@@ -94,7 +94,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
         side.uvs.append(side.getUV(point, matSize[material]))
 
     if len(points) != 4:
-        print(f"Displacement has {len(points)}. Displacements can have 4 points only. Side id: {side.id}\n")
+        print(f"Displacement has {len(points)} points. Displacements can have 4 points only. Side id: {side.id}\n")
         for point in points:
             print(point)
         return ""
@@ -278,7 +278,11 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
         resBrush += "contents detail;\n"
     resPatch = ""
 
-    for side in brush.sides:        
+    for side in brush.sides:
+        if game == "BO3":
+            if side.material in ["tools/toolsareaportal", "tools/toolshint", "tools/toolsskip"]:
+                return ""
+        
         if len(side.points) >= 3:
             sideDict[side.id] = side
 
@@ -581,10 +585,9 @@ def convertSpawner(entity):
 def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, skipModels=False, mapName="", brushConversion=False):
     # create temporary directories to extract assets
     copyDir = gettempdir() + "/corvid"
-    try:
+    if exists(copyDir):
         rmtree(copyDir)
-    except:
-        pass
+
     try:
         makedirs(f"{copyDir}/mdl")
         makedirs(f"{copyDir}/mat")
