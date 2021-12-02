@@ -808,9 +808,11 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "skinOverride": f"mtl_skybox_default {mapName}_sky_mtl\\r\\n",
             "BulletCollisionLOD": "None"
         })
+        suncolor = worldSpawnSettings["suncolor"] if "suncolor" in worldSpawnSettings else "1 1 1 1"
+        sundirection = worldSpawnSettings["sundirection"] if "sundirection" in worldSpawnSettings else Vector3(0, 0, 0)
         gdt.add(f"{mapName}_ssi", "ssi", {
             "bounceCount": "4",
-            "colorSRGB": f"{worldSpawnSettings['suncolor']} 1",
+            "colorSRGB": f"{suncolor} 1",
             "dynamicShadow": "1",
             "enablesun": "1",
             "ev": "15",
@@ -821,7 +823,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "lensFlarePitchOffset": "0",
             "lensFlareYawOffset": "0",
             "penumbra_inches": "1.5",
-            "pitch": worldSpawnSettings['sundirection'].x,
+            "pitch": sundirection,
             "skyboxmodel": f"{mapName}_skybox",
             "spec_comp": "0",
             "stops": "14",
@@ -836,7 +838,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "sunCookieScrollY": "0",
             "sunVolumetricCookie": "0",
             "type": "ssi",
-            "yaw": worldSpawnSettings['sundirection'].y
+            "yaw": sundirection.y
         })
     else:
         gdt.add(f"{mapName}_sky", "material", {
