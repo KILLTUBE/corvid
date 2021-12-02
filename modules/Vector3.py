@@ -34,7 +34,7 @@ class Vector3:
 
     def __eq__(self, rhs) -> bool:
         if isinstance(rhs, self.__class__):
-            return (self - rhs).len() <= 0.01
+            return (self - rhs).len() <= 1e-5
         return False
 
     def __pow__(self, p) -> float:
