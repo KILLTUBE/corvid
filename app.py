@@ -1,4 +1,4 @@
-from os import makedirs, listdir, name
+from os import makedirs, listdir
 import os.path
 import sys
 from sys import stderr, stdout
@@ -11,7 +11,7 @@ from tkinter.ttk import Progressbar
 import time 
 from threading import *
 import shutil
-from tempfile import gettempdir, tempdir
+from tempfile import gettempdir
 import json
 import webbrowser
 from datetime import datetime
@@ -67,8 +67,8 @@ class App:
 
         self.convertBrush = tk.BooleanVar(value=settings["convertBrush"])
         brushConversionMenu = tk.Menu(menuBar, tearoff=0)
-        brushConversionMenu.add_radiobutton(label="Terrain patches (default)", variable=self.convertBrush, value=False, command=lambda: self.setBrushConversion(False))
-        brushConversionMenu.add_radiobutton(label="Plain brushes (experimental)", variable=self.convertBrush, value=True, command=lambda: self.setBrushConversion(True))
+        brushConversionMenu.add_radiobutton(label="Terrain patches (default)", variable=self.convertBrush, value=False, command=lambda: self.changeSetting("convertBrush", False))
+        brushConversionMenu.add_radiobutton(label="Plain brushes (experimental)", variable=self.convertBrush, value=True, command=lambda: self.changeSetting("convertBrush", False))
 
         settingsMenu.add_cascade(label="Select game profile", menu=currentGameMenu)
         settingsMenu.add_cascade(label="Brush conversion method", menu=brushConversionMenu)
@@ -100,7 +100,16 @@ class App:
         self.vmfPath["font"] = ft
         self.vmfPath["fg"] = "#333333"
         self.vmfPath["justify"] = "left"
-        self.vmfPath.place(x=80,y=10,width=690,height=30)
+        self.vmfPath.place(x=80,y=10,width=570,height=30)
+
+        chooseVmfButton=tk.Button(root)
+        chooseVmfButton["bg"] = "#f0f0f0"
+        chooseVmfButton["font"] = ft
+        chooseVmfButton["fg"] = "#000000"
+        chooseVmfButton["justify"] = "center"
+        chooseVmfButton["text"] = "Browse"
+        chooseVmfButton.place(x=660,y=10,width=114,height=30)
+        chooseVmfButton["command"] = self.chooseVmfDialog_command
 
         vpkLabel=tk.Label(root)
         vpkLabel["font"] = ft
@@ -146,7 +155,7 @@ class App:
         deleteVpkButton["fg"] = "#000000"
         deleteVpkButton["justify"] = "center"
         deleteVpkButton["text"] = "Remove"
-        deleteVpkButton.place(x=660,y=50,width=114,height=30)
+        deleteVpkButton.place(x=540,y=50,width=114,height=30)
         deleteVpkButton["command"] = self.deleteVpkButton_command
 
         deleteDirButton=tk.Button(root)
@@ -155,7 +164,7 @@ class App:
         deleteDirButton["fg"] = "#000000"
         deleteDirButton["justify"] = "center"
         deleteDirButton["text"] = "Remove"
-        deleteDirButton.place(x=660,y=160,width=115,height=30)
+        deleteDirButton.place(x=540,y=160,width=115,height=30)
         deleteDirButton["command"] = self.deleteDirButton_command
 
         addVpkButton=tk.Button(root)
@@ -164,7 +173,7 @@ class App:
         addVpkButton["fg"] = "#000000"
         addVpkButton["justify"] = "center"
         addVpkButton["text"] = "Add"
-        addVpkButton.place(x=540,y=50,width=115,height=30)
+        addVpkButton.place(x=420,y=50,width=115,height=30)
         addVpkButton["command"] = self.addVpkButton_command
 
         addGameDirButton=tk.Button(root)
@@ -173,8 +182,26 @@ class App:
         addGameDirButton["fg"] = "#000000"
         addGameDirButton["justify"] = "center"
         addGameDirButton["text"] = "Add"
-        addGameDirButton.place(x=540,y=160,width=115,height=30)
+        addGameDirButton.place(x=420,y=160,width=115,height=30)
         addGameDirButton["command"] = self.addGameDirButton_command
+
+        clearVpkButton=tk.Button(root)
+        clearVpkButton["bg"] = "#f0f0f0"
+        clearVpkButton["font"] = ft
+        clearVpkButton["fg"] = "#000000"
+        clearVpkButton["justify"] = "center"
+        clearVpkButton["text"] = "Clear"
+        clearVpkButton.place(x=660,y=50,width=115,height=30)
+        clearVpkButton["command"] = lambda: self.vpkList.delete(0, tk.END)
+
+        clearGameDirButton=tk.Button(root)
+        clearGameDirButton["bg"] = "#f0f0f0"
+        clearGameDirButton["font"] = ft
+        clearGameDirButton["fg"] = "#000000"
+        clearGameDirButton["justify"] = "center"
+        clearGameDirButton["text"] = "Clear"
+        clearGameDirButton.place(x=660,y=160,width=115,height=30)
+        clearGameDirButton["command"] = lambda: self.gameDirList.delete(0, tk.END)
 
         # decide what game the map is going to be converted for
         self.game = tk.StringVar()
@@ -308,6 +335,10 @@ class App:
             self.vpkList.insert(0, vpk)
         for gameDir in settings["gameDirs"]:
             self.gameDirList.insert(0, gameDir)
+    
+    def changeSetting(self, key, value):
+        settings[key] = value
+        open("res/settings.json", "w").write(json.dumps(settings, indent=4))
 
     def setSteamDir(self, _dir=""):
         if _dir == "":
@@ -316,13 +347,10 @@ class App:
             dir = _dir
         
         if dir is not None:
-            settings["steamDir"] = dir
-            open("res/settings.json", "w").write(json.dumps(settings, indent=4))
-            self.steamDirLabel["text"] = dir
+            self.changeSetting("steamDir", dir)
 
     def setCurrentGame(self):
-        settings["currentGame"] = self.currentGame.get()
-        open("res/settings.json", "w").write(json.dumps(settings, indent=4))
+        self.changeSetting("currentGame", self.currentGame.get())
         gameName = gameDef[self.currentGame.get()]['gameName']
         self.currentGameLabel["text"] = gameName
         if gameName == "<none>":
@@ -378,6 +406,12 @@ class App:
         open(saveFile.name, "w").write(consoleLog)
 
     def convertButton_command(self):
+        # set the export directory
+        outputDir = filedialog.askdirectory(title="Select a directory to export the converted map and its assets")
+        if outputDir == "":
+            alert.showwarning(title="Warning", message="Please select a directory to export the map!")
+            exit()
+
         # save the extra vpk files and directories in case the user needs them later
         vpkFiles = list(self.vpkList.get(0, self.vpkList.size() - 1))
         gameDirs = list(self.gameDirList.get(0, self.gameDirList.size() - 1))
@@ -404,34 +438,30 @@ class App:
         # check if the selected file is a valid VMF file
         if len(vmfPath) == "0":
             alert.showerror("Please select a VMF file!")
-            return False
+            exit()
         if not os.path.isfile(vmfPath):
             alert.showerror(title="Error", message="Please select a valid file!")
-            return False
+            exit()
         if not os.path.exists(vmfPath):
             alert.showerror(title="Error", message="VMF file does not exist.")
-            return False
+            exit()
         if os.path.splitext(vmfPath)[1].lower() != ".vmf":
             alert.showerror(title="Error", message="Please choose a VMF file")
-            return False
-        # set the export directory
-        outputDir = filedialog.askdirectory(title="Select a directory to export the converted map and its assets")
-        if outputDir is None:
-            alert.showwarning("Please select a directory to export the map!")
-            return False
+            exit()
+        
         # check vpks
         for vpk in vpkFiles:
             if not os.path.isfile(vpk):
                 alert.showerror(title="Error", message=f"\"{vpk}\" is not a valid file!")
-                return False
+                exit()
             if not vpk.endswith(".vpk"):
                 alert.showerror(title="error", message=f"\"{vpk}\" is not a VPK file!")
-                return False
+                exit()
         # check gamedirs
         for dir in gameDirs:
             if not os.path.isdir(dir):
                 alert.showerror(title="Error", message=f"{dir} is not a valid directory.")
-                return False
+                exit()
 
         start = time.time()
         vmfName = os.path.splitext(os.path.basename(vmfPath))[0].lower()
@@ -441,31 +471,48 @@ class App:
         vmfFile = open(vmfPath).read()
         print("Reading VMF file...")
         game = self.game.get()
+
         res = exportMap(vmfFile, vpkFiles, gameDirs, game, self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"])
+        
+        print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
+        open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res)
+
         # prepare the necessary stuff to move and write files
         try:
             makedirs(f"{outputDir}/map_source")
+            makedirs(f"{outputDir}/model_export/corvid")
+            makedirs(f"{outputDir}/source_data")
+            makedirs(f"{outputDir}/texture_assets/corvid")
+            if game == "BO3":
+                makedirs(f"{outputDir}/bin")
         except:
             pass
-        convertedDir = gettempdir() + "/corvid/converted/"
-        convertedFiles = listdir(convertedDir)
+        
+        convertedDir = gettempdir() + "/corvid/converted"
+
+        dirs = [
+            "model_export/corvid",
+            "source_data",
+            "texture_assets/corvid"
+        ]
+
+        if game != "BO3":
+            dirs.append("bin")
+
         print(f"Moving all converted assets to \"{outputDir}\"...")
-        try:
-            for file in convertedFiles:
-                shutil.move(os.path.join(convertedDir, file), outputDir)
-        except:
-            pass
-        # create the .map file
-        print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
-        open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res)
+        for folder in dirs:
+            files = listdir(f"{convertedDir}/{folder}/.")
+            for f in files:
+                shutil.move(f"{convertedDir}/{folder}/{f}", f"{outputDir}/{folder}/{f}")
+
         end = time.time()
         print(f"Conversion finished in {round(end - start)} seconds")
 
         open(f"{outputDir}/log.txt", "w").write(self.consoleTextBox.get(1.0, tkinter.constants.END))
 
     def convertButton_thread(self):
-        t1 = Thread(target=self.convertButton_command)
-        t1.start()
+        thread = Thread(target=self.convertButton_command)
+        thread.start()
 
 class TextRedirector(object):
     def __init__(self, widget, overall, current, overallLabel, currentLabel, tag="stdout"):
@@ -519,6 +566,7 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = App(root)
 
+    # Find where Steam is installed from registry
     if settings["steamDir"] == "":
         try:
             hkey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\WOW6432Node\Valve\Steam")
@@ -528,6 +576,7 @@ if __name__ == "__main__":
         except:
             pass
 
+    # If we can't find where Steam is installed, ask the user to locate it
     while settings["steamDir"] == "":
         alert.showwarning(
             "Warning",
@@ -542,6 +591,4 @@ if __name__ == "__main__":
     for i in range(1, len(libraryFolders) - 1):
         steamAppsDirs.append(Path(libraryFolders[str(i)]["path"]).as_posix())
     
-    print(steamAppsDirs)
-
     root.mainloop()
