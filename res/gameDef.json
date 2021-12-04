@@ -237,7 +237,7 @@
 	},
 	{
 		"gameName": "Fistful of Frags",
-		"gameRoot": "",
+		"gameRoot": "Fistful of Frags",
 		"vpkFiles": [
 			"fof/fof2_dir.vpk",
 			"fof/fof_dir.vpk",
@@ -249,6 +249,15 @@
 			"fof",
 			"sdk/hl2",
 			"sdk/platform"
+		]
+	},
+	{
+		"gameName": "The Stanley Parable",
+		"gameRoot": "The Stanley Parable",
+		"vpkFiles": [],
+		"gameDirs": [
+			"thestanleyparable",
+			"platform"
 		]
 	},
 	{
