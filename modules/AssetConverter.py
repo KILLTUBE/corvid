@@ -1,7 +1,7 @@
 import os
-from os.path import basename, splitext, exists, dirname
+from os.path import splitext, exists
 os.environ["NO_BPY"] = "1"
-from PIL import Image, ImageOps
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from SourceIO.source1.vtf.VTFWrapper import VTFLib
 from .Vector2 import Vector2
 from .Vector3 import Vector3
@@ -66,6 +66,35 @@ def convertImages(images, src, dest, ext="tga"):
     for file in images["colorMaps"]:
         print(f"{i}|{total}|done", end=""); i += 1;
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{file}.{ext}", "rgb")
+
+    # create 404 image for the textures that aren't found
+    h = 512
+    w = 512
+    img = Image.new("RGB", (h,w), (255, 0, 0)) # create a new 15x15 image
+    pixels = img.load() # create the pixel map
+    print ("1")
+
+    col1, col2 = (255, 0, 255), (0, 255, 0)
+
+    box_size = 64
+    for i in range (0, h, box_size):
+        for j in range(0, w, box_size):
+            y, x = i // box_size, j // box_size
+            if (y&1)^(x&1):
+                for di in range(box_size):
+                    for dj in range(box_size):
+                        pixels[i+di,j+dj] = col1
+            else:
+                for di in range(box_size):
+                    for dj in range(box_size):
+                        pixels[i+di,j+dj] = col2
+
+
+    draw = ImageDraw.Draw(img)
+
+    draw.text((62, 206), "TEXTURE NOT FOUND", (255, 255, 255), font=ImageFont.truetype("impact.ttf", 50))
+
+    img.save(f"{tempDir}/converted/{dest}/404.{ext}")
 
 def getTexSize(src):
     image = VTFLib.VTFLib()
