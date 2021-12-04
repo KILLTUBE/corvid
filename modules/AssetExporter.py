@@ -49,7 +49,7 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
         vmtPath = f"{tempDir}/{vmtDir}/{fileName}.vmt"
         if not exists(vmtPath):
             print(f"Could not find material {fileName}. Creating an empty material for it...")
-            res["vmts"][fileName] = 'lightmappedgeneric\n{\n"$basetexture" "404"\n}'
+            res["vmts"][fileName] = parse_vdf('lightmappedgeneric\n{\n"$basetexture" "404"\n}')
             res["sizes"][file.strip()] = Vector2(512, 512)
             return res
 
@@ -339,8 +339,14 @@ def createMaterialGdt(vmts: dict, game="WaW"):
     for name, vmt in vmts.items():
         print(f"{i}|{total}|done", end=""); i += 1
         shader = list(vmt)[0]
-        mat = vmt[shader]
-        data = {}
+        
+        try:
+            mat = vmt[shader]
+            data = {}
+        except:
+            print(f"Error parsing {name}. Skipping...")
+            print(vmt)
+            continue
 
         assetName = name
 
