@@ -72,7 +72,6 @@ def convertImages(images, src, dest, ext="tga"):
     w = 512
     img = Image.new("RGB", (h,w), (255, 0, 0)) # create a new 15x15 image
     pixels = img.load() # create the pixel map
-    print ("1")
 
     col1, col2 = (255, 0, 255), (0, 255, 0)
 
