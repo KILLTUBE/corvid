@@ -22,6 +22,10 @@ def convertImage(src, dest, format="rgba", invert=False, resize=False):
     width = image.width()
     height = image.height()
     rgba = Image.frombuffer("RGBA", (width, height), image.convert_to_rgba8888().contents)
+    if rgba.size[0] < 4 or rgba.size[1] < 4:
+        x = max(rgba.size[0], 4)
+        y = max(rgba.size[1], 4)
+        rgba.resize((x, y))
     if resize:
         rgba.resize((512, 512))
     if invert:
