@@ -7,3 +7,4 @@ test/
 test.py
 .vscode/settings.json
 *.tmp
+Corvid.spec
