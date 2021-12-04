@@ -65,7 +65,7 @@ def convertModel(filePath, writePath, tint="", skin=0):
         vtx = Vtx(f"{filePath}.dx90.vtx")
         vtx.read()
     else:
-        print("Can't find vtx file for the model. Skipping...")
+        print(f"Can't find vtx file for the model {basename(filePath)}.mdl. Skipping...")
         return
 
     vvd = Vvd(f"{filePath}.vvd")
