@@ -27,7 +27,7 @@ def newPath(path: str, shorten=False):
 # some vmt files are written so badly, we have to fix them make sure they will be parsed correctly
 def fixVmt(vmt: str):
     result = ""
-    lines = vmt.replace("\t", " ").replace("\\", "/").replace(".vtf", "").replace(".tga", "").split("\n")
+    lines = vmt.replace("\t", " ").replace('""\n','"[emptyplaceholder]"\n').replace("\\", "/").replace(".vtf", "").replace(".tga", "").split("\n")
     for line in lines:
         res2 = ""
         line = line.replace('"', " ").strip().lower()
@@ -54,6 +54,8 @@ def fixVmt(vmt: str):
                 line = f'"{key}" "{value[0].strip()}" // {value[1]}'
             else:
                 value = value.replace(".vtf", "").replace(".tga", "")
+                if value == "[emptyplaceholder]":
+                    value = ""
                 line = f'"{key}" "{value}"'
         result += line + "\n" + res2
     return result
