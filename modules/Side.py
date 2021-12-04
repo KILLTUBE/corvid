@@ -81,10 +81,9 @@ class Side:
         # remove duplicate verts
         temp = []
         for point in self.points:
-            p = Vector3.FromStr(f"{point}")
-            if p not in temp:
-                temp.append(p)
-        self.points = list(temp)
+            if point not in temp:
+                temp.append(point)
+        self.points = temp
         center: Vector3 = self.pointCenter()
         normal: Vector3 = self.normal()
 
