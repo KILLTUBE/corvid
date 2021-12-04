@@ -52,10 +52,14 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
             res["vmts"][fileName] = 'lightmappedgeneric\n{\n"$basetexture" "404"\n}'
             res["sizes"][file.strip()] = Vector2(512, 512)
             return res
-        vmt = parse_vdf(fixVmt(open(vmtPath).read()))
-        res["vmts"][fileName] = vmt
-        shader = list(vmt)[0]
-        mat = vmt[shader]
+
+        try:
+            vmt = parse_vdf(fixVmt(open(vmtPath).read()))
+            res["vmts"][fileName] = vmt
+            shader = list(vmt)[0]
+            mat = vmt[shader]
+        except:
+            print(f"Could not parse {vmtPath}. Skipping...")
 
         # some materials in Source can reference & inherit other materials' properties
         if "include" in mat:
@@ -205,7 +209,7 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, game="WaW"):
 
     return sorted(set(res))
 
-def surfaceType(surface):
+def surfaceType(surface, game=""):
     surface = surface.lower()
     surfaces =     {
         "default": ["plaster", "plaster"],
@@ -300,6 +304,17 @@ def surfaceType(surface):
         "pottery": ["brick", "brick"]
     }
     if surface in surfaces:
+        if game == "CoD2": # some surface types don't exist in CoD 2
+            cod2surfs = [
+                'asphalt', 'bark', 'brick', 'carpet', 'cloth',
+                'concrete', 'dirt', 'flesh', 'foliage',
+                'glass', 'grass', 'gravel', 'ice', 'metal', 'mud', 'paper',
+                'plaster', 'rock', 'sand', 'snow', 'water', 'wood'
+            ]
+
+            if surfaces[surface][0] not in cod2surfs:
+                surfaces[surface][0] = "<none>"
+
         return {
             "surface": surfaces[surface][0],
             "gloss": surfaces[surface][1],
@@ -372,7 +387,7 @@ def createMaterialGdt(vmts: dict, game="WaW"):
             data["cullFace"] = "None"
 
         if "$surfaceprop" in mat:
-            data["surfaceType"] = surfaceType(mat["$surfaceprop"].strip())["surface"]
+            data["surfaceType"] = surfaceType(mat["$surfaceprop"].strip(), game)["surface"]
         else:
             data["surfaceType"] = "<none>"
 
@@ -744,6 +759,8 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         # load all sides of the cubemap
         images = {}
         for face in faces:
+            if not exists(f"{convertDir}/{mapName}_sky_{face}.tif"):
+                return gdt
             images[face] = Image.open(f"{convertDir}/{mapName}_sky_{face}.tif").resize((1024, 1024))
         
         # create an empty image and paste all sides in it

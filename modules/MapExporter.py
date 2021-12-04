@@ -26,6 +26,9 @@ def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     material = newPath(side.material)
 
     # get uv points
+    if material not in matSize:
+        matSize[material] = Vector2(512, 512)
+        
     for point in side.points:
         side.uvs.append(side.getUV(point, matSize[material]))
     uvs: list[Vector2] = side.uvs
@@ -85,11 +88,15 @@ def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, power: i
     return res
 
 def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, game="WaW"):
+
     res = f"// Side {side.id}\n"
     points = side.points
     material = newPath(side.material)
     
     # get uv points
+    if material not in matSize:
+        matSize[material] = Vector2(512, 512)
+
     for point in side.points:
         side.uvs.append(side.getUV(point, matSize[material]))
 
@@ -133,7 +140,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
 
     # CoD 4 can't handle terrain patches bigger than 16x16
     # So when we're converting a map for that game, we're going to slice them into 9x9 patches
-    if game == "CoD4" and numVerts == 17:
+    if (game == "CoD4" or game == "CoD2") and numVerts == 17:
         for k in range(2):
             for l in range(2):
                 res += (
@@ -475,18 +482,29 @@ def convertRope(entity, skyOrigin=Vector3(0, 0, 0), scale=1, curve=False, ropeDi
                 }, entity["id"])
         return res
 
-def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=1):
+def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=1, game="WaW"):
     mid: Vector3 = start.lerp(end, 0.5)
     mid.z -= slack
 
-    normal = (start - mid).cross(end -mid).normalize()
-    n = normal * width
-    up = Vector3(0, 0, width)
+    try:
+        normal = (start - mid).cross(end - mid).normalize()
+        n = normal * width
+        up = Vector3(0, 0, width)
+    except:
+        return ""
+
+    if game == "WaW":
+        mat = "global_wires"
+    elif game == "CoD4":
+        mat = "ap_chrome_trim"
+    elif game == "CoD2":
+        mat = "egypt_metal_pipe2"
+    
     return (
         "{\n"
         + "curve\n"
         + "{\n"
-        + "global_wires\n"
+        + f"{mat}\n"
         + "lightmap_gray\n"
         + "5 3 16 8\n"
         + "(\n"
@@ -538,8 +556,11 @@ def convertProp(entity, game="WaW", skyOrigin=Vector3(0, 0, 0), scale=1):
         if entity["rendercolor"] != "255 255 255":
             modelName += "_" + Vector3.FromStr(entity["rendercolor"]).toHex()
 
+    if game == "CoD2":
+        modelName = "xmodel/" + modelName
+
     return convertEntity({
-        "classname": "dyn_model" if entity["classname"].startswith("prop_physics") else "misc_model",
+        "classname": "dyn_model" if entity["classname"].startswith("prop_physics") and game != "CoD2" else "misc_model",
         "model": modelName,
         "origin": origin,
         "angles": entity["angles"],
@@ -631,6 +652,12 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
 
     # create GDT files
     gdtFile = Gdt()
+
+    # CoD 2 needs different arguments for converter, so we need to make the GDT class we're converting for CoD 2
+    if game == "CoD2":
+        gdtFile.CoD2 = True
+        gdtFile.name = mapName
+
     batFile = ""
     if not skipMats or not skipModels:
         print("Generating GDT file...")
@@ -679,11 +706,10 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
     overlays = []
 
     # store rope entity info in a dictionary to convert them as curve patches if needed
-    if game == "CoD4":
-        ropeDict: Dict[str, dict] = {
-            "start": {},
-            "end": {}
-        }
+    ropeDict: Dict[str, dict] = {
+        "start": {},
+        "end": {}
+    }
 
     total = (
         len(mapData["worldBrushes"]) + len(mapData["entityBrushes"]) + len(mapData["entities"])
@@ -712,7 +738,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
         elif entity["classname"] == "light_spot":
             mapEnts += convertSpotLight(entity, game)
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
-            if game == "CoD4":
+            if game == "CoD4" or game == "CoD2":
                 convertRope(entity, curve=True, ropeDict=ropeDict)
             else:
                 mapEnts += convertRope(entity)
@@ -759,8 +785,9 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
                 convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"], curve=True, ropeDict=ropeDict)
             else:
                 mapEnts += convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"])
+
     # convert ropes to curve patches for cod 4
-    if game == "CoD4":
+    if game == "CoD4" or game == "CoD2":
         for val in ropeDict["start"].values(): 
             if val["target"] in ropeDict["end"]:
                 mapGeo += convertRopeAsCurve(

@@ -1,6 +1,8 @@
 class Gdt:
     def __init__(self, entries={}):
         self.entries = entries
+        self.CoD2 = False
+        self.name = ""
     
     def add(self, name: str, type: str, data: dict):
         self.entries[name] = {
@@ -27,8 +29,14 @@ class Gdt:
         for i in range(count):
             name, type = entries[i]["name"], entries[i]["type"]
             res += f"@echo Converting {name}, {i+1} of {count}\n"
-            res += f'@converter -nopause -single "{type}" {name}\n'
+            if self.CoD2: # the bat file needs different arguments 
+                res += f'@converter -nopause -single "source_data\\_{self.name}.gdt" {name}\n'
+            else:
+                res += f'@converter -nopause -single "{type}" {name}\n'
         return res + "\n"
     
     def __add__(self, other: 'Gdt'):
-        return Gdt({**self.entries, **other.entries})
+        res = Gdt({**self.entries, **other.entries})
+        res.CoD2 = self.CoD2
+        res.name = self.name
+        return res

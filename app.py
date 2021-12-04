@@ -214,21 +214,30 @@ class App:
         radioBO3.place(x=134,y=270,width=88,height=30)
         radioBO3["value"] = "BO3"
 
-        radioOld=tk.Radiobutton(root, variable=self.game)
-        radioOld["font"] = ft
-        radioOld["fg"] = "#333333"
-        radioOld["justify"] = "left"
-        radioOld["text"] = "WaW / Black Ops"
-        radioOld.place(x=248,y=270,width=168,height=30)
-        radioOld["value"] = "WaW"
+        radioWaW=tk.Radiobutton(root, variable=self.game)
+        radioWaW["font"] = ft
+        radioWaW["fg"] = "#333333"
+        radioWaW["justify"] = "left"
+        radioWaW["text"] = "WaW / Black Ops"
+        radioWaW.place(x=270,y=270,width=120,height=30)
+        radioWaW["value"] = "WaW"
 
-        radioOld=tk.Radiobutton(root, variable=self.game)
-        radioOld["font"] = ft
-        radioOld["fg"] = "#333333"
-        radioOld["justify"] = "left"
-        radioOld["text"] = "Cod 4"
-        radioOld.place(x=406,y=270,width=168,height=30)
-        radioOld["value"] = "CoD4"
+        radioCoD4=tk.Radiobutton(root, variable=self.game)
+        radioCoD4["font"] = ft
+        radioCoD4["fg"] = "#333333"
+        radioCoD4["justify"] = "left"
+        radioCoD4["text"] = "CoD 4"
+        radioCoD4.place(x=425,y=270,width=75,height=30)
+        radioCoD4["value"] = "CoD4"
+
+
+        radioCoD2=tk.Radiobutton(root, variable=self.game)
+        radioCoD2["font"] = ft
+        radioCoD2["fg"] = "#333333"
+        radioCoD2["justify"] = "left"
+        radioCoD2["text"] = "CoD 2"
+        radioCoD2.place(x=515,y=270,width=100,height=30)
+        radioCoD2["value"] = "CoD2"
         
         radioBO3.select() # default value
 
@@ -348,6 +357,7 @@ class App:
         
         if dir is not None:
             self.changeSetting("steamDir", dir)
+            self.steamDirLabel["text"] = dir
 
     def setCurrentGame(self):
         self.changeSetting("currentGame", self.currentGame.get())
@@ -472,22 +482,22 @@ class App:
         print("Reading VMF file...")
         game = self.game.get()
 
-        res = exportMap(vmfFile, vpkFiles, gameDirs, game, self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"])
         
-        print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
-        open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res)
-
         # prepare the necessary stuff to move and write files
         try:
             makedirs(f"{outputDir}/map_source")
             makedirs(f"{outputDir}/model_export/corvid")
             makedirs(f"{outputDir}/source_data")
             makedirs(f"{outputDir}/texture_assets/corvid")
-            if game == "BO3":
+            if game != "BO3":
                 makedirs(f"{outputDir}/bin")
         except:
             pass
         
+        res = exportMap(vmfFile, vpkFiles, gameDirs, game, self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"])
+        print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
+        open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res)
+
         convertedDir = gettempdir() + "/corvid/converted"
 
         dirs = [
