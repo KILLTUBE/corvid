@@ -753,7 +753,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
             sundirection = Vector3.FromStr(entity["angles"])
             sundirection.x = float(entity["pitch"]) * -1
             worldSpawnSettings["sundirection"] = sundirection
-            worldSpawnSettings["sunglight"] = "1"
+            worldSpawnSettings["sunlight"] = "1"
             worldSpawnSettings["sundiffusecolor"] = "0.75 0.82 0.85"
             worldSpawnSettings["diffusefraction"] = ".2"
             worldSpawnSettings["ambient"] = ".116"
