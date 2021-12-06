@@ -51,15 +51,20 @@ class Side:
         self.points: list[Vector3] = []
         self.uvs: list[Vector2] = []
 
-        try:
-            data["dispinfo"]
-        except:
-            self.hasDisp = False
-        else:
+        self._center = None
+        self._radius = None
+        self._normal = None
+
+        if "dispinfo" in data:
             self.hasDisp = True
             self.dispinfo = self.processDisplacement(data["dispinfo"])
+        else:
+            self.hasDisp = False
 
     def normal(self):
+        if self._normal is not None:
+            return self._normal()
+
         ab: Vector3 = self.p2 - self.p1
         ac: Vector3 = self.p3 - self.p1
         return ab.cross(ac)
@@ -72,10 +77,29 @@ class Side:
         return ((self.p1.x * normal.x) + (self.p1.y * normal.y) + (self.p1.z * normal.z)) / sqrt(pow(normal.x, 2) + pow(normal.y, 2) + pow(normal.z, 2))
 
     def pointCenter(self):
+        if self._center is not None:
+            return self._center
+        
         center = Vector3()
         for point in self.points:
             center = center + point
-        return center / len(self.points)
+        
+        self._center = center / len(self.points)
+        return self._center
+    
+    def radius(self) -> float:
+        center = self.pointCenter()
+        dist = 0.0
+        for point in self.points:
+            d = center.distance(point)
+            if d > dist:
+                dist = d
+        
+        self._radius = dist
+
+        return dist
+        
+
 
     def sortVertices(self):
         # remove duplicate verts
