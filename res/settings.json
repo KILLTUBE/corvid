@@ -1,8 +1,8 @@
 {
     "steamDir": "",
     "currentGame": -1,
+    "game": "BO3",
     "convertBrush": false,
-    "convertRopeAsCurve": false,
     "vpkFiles": [],
     "gameDirs": []
 }
