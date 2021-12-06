@@ -1,5 +1,6 @@
 from typing import Dict
 from modules.Brush import Brush
+from modules.Decal import convertDecal
 from modules.Overlay import Overlay
 from modules.SourceDir import SourceDir
 from .Side import Side
@@ -279,10 +280,14 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
         "toolsskybox": "sky" if game == "BO3" else f"{mapName}_sky"
     }
 
+    if game == "BO3" and brush.entity == "func_areaportal":
+        return ""
+
     resBrush = f"// Brush {brush.id}\n" 
     resBrush = "{\n"
     if not world:
-        resBrush += "contents detail;\n"
+        if brush.entity != "func_areaportal":
+            resBrush += "contents detail;\n"
     resPatch = ""
 
     for side in brush.sides:
@@ -491,7 +496,8 @@ def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=
         n = normal * width
         up = Vector3(0, 0, width)
     except:
-        return ""
+        n = 0
+        up = 0
 
     if game == "WaW":
         mat = "global_wires"
@@ -703,7 +709,8 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
 
     # store brush sides in a dictionary for info_overlay entities
     sideDict: Dict[str, Side] = {}
-    overlays = []
+    # overlays = []
+    # decals = []
 
     # store rope entity info in a dictionary to convert them as curve patches if needed
     ropeDict: Dict[str, dict] = {
@@ -742,13 +749,15 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
                 convertRope(entity, curve=True, ropeDict=ropeDict)
             else:
                 mapEnts += convertRope(entity)
-        elif entity["classname"] == "env_cubemap":
+        elif entity["classname"] == "env_cubemap" and game != "CoD2":
             mapEnts += convertCubemap(entity)
         elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
             mapEnts += convertSpawner(entity)
-        elif entity["classname"] == "info_overlay":
-            if entity["sides"] != "":
-                overlays.append(entity)
+        # elif entity["classname"] == "info_overlay":
+        #     if entity["sides"] != "":
+        #         overlays.append(entity)
+        # elif entity["classname"] == "infodecal":
+        #     decals.append(entity)
         elif entity["classname"] == "light_environment":
             sundirection = Vector3.FromStr(entity["angles"])
             sundirection.x = float(entity["pitch"]) * -1
@@ -808,6 +817,9 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
     #     if decal is not None:
     #         mapGeo += str(decal)
     #     del decal
+
+    # for decal in decals:
+    #     convertDecal(entity, sideDict)
 
     # convert the skybox textures
     if not skipMats and mapData["sky"] != "sky":
