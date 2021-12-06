@@ -120,6 +120,11 @@ def readMap(vmf):
             if matName not in materials:
                 materials.append(matName)
             entities.append(entity)
+        elif entity.classname == "infodecal":
+            matName = entity.texture.lower()
+            if matName not in materials:
+                materials.append(matName)
+            entities.append(entity)
         else:
             if "editor" in entity:
                 if "visgroupid" in entity.editor and entity.editor.visgroupid == skyBoxId:
