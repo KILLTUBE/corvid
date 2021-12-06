@@ -205,6 +205,7 @@ class App:
 
         # decide what game the map is going to be converted for
         self.game = tk.StringVar()
+        self.game.set(settings["game"])
 
         radioBO3=tk.Radiobutton(root, variable=self.game)
         radioBO3["font"] = ft
@@ -213,6 +214,7 @@ class App:
         radioBO3["text"] = "Black Ops 3"
         radioBO3.place(x=134,y=270,width=88,height=30)
         radioBO3["value"] = "BO3"
+        radioBO3["command"] = lambda: self.changeSetting("game", "BO3")
 
         radioWaW=tk.Radiobutton(root, variable=self.game)
         radioWaW["font"] = ft
@@ -221,6 +223,7 @@ class App:
         radioWaW["text"] = "WaW / Black Ops"
         radioWaW.place(x=270,y=270,width=120,height=30)
         radioWaW["value"] = "WaW"
+        radioWaW["command"] = lambda: self.changeSetting("game", "WaW")
 
         radioCoD4=tk.Radiobutton(root, variable=self.game)
         radioCoD4["font"] = ft
@@ -229,7 +232,7 @@ class App:
         radioCoD4["text"] = "CoD 4"
         radioCoD4.place(x=425,y=270,width=75,height=30)
         radioCoD4["value"] = "CoD4"
-
+        radioCoD4["command"] = lambda: self.changeSetting("game", "CoD4")
 
         radioCoD2=tk.Radiobutton(root, variable=self.game)
         radioCoD2["font"] = ft
@@ -238,8 +241,7 @@ class App:
         radioCoD2["text"] = "CoD 2"
         radioCoD2.place(x=515,y=270,width=100,height=30)
         radioCoD2["value"] = "CoD2"
-        
-        radioBO3.select() # default value
+        radioCoD2["command"] = lambda: self.changeSetting("game", "CoD2")
 
         gameLabel=tk.Label(root)
         gameLabel["font"] = ft
