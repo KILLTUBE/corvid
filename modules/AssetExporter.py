@@ -473,9 +473,9 @@ def createMaterialGdtBo3(vmts: dict):
             if fileName + ".vtf" in fileList:
                 data["colorMap"] = "i_" + newPath(mat["$basetexture"], shorten=True)
             else:
-                data["colorMap"] = "404.tif"
+                data["colorMap"] = "i_404"
         else:
-            data["colorMap"] = "404.tif"
+            data["colorMap"] = "i_404"
         
         if shader == "vertexlitgeneric" or shader == "vertexunlitgeneric":
             data["usage"] = "<not in editor>"
@@ -665,6 +665,16 @@ def createImageGdt(images):
 
     total = len(images["colorMaps"] + images["colorMapsAlpha"] + images["normalMaps"] + images["envMaps"] + images["envMapsAlpha"] + images["revealMaps"])
     i = 0
+
+    gdt.add("i_404", "image", {
+        "imageType": "Texture",
+        "type": "image",
+        "baseImage": "texture_assets\\\\corvid\\\\404.tif",
+        "semantic": "diffuseMap",
+        "compressionMethod": "compressed high color",
+        "coreSemantic": "sRGB3chAlpha",
+        "streamable": "1"
+    })
 
     for file in images["colorMaps"]:
         print(f"{i}|{total}|done", end=""); i += 1
