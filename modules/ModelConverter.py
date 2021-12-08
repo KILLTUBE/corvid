@@ -51,7 +51,7 @@ def merge_meshes(model, vtx_model):
 
     return vtx_vertices, np.hstack(indices_array), np.hstack(mat_arrays)
 
-def convertModel(filePath, writePath, tint="", skin=0):
+def convertModel(filePath, writePath, tint="", skin=0, scale=1.0):
     tempDir = f"{gettempdir()}/corvid/mdlMats"
     # read mdl, vtx and vvd files
     mdl = Mdl(f"{filePath}.mdl")
@@ -127,7 +127,7 @@ def convertModel(filePath, writePath, tint="", skin=0):
             numVerts = len(verts)
             numNormals = len(normals)
             numUVs = len(uvs)
-            [verts.append(Vector3.FromArray(v).round(6)) for v in vertices["vertex"]]
+            [verts.append((Vector3.FromArray(v) * scale).round(6)) for v in vertices["vertex"]]
             [normals.append(Vector3.FromArray(n).round(6)) for n in vertices["normal"]]
             [uvs.append(Vector2.FromArray(t).round(6)) for t in vertices["uv"]]
 

@@ -4,5 +4,6 @@
     "game": "BO3",
     "convertBrush": false,
     "vpkFiles": [],
-    "gameDirs": []
+    "gameDirs": [],
+    "scale": 1.0
 }

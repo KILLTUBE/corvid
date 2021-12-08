@@ -6,7 +6,7 @@ import tkinter as tk
 import tkinter.constants
 import tkinter.messagebox as alert
 import tkinter.font as tkFont
-from tkinter import filedialog
+from tkinter import filedialog, simpledialog
 from tkinter.ttk import Progressbar
 import time 
 from threading import *
@@ -30,7 +30,7 @@ steamAppsDirs = []
 class App:
     def __init__(self, root: tk.Tk):
         root.title(f"Corvid - v{version}")
-        root.iconbitmap("res/icon.ico")
+        root.iconbitmap(default="res/icon.ico")
         width=800
         height=620
         screenwidth = root.winfo_screenwidth()
@@ -74,6 +74,7 @@ class App:
         settingsMenu.add_cascade(label="Brush conversion method", menu=brushConversionMenu)
         settingsMenu.add_separator()
         settingsMenu.add_command(label="Set Steam directory", command=self.setSteamDir)
+        settingsMenu.add_command(label="Change export scale", command=self.changeScale)            
 
         helpMenu = tk.Menu(menuBar, tearoff=0)
         helpMenu.add_command(label="Corvid on Github", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid"))
@@ -351,6 +352,11 @@ class App:
         settings[key] = value
         open("res/settings.json", "w").write(json.dumps(settings, indent=4))
 
+    def changeScale(self):
+        popup = simpledialog.askfloat("Export scale", "Please enter the scale value", initialvalue=settings["scale"])
+        if popup is not None:
+            self.changeSetting("scale", popup)
+
     def setSteamDir(self, _dir=""):
         if _dir == "":
             dir = filedialog.askdirectory(title="Set your Steam directory")
@@ -494,7 +500,12 @@ class App:
         except:
             pass
         
-        res = exportMap(vmfFile, vpkFiles, gameDirs, game, self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"])
+        res = exportMap(
+            vmfFile, vpkFiles, gameDirs, game,
+            self.skipMats.get(), self.skipModels.get(), vmfName,
+            settings["convertBrush"], scale=settings["scale"]
+        )
+        
         print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source/prefabs/{vmfName}\"")
         open(f"{outputDir}/map_source/{prefabDir}/{vmfName}/{vmfName}.map", "w").write(res)
 

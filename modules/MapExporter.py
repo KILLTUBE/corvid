@@ -137,8 +137,6 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
 
     alpha = False
 
-    # material = "me_floorsmoothconcrete"
-
     # CoD 4 can't handle terrain patches bigger than 16x16
     # So when we're converting a map for that game, we're going to slice them into 9x9 patches
     if (game == "CoD4" or game == "CoD2") and numVerts == 17:
@@ -355,7 +353,7 @@ def convertEntity(entity, id="", geo=""):
     res += "}\n"
     return res
 
-def convertLight(entity):
+def convertLight(entity, scale=1.0):
     if "_light" in entity:
         _color = entity["_light"].split(" ")
         if len(_color) == 3:
@@ -366,13 +364,13 @@ def convertLight(entity):
     color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
     return convertEntity({
         "classname": "light",
-        "origin": entity["origin"],
+        "origin": Vector3.FromStr(entity["origin"]) * scale,
         "_color": color,
         "radius": _color[3],
         "intensity": "1"
     }, entity["id"])
 
-def convertSpotLight(entity, game="WaW"):
+def convertSpotLight(entity, game="WaW", scale=1.0):
     if "_light" in entity:
         _color = entity["_light"].split(" ")
         if len(_color) == 3:
@@ -381,8 +379,7 @@ def convertSpotLight(entity, game="WaW"):
         _color = [0, 0, 0, 500]
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
     color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
-    _origin = entity["origin"].split(" ")
-    origin = Vector3(_origin[0], _origin[1], _origin[2])
+    origin = Vector3.FromStr(entity["origin"])
     if "_fifty_percent_distance" in entity and "_zero_percent_distance" not in entity:
         radius = int(entity["_fifty_percent_distance"])
     elif "_zero_percent_distance" in entity and "_fifty_percent_distance" not in entity:
@@ -395,7 +392,7 @@ def convertSpotLight(entity, game="WaW"):
     if game != "BO3":
         res = convertEntity({
             "classname": "light",
-            "origin": entity["origin"],
+            "origin": origin * scale,
             "_color": color,
             "radius": radius,
             "intensity": "1",
@@ -413,7 +410,7 @@ def convertSpotLight(entity, game="WaW"):
         pitch = float(entity["pitch"])
         res = convertEntity({
             "classname": "light",
-            "origin": entity["origin"],
+            "origin": origin * scale,
             "_color": color,
             "PRIMARY_TYPE": "PRIMARY_SPOT",
             "angles": Vector3(angles.x, pitch, angles.z),
@@ -544,9 +541,9 @@ def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=
         + "}\n"
     )
 
-def convertProp(entity, game="WaW", skyOrigin=Vector3(0, 0, 0), scale=1):
+def convertProp(entity, game="WaW", skyOrigin=Vector3(0, 0, 0), scale=1, mdlScale=1):
     origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
-    modelScale = float(entity["uniformscale"] if "uniformscale" in entity else entity["modelscale"] if "modelscale" in entity else "1") * scale
+    modelScale = float(entity["uniformscale"] if "uniformscale" in entity else entity["modelscale"] if "modelscale" in entity else "1") * mdlScale
     if "model" not in entity:
         return convertEntity({
             "classname": "info_null",
@@ -576,13 +573,13 @@ def convertProp(entity, game="WaW", skyOrigin=Vector3(0, 0, 0), scale=1):
         "modelscale": modelScale
     }, entity["id"])
 
-def convertCubemap(entity):
+def convertCubemap(entity, scale=1.0):
     return convertEntity({
         "classname": "reflection_probe",
-        "origin": entity["origin"]
+        "origin": Vector3.FromStr(entity["origin"]) * scale
     }, entity["id"])
 
-def convertSpawner(entity):
+def convertSpawner(entity, scale=1.0):
     spawners = {
         "info_player_terrorist": "mp_tdm_spawn_axis_start",
         "info_player_counterterrorist": "mp_tdm_spawn_allies_start",
@@ -599,19 +596,24 @@ def convertSpawner(entity):
     origin.z += 32 # otherwise they go through the floor
     res = convertEntity({
         "classname": classname,
-        "origin": origin,
+        "origin": origin * scale,
         "angles": entity["angles"]
     }, entity["id"])
 
     if classname == "info_player_start":
         res += convertEntity({
             "classname": "mp_global_intermission",
-            "origin": entity["origin"]
+            "origin": Vector3.FromStr(entity["origin"]) * scale
         }, entity["id"])
 
     return res
 
-def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, skipModels=False, mapName="", brushConversion=False):
+def exportMap(
+        vmfString, vpkFiles=[], gameDirs=[], game="WaW",
+        skipMats=False, skipModels=False, mapName="",
+        brushConversion=False, scale=1.0
+    ):
+
     # create temporary directories to extract assets
     copyDir = gettempdir() + "/corvid"
     if exists(copyDir):
@@ -702,7 +704,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
     # convert the models
     if not skipModels:
         print("Converting models...")
-        convertModels(mapData["models"], mapData["modelTints"], mapData["modelSkins"], game)
+        convertModels(mapData["models"], mapData["modelTints"], mapData["modelSkins"], game, scale)
 
     # generate map geometry
     print("Generating .map file...")
@@ -731,7 +733,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
     for brush in mapData["worldBrushes"]:
         print(f"{i}|{total}|done", end="")
         i += 1
-        mapGeo += convertBrush(brush, True, game, mapName, matSizes=matSizes, brushConversion=brushConversion, sideDict=sideDict)
+        mapGeo += convertBrush(brush, True, game, mapName, matSizes=matSizes, brushConversion=brushConversion, sideDict=sideDict, scale=scale)
 
     for brush in mapData["entityBrushes"]:
         print(f"{i}|{total}|done", end="")
@@ -746,10 +748,10 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
                 "script_label": "_" + brush.entData["targetname"][0].lower() if "targetname" in brush.entData else "" 
             },
             id=brush.id,
-            geo=convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict)
+            geo=convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict, scale=scale)
             )
         else:
-            mapGeo += convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict)
+            mapGeo += convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict, scale=scale)
 
     for entity in mapData["entities"]:
         print(f"{i}|{total}|done", end="")
@@ -757,18 +759,18 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
         if entity["classname"].startswith("prop_"):
             mapEnts += convertProp(entity, game)
         elif entity["classname"] == "light":
-            mapEnts += convertLight(entity)
+            mapEnts += convertLight(entity, scale=scale)
         elif entity["classname"] == "light_spot":
-            mapEnts += convertSpotLight(entity, game)
+            mapEnts += convertSpotLight(entity, game, scale=scale)
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
             if game == "CoD4" or game == "CoD2":
-                convertRope(entity, curve=True, ropeDict=ropeDict)
+                convertRope(entity, curve=True, ropeDict=ropeDict, scale=scale)
             else:
                 mapEnts += convertRope(entity)
         elif entity["classname"] == "env_cubemap" and game != "CoD2":
-            mapEnts += convertCubemap(entity)
+            mapEnts += convertCubemap(entity, scale=scale)
         elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
-            mapEnts += convertSpawner(entity)
+            mapEnts += convertSpawner(entity, scale=scale)
         # elif entity["classname"] == "info_overlay":
         #     if entity["sides"] != "":
         #         overlays.append(entity)
@@ -793,23 +795,23 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
     for brush in mapData["skyBrushes"]:
         print(f"{i}|{total}|done", end="")
         i += 1
-        mapGeo += convertBrush(brush, True, game, mapName, origin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"], sideDict=sideDict)
+        mapGeo += convertBrush(brush, True, game, mapName, origin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"] * scale, sideDict=sideDict)
 
     for brush in mapData["skyEntityBrushes"]:
         print(f"{i}|{total}|done", end="")
         i += 1
-        mapGeo += convertBrush(brush, False, game, mapName, origin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"], sideDict=sideDict)
+        mapGeo += convertBrush(brush, False, game, mapName, origin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"] * scale, sideDict=sideDict)
 
     for entity in mapData["skyEntities"]:
         print(f"{i}|{total}|done", end="")
         i += 1
         if entity["classname"].startswith("prop_"):
-            mapEnts += convertProp(entity, game, mapData["skyBoxOrigin"], mapData["skyBoxScale"])
+            mapEnts += convertProp(entity, game, mapData["skyBoxOrigin"], mdlscale=mapData["skyboxScale"], scale=mapData["skyBoxScale"] * scale)
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
             if game == "CoD4":
-                convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"], curve=True, ropeDict=ropeDict)
+                convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"] * scale, curve=True, ropeDict=ropeDict)
             else:
-                mapEnts += convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"])
+                mapEnts += convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"] * scale)
 
     # convert ropes to curve patches for cod 4
     if game == "CoD4" or game == "CoD2":
