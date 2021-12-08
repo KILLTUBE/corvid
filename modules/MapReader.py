@@ -92,9 +92,9 @@ def readMap(vmf):
                     if "visgroupid" in solid.editor and solid.editor.visgroupid == skyBoxId:
                         skyEntityBrushes.append(Brush(sides, entity.classname, solid.id))
                     else:
-                        entityBrushes.append(Brush(sides, entity.classname, solid.id))
+                        entityBrushes.append(Brush(sides, entity.classname, solid.id, entity))
                 else:
-                    entityBrushes.append(Brush(sides, entity.classname, solid.id))
+                    entityBrushes.append(Brush(sides, entity.classname, solid.id, entity))
         elif "solid" in entity:
             if isinstance(entity.solid, str):
                 entities.append(entity)
@@ -109,9 +109,9 @@ def readMap(vmf):
                     if "visgroupid" in solid.editor and solid.editor.visgroupid == skyBoxId:
                         skyEntityBrushes.append(Brush(sides, entity.classname, solid.id))
                     else:
-                        entityBrushes.append(Brush(sides, entity.classname, solid.id))
+                        entityBrushes.append(Brush(sides, entity.classname, solid.id, entity))
                 else:
-                    entityBrushes.append(Brush(sides, entity.classname, solid.id))
+                    entityBrushes.append(Brush(sides, entity.classname, solid.id, entity))
         elif entity.classname == "sky_camera":
             skyBoxOrigin = Vector3.FromStr(entity.origin)
             skyBoxScale = float(entity.scale)
