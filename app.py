@@ -368,10 +368,6 @@ class App:
         if gameName == "<none>":
             print("Warning: If you going to convert a map from a game that isn't included in the list, make sure you add all the VPK files and the directories of the game to the lists above.")
 
-    def setBrushConversion(self, val):
-        settings["convertBrush"] = val
-        open("res/settings.json", "w").write(json.dumps(settings, indent=4))
-
     def chooseVmfDialog_command(self):
         file = filedialog.askopenfile(mode="r", filetypes=[("Source Engine map file", "*.vmf")])
         if file is not None:
@@ -478,14 +474,15 @@ class App:
         start = time.time()
         vmfName = os.path.splitext(os.path.basename(vmfPath))[0].lower()
         # read the map file and convert everything
-        outputDir += f"/{vmfName}_converted"
+        game = self.game.get()
+        outputDir += f"/{vmfName}_{game}"
         print(f"Opening VMF file \"{vmfPath}\"...")
         vmfFile = open(vmfPath).read()
         print("Reading VMF file...")
-        game = self.game.get()
 
         
         # prepare the necessary stuff to move and write files
+        prefabDir = "prefabs" if game == "CoD4" or game == "CoD2" else "_prefabs"
         try:
             makedirs(f"{outputDir}/map_source")
             makedirs(f"{outputDir}/model_export/corvid")
@@ -493,12 +490,13 @@ class App:
             makedirs(f"{outputDir}/texture_assets/corvid")
             if game != "BO3":
                 makedirs(f"{outputDir}/bin")
+            makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}")
         except:
             pass
         
         res = exportMap(vmfFile, vpkFiles, gameDirs, game, self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"])
-        print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
-        open(f"{outputDir}/map_source/{vmfName}.map", "w").write(res)
+        print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source/prefabs/{vmfName}\"")
+        open(f"{outputDir}/map_source/{prefabDir}/{vmfName}/{vmfName}.map", "w").write(res)
 
         convertedDir = gettempdir() + "/corvid/converted"
 
