@@ -1,8 +1,15 @@
 # Corvid (ˈkɔrvəd)
 Corvid is a tool that converts Source Engine maps and their assets to be used in Call of Duty. It is currently in the beta-testing phase. This repository is for developers who know their way around Python and Git. If you are a mapper who wants to use Corvid, go to [releases](https://github.com/KILLTUBE/corvid/releases) to download the latest version.
 
+## Supported games
+- Call of Duty 2
+- Call of Duty 4: Modern Warfare
+- Call of Duty World at War
+- Call of Duty Black Ops
+- Call of Duty Black Ops 3
+
 ## What gets converted
-- Brushes (converted as patch meshes for accurate UVs)
+- Brushes (converted as patch meshes to have accurate UVs)
 - Displacements and their vertex colors for accurate texture blending
 - Rope entities
 - Prop entities
@@ -18,9 +25,9 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
    - Gloss maps
    - Blend maps
    - Color tints
-   - Patch materials (material inheritence in other words)
+   - Patch materials (material inheritence)
 - 2d skyboxes (converted to equirectangular images for Bo3)
-- 3d skyboxes (requires user to add everything in the 3d skybox in a specific visgroup)
+- 3d skyboxes / vistas (requires user to add everything in the 3d skybox in a specific visgroup)
 
 ## Work-in-progress features
 - Spot lights
