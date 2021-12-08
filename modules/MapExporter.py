@@ -286,7 +286,7 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
     resBrush = f"// Brush {brush.id}\n" 
     resBrush = "{\n"
     if not world:
-        if brush.entity != "func_areaportal":
+        if brush.entity != "func_areaportal" or brush.entity != "func_bomb_target":
             resBrush += "contents detail;\n"
     resPatch = ""
 
@@ -314,6 +314,8 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
             if mat in tools:
                 resBrush += tools[mat] + " 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
                 continue
+            elif brush.entity == "func_bomb_target":
+                resBrush += "trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
             else:
                 resBrush += "clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
                 continue
@@ -626,6 +628,7 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
         makedirs(f"{copyDir}/converted/model_export/corvid")
         makedirs(f"{copyDir}/converted/source_data")
         makedirs(f"{copyDir}/converted/texture_assets/corvid")
+
     except:
         pass
 
@@ -733,7 +736,20 @@ def exportMap(vmfString, vpkFiles=[], gameDirs=[], game="WaW", skipMats=False, s
     for brush in mapData["entityBrushes"]:
         print(f"{i}|{total}|done", end="")
         i += 1
-        mapGeo += convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict)
+        if brush.entity == "func_bomb_target":
+            mapEnts += convertEntity({
+                "classname": "trigger_use_touch",
+                "targetname": "bombzone",
+                "target": "auto1",
+                "script_bombmode_original": "1",
+                "script_gameobjectname": "bombzone",
+                "script_label": "_" + brush.entData["targetname"][0].lower() if "targetname" in brush.entData else "" 
+            },
+            id=brush.id,
+            geo=convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict)
+            )
+        else:
+            mapGeo += convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict)
 
     for entity in mapData["entities"]:
         print(f"{i}|{total}|done", end="")
