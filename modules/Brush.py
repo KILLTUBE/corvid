@@ -30,13 +30,14 @@ def getPlaneIntersectıon(side1: Side, side2: Side, side3: Side) -> Vector3:
         ) / determinant
 
 class Brush:
-    def __init__(self, sides: list, entity: str = "world", id="0"):
+    def __init__(self, sides: list, entity: str = "world", id="0", entData={}):
         self.id = id
         self.sides: list[Side] = sides
         self.hasDisp: bool = False
         # only after all the sides are defined can the intersection points be calculated
         self.getIntersectionPoints()
         self.entity = entity
+        self.entData = entData
 
     def getIntersectionPoints(self):
         n = len(self.sides)
