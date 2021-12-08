@@ -138,7 +138,7 @@ class Side:
     # based on https://github.com/c-d-a/io_export_qmap
     def getTexCoords(self):
         if len(self.points) < 3:
-            return None
+            return "128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
         
         V = [v.ToBpy() for v in self.points]
         T = [self.getUV(t, self.texSize) for t in self.points]
@@ -174,8 +174,8 @@ class Side:
         try:
             mCoeffs = solve(world2DMatrix, texCoordsVec)
         except:
-            print("couldn't solve")
-            return None
+            print(f"Couldn't solve brush face {self.id}")
+            return "128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
 
         # Build the transformation matrix and decompose it
         tformMtx = Matrix(( (mCoeffs[0], mCoeffs[1], 0),
