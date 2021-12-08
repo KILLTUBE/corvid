@@ -81,8 +81,6 @@ def convertModel(filePath, writePath, tint="", skin=0):
     for mat in mdl.materials:
         # if the model contains the full path
         name = newPath(mat.name)
-        if tint != "":
-            name += tint
         if exists(f"{tempDir}/{name}.vmt"):
             materials.append(name)
             continue
@@ -90,19 +88,18 @@ def convertModel(filePath, writePath, tint="", skin=0):
         for path in mdl.materials_paths:
             # if path/materialname exists
             name = newPath(f"{path}/{mat.name}")
-            if tint != "":
-                name += tint
             if exists(f"{tempDir}/{name}.vmt"):
                 materials.append(name)
                 continue
 
             # sometimes a material might contain both. we don't really need this but it won't hurt to have extra measures.
             name = newPath(f"{path}/{basename(mat.name)}")
-            if tint != "":
-                name += tint
             if exists(f"{tempDir}/{name}.vmt"):
                 materials.append(name)
                 continue
+
+    if tint != "":
+        materials = [mat + f"_{tint}" for mat in materials]
 
     verts: List[Vector3] = []
     vertDict: Dict[str, int] = {}
