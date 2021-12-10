@@ -13,7 +13,6 @@ from os import makedirs
 from tempfile import gettempdir
 from .AssetExporter import *
 from .AssetConverter import convertImages, convertModels
-from shutil import rmtree
 
 def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     # skip invalid sides
@@ -402,7 +401,7 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
         }, entity["id"])
         res += convertEntity({
             "classname": "info_null",
-            "origin": origin + Vector3(0, 0, -float(_color[3])),
+            "origin": (origin + Vector3(0, 0, -float(_color[3]))) * scale,
             "targetname": "spotlight_" + entity["id"]
         })
     else:
@@ -613,26 +612,23 @@ def exportMap(
         skipMats=False, skipModels=False, mapName="",
         brushConversion=False, scale=1.0
     ):
-
     # create temporary directories to extract assets
     copyDir = gettempdir() + "/corvid"
-    if exists(copyDir):
-        rmtree(copyDir)
 
-    try:
-        makedirs(f"{copyDir}/mdl")
-        makedirs(f"{copyDir}/mat")
-        makedirs(f"{copyDir}/mdlMats")
-        makedirs(f"{copyDir}/matTex")
-        makedirs(f"{copyDir}/mdlTex")
-        if game != "BO3":
-            makedirs(f"{copyDir}/converted/bin")
-        makedirs(f"{copyDir}/converted/model_export/corvid")
-        makedirs(f"{copyDir}/converted/source_data")
-        makedirs(f"{copyDir}/converted/texture_assets/corvid")
-
-    except:
-        pass
+    if not exists(f"{copyDir}"):
+        try:
+            makedirs(f"{copyDir}/mdl")
+            makedirs(f"{copyDir}/mat")
+            makedirs(f"{copyDir}/mdlMats")
+            makedirs(f"{copyDir}/matTex")
+            makedirs(f"{copyDir}/mdlTex")
+            if game != "BO3":
+                makedirs(f"{copyDir}/converted/bin")
+            makedirs(f"{copyDir}/converted/model_export/corvid")
+            makedirs(f"{copyDir}/converted/source_data")
+            makedirs(f"{copyDir}/converted/texture_assets/corvid")
+        except:
+            pass
 
     mapData = readMap(vmfString)
 
@@ -757,7 +753,7 @@ def exportMap(
         print(f"{i}|{total}|done", end="")
         i += 1
         if entity["classname"].startswith("prop_"):
-            mapEnts += convertProp(entity, game)
+            mapEnts += convertProp(entity, game, scale=scale)
         elif entity["classname"] == "light":
             mapEnts += convertLight(entity, scale=scale)
         elif entity["classname"] == "light_spot":
@@ -806,7 +802,7 @@ def exportMap(
         print(f"{i}|{total}|done", end="")
         i += 1
         if entity["classname"].startswith("prop_"):
-            mapEnts += convertProp(entity, game, mapData["skyBoxOrigin"], mdlscale=mapData["skyboxScale"], scale=mapData["skyBoxScale"] * scale)
+            mapEnts += convertProp(entity, game, mapData["skyBoxOrigin"], mdlScale=mapData["skyBoxScale"], scale=mapData["skyBoxScale"] * scale)
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
             if game == "CoD4":
                 convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"] * scale, curve=True, ropeDict=ropeDict)
