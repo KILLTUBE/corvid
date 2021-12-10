@@ -163,6 +163,8 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, game="WaW"):
         print(f"{i}|{total}|done", end=""); i += 1
         mdlName = splitext(newPath(model))[0]
         tints = modelTints[mdlName] if mdlName in modelTints else []
+        if not exists(f"{tempDir}/mdl/{mdlName}.mdl"):
+            continue
         mdl = Mdl(f"{tempDir}/mdl/{mdlName}.mdl")
         mdl.read()
 

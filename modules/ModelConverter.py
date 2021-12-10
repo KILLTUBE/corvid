@@ -54,6 +54,9 @@ def merge_meshes(model, vtx_model):
 def convertModel(filePath, writePath, tint="", skin=0, scale=1.0):
     tempDir = f"{gettempdir()}/corvid/mdlMats"
     # read mdl, vtx and vvd files
+    if not os.path.exists(f"{filePath}.mdl"):
+        print(f"Can't find {basename(filePath)}.mdl. Skipping...")
+        return
     mdl = Mdl(f"{filePath}.mdl")
     mdl.read()
 
