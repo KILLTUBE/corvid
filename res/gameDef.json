@@ -207,7 +207,7 @@
 	},
 	{
 		"gameName": "Team Fortress 2",
-		"gameRoot": "",
+		"gameRoot": "Team Fortress 2",
 		"vpkFiles": [
 			"hl2/hl2_textures_dir.vpk",
 			"hl2/hl2_misc_dir.vpk",
