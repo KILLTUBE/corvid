@@ -1,3 +1,4 @@
+from genericpath import exists
 from os import makedirs, listdir
 import os.path
 import sys
@@ -9,7 +10,7 @@ import tkinter.font as tkFont
 from tkinter import filedialog, simpledialog
 from tkinter.ttk import Progressbar
 import time 
-from threading import *
+import threading
 import shutil
 from tempfile import gettempdir
 import json
@@ -303,14 +304,22 @@ class App:
         self.consoleScrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
         self.consoleTextBox["yscrollcommand"] = self.consoleScrollbar.set
 
-        convertButton=tk.Button(root)
-        convertButton["bg"] = "#f0f0f0"
-        convertButton["font"] = ft
-        convertButton["fg"] = "#000000"
-        convertButton["justify"] = "center"
-        convertButton["text"] = "Convert"
-        convertButton.place(x=20,y=360,width=755,height=30)
-        convertButton["command"] = self.convertButton_thread
+        self.convertButton=tk.Button(root)
+        self.convertButton["bg"] = "#f0f0f0"
+        self.convertButton["font"] = ft
+        self.convertButton["fg"] = "#000000"
+        self.convertButton["justify"] = "center"
+        self.convertButton["text"] = "Convert"
+        self.convertButton.place(x=20,y=360,width=755,height=30)
+        self.convertButton["command"] = self.convertButton_thread
+        
+        self.stopButton=tk.Button(root)
+        self.stopButton["bg"] = "#f0f0f0"
+        self.stopButton["font"] = ft
+        self.stopButton["fg"] = "#000000"
+        self.stopButton["justify"] = "center"
+        self.stopButton["text"] = "Abort conversion"
+        self.stopButton["command"] = self.stopButton_command
 
         skipLabel=tk.Label(root)
         skipLabel["font"] = ft
@@ -341,12 +350,6 @@ class App:
         checkSkipModels.place(x=262,y=310,width=78,height=30)
         checkSkipModels["offvalue"] = False
         checkSkipModels["onvalue"] = True
-
-        # if there are any vpk files saved in settings.json, add them to the lists
-        for vpk in settings["vpkFiles"]:
-            self.vpkList.insert(0, vpk)
-        for gameDir in settings["gameDirs"]:
-            self.gameDirList.insert(0, gameDir)
     
     def changeSetting(self, key, value):
         settings[key] = value
@@ -363,7 +366,7 @@ class App:
         else:
             dir = _dir
         
-        if dir is not None:
+        if dir is not None or dir != "":
             self.changeSetting("steamDir", dir)
             self.steamDirLabel["text"] = dir
 
@@ -429,9 +432,6 @@ class App:
         # save the extra vpk files and directories in case the user needs them later
         vpkFiles = list(self.vpkList.get(0, self.vpkList.size() - 1))
         gameDirs = list(self.gameDirList.get(0, self.gameDirList.size() - 1))
-        settings["vpkFiles"] = vpkFiles
-        settings["gameDirs"] = gameDirs
-        open("res/settings.json", "w").write(json.dumps(settings, indent=4))
 
         # add the vpk files and the directories of the current game in the list
         for vpk in gameDef[self.currentGame.get()]["vpkFiles"]:
@@ -477,6 +477,8 @@ class App:
                 alert.showerror(title="Error", message=f"{dir} is not a valid directory.")
                 exit()
 
+        self.convertButton["state"] = "disabled"
+
         start = time.time()
         vmfName = os.path.splitext(os.path.basename(vmfPath))[0].lower()
         # read the map file and convert everything
@@ -507,7 +509,8 @@ class App:
         )
         
         print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source/prefabs/{vmfName}\"")
-        open(f"{outputDir}/map_source/{prefabDir}/{vmfName}/{vmfName}.map", "w").write(res)
+        with open(f"{outputDir}/map_source/{prefabDir}/{vmfName}/{vmfName}.map", "w") as file:
+            file.write(res)
 
         convertedDir = gettempdir() + "/corvid/converted"
 
@@ -531,9 +534,16 @@ class App:
 
         open(f"{outputDir}/log.txt", "w").write(self.consoleTextBox.get(1.0, tkinter.constants.END))
 
+        self.convertButton["state"] = "active"
+        exit()
+
     def convertButton_thread(self):
-        thread = Thread(target=self.convertButton_command)
-        thread.start()
+        self.conversionThread = threading.Thread(target=self.convertButton_command)
+        self.conversionThread.setDaemon(True)
+        self.conversionThread.start()
+
+    def stopButton_command(self):
+        pass
 
 class TextRedirector(object):
     def __init__(self, widget, overall, current, overallLabel, currentLabel, tag="stdout"):
@@ -608,8 +618,11 @@ if __name__ == "__main__":
     
     steamAppsDirs.append(settings["steamDir"])
 
-    libraryFolders = parse_vdf(open(f'{settings["steamDir"]}/steamapps/libraryfolders.vdf').read())["libraryfolders"]
-    for i in range(1, len(libraryFolders) - 1):
-        steamAppsDirs.append(Path(libraryFolders[str(i)]["path"]).as_posix())
+    if exists(f"{settings['steamDir']}/steamapps/libraryfolders.vdf"):
+        libraryFolders = parse_vdf(open(f'{settings["steamDir"]}/steamapps/libraryfolders.vdf').read())["libraryfolders"]
+        for i in range(1, len(libraryFolders) - 1):
+            steamAppsDirs.append(Path(libraryFolders[str(i)]["path"]).as_posix())
+    else:
+        print("Cannot detect Steam libraries. Make sure your Steam directory is correct.")
     
     root.mainloop()
