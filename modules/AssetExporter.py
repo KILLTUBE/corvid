@@ -838,7 +838,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
 
         })
         gdt.add(f"{mapName}_skybox", "xmodel", {
-            "filename": f"t6_props\\vista\\\\skybox\\\\t6_skybox.xmodel_bin",
+            "filename": f"t6_props\\\\vista\\\\skybox\\\\t6_skybox.xmodel_bin",
             "type": "rigid",
             "skinOverride": f"mtl_skybox_default {mapName}_sky_mtl\\r\\n",
             "BulletCollisionLOD": "None"
