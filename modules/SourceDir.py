@@ -1,8 +1,10 @@
-from typing import List
 import vpk
+from typing import List
 from os.path import isdir, isfile, exists
 from shutil import copyfile
 from pathlib import Path
+from sys import exit
+
 class SourceDir:
     def __init__(self):
         self.dirs = []

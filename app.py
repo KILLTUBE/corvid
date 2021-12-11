@@ -1,24 +1,24 @@
-from genericpath import exists
-from os import makedirs, listdir
-import os.path
 import sys
-from sys import stderr, stdout
+import winreg
+import os.path
+import time 
+import threading
+import shutil
+import json
+import webbrowser
 import tkinter as tk
 import tkinter.constants
 import tkinter.messagebox as alert
 import tkinter.font as tkFont
 from tkinter import filedialog, simpledialog
 from tkinter.ttk import Progressbar
-import time 
-import threading
-import shutil
+from sys import stderr, stdout, exit
+from os import makedirs, listdir
+from os.path import exists
 from tempfile import gettempdir
-import json
-import webbrowser
 from datetime import datetime
-from modules.MapExporter import exportMap
-import winreg
 from pathlib import Path
+from modules.MapExporter import exportMap
 from modules.vdfutils import parse_vdf
 
 # global settings
