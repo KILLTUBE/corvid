@@ -3,7 +3,5 @@
     "currentGame": -1,
     "game": "BO3",
     "convertBrush": false,
-    "vpkFiles": [],
-    "gameDirs": [],
-    "scale": 1.0
+    "scale": 1
 }
