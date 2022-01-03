@@ -371,7 +371,7 @@ def convertLight(entity, scale=1.0):
 
 def convertSpotLight(entity, game="WaW", scale=1.0):
     if "_light" in entity:
-        _color = entity["_light"].split(" ")
+        _color = [i for i in entity["_light"].split(" ") if i != ""]
         if len(_color) == 3:
             _color.append(500)
     else:
@@ -719,21 +719,20 @@ def exportMap(
         "end": {}
     }
 
-    total = (
-        len(mapData["worldBrushes"]) + len(mapData["entityBrushes"]) + len(mapData["entities"])
-        + len(mapData["skyBrushes"]) + len(mapData["skyEntityBrushes"]) + len(mapData["skyEntities"])
-    )
-    i = 0
-
+    lenWorld = len(mapData["worldBrushes"])
+    lenEntBrushes = len(mapData["entityBrushes"])
+    lenEnts = len(mapData["entities"])
+    lenSky = len(mapData["skyBrushes"])
+    lenSkyEntBrushes = len(mapData["skyEntityBrushes"])
+    lenSkyEnts = len(mapData["skyEntities"])
+    total = (lenWorld + lenEntBrushes + lenEnts + lenSky + lenSkyEntBrushes + lenSkyEnts)
     # convert world geo & entities
-    for brush in mapData["worldBrushes"]:
+    for i, brush in enumerate(mapData["worldBrushes"]):
         print(f"{i}|{total}|done", end="")
-        i += 1
         mapGeo += convertBrush(brush, True, game, mapName, matSizes=matSizes, brushConversion=brushConversion, sideDict=sideDict, scale=scale)
 
-    for brush in mapData["entityBrushes"]:
+    for i, brush in enumerate(mapData["entityBrushes"], lenWorld):
         print(f"{i}|{total}|done", end="")
-        i += 1
         if brush.entity == "func_bomb_target":
             mapEnts += convertEntity({
                 "classname": "trigger_use_touch",
@@ -749,9 +748,8 @@ def exportMap(
         else:
             mapGeo += convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict, scale=scale)
 
-    for entity in mapData["entities"]:
+    for i, entity in enumerate(mapData["entities"], lenWorld + lenEntBrushes):
         print(f"{i}|{total}|done", end="")
-        i += 1
         if entity["classname"].startswith("prop_"):
             mapEnts += convertProp(entity, game, scale=scale)
         elif entity["classname"] == "light":
@@ -786,21 +784,17 @@ def exportMap(
             if "_light" in entity:
                 worldSpawnSettings["suncolor"] = (Vector3.FromStr(entity["_light"]) / 255).round(3)
             
-
     # convert 3d skybox geo & entities
-    for brush in mapData["skyBrushes"]:
+    for i, brush in enumerate(mapData["skyBrushes"], lenWorld + lenEntBrushes + lenEnts):
         print(f"{i}|{total}|done", end="")
-        i += 1
         mapGeo += convertBrush(brush, True, game, mapName, origin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"] * scale, sideDict=sideDict)
 
-    for brush in mapData["skyEntityBrushes"]:
+    for i, brush in enumerate(mapData["skyEntityBrushes"], lenWorld + lenEntBrushes + lenEnts + lenSky):
         print(f"{i}|{total}|done", end="")
-        i += 1
         mapGeo += convertBrush(brush, False, game, mapName, origin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"] * scale, sideDict=sideDict)
 
-    for entity in mapData["skyEntities"]:
+    for i, entity in enumerate(mapData["skyEntities"], lenWorld + lenEntBrushes + lenEnts + lenSky + lenSkyEntBrushes):
         print(f"{i}|{total}|done", end="")
-        i += 1
         if entity["classname"].startswith("prop_"):
             mapEnts += convertProp(entity, game, mapData["skyBoxOrigin"], mdlScale=mapData["skyBoxScale"], scale=mapData["skyBoxScale"] * scale)
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
@@ -817,7 +811,8 @@ def exportMap(
                     val["origin"],
                     ropeDict["end"][val["target"]]["origin"],
                     val["slack"],
-                    val["width"]
+                    val["width"],
+                    game
                 )
 
     # convert overlays

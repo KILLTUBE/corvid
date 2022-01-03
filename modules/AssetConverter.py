@@ -45,26 +45,31 @@ def convertImages(images, src, dest, ext="tga"):
     images["envMapsAlpha"] = list(dict.fromkeys(images["envMapsAlpha"]))
     images["revealMaps"] = list(dict.fromkeys(images["revealMaps"]))
 
-    total = len(images["colorMaps"] + images["colorMapsAlpha"] + images["normalMaps"] + images["envMaps"] + images["envMapsAlpha"] + images["revealMaps"])
-    i = 0
+    lencolorMaps = len(images["colorMaps"]) 
+    lencolorMapsAlpha = len(images["colorMapsAlpha"]) 
+    lennormalMaps = len(images["normalMaps"]) 
+    lenenvMaps = len(images["envMaps"]) 
+    lenenvMapsAlpha = len(images["envMapsAlpha"]) 
+    lenrevealMaps = len(images["revealMaps"])
+    total = lencolorMaps + lencolorMapsAlpha + lennormalMaps + lenenvMaps + lenenvMapsAlpha + lenrevealMaps
 
-    for file in images["colorMapsAlpha"]:
-        print(f"{i}|{total}|done", end=""); i += 1;
+    for i, file in enumerate(images["colorMapsAlpha"]):
+        print(f"{i}|{total}|done", end="")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{file}.{ext}", "rgba")
-    for file in images["normalMaps"]:
-        print(f"{i}|{total}|done", end=""); i += 1;
+    for i, file in enumerate(images["normalMaps"], lencolorMapsAlpha):
+        print(f"{i}|{total}|done", end="")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{file}.{ext}", "rgb")
-    for file in images["envMaps"]:
-        print(f"{i}|{total}|done", end=""); i += 1;
+    for i, file in enumerate(images["envMaps"], lencolorMapsAlpha + lennormalMaps):
+        print(f"{i}|{total}|done", end="")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{file}.{ext}", "rgb")
-    for file in images["envMapsAlpha"]:
-        print(f"{i}|{total}|done", end=""); i += 1;
+    for i, file in enumerate(images["envMapsAlpha"], lencolorMapsAlpha + lennormalMaps + lenenvMaps):
+        print(f"{i}|{total}|done", end="")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{file}_.{ext}", "a")
-    for file in images["revealMaps"]:
-        print(f"{i}|{total}|done", end=""); i += 1;
+    for i, file in enumerate(images["revealMaps"], lencolorMapsAlpha + lennormalMaps + lenenvMaps + lenenvMapsAlpha):
+        print(f"{i}|{total}|done", end="")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{file}.{ext}", "g", True)
-    for file in images["colorMaps"]:
-        print(f"{i}|{total}|done", end=""); i += 1;
+    for i, file in enumerate(images["colorMaps"], lencolorMapsAlpha + lennormalMaps + lenenvMaps + lenenvMapsAlpha + lenrevealMaps):
+        print(f"{i}|{total}|done", end="")
         convertImage(f"{tempDir}/{src}/{file}.vtf", f"{tempDir}/converted/{dest}/{file}.{ext}", "rgb")
 
     # create 404 image for the textures that aren't found
@@ -105,9 +110,9 @@ def convertModels(models, modelTints, modelSkins, game="WaW", scale=1.0):
     mdlDir = f"{tempDir}/mdl"
     convertDir = f"{tempDir}/converted/model_export/corvid"
     total = len(models)
-    i = 0
-    for model in models:
-        print(f"{i}|{total}|done", end=""); i += 1
+
+    for i, model in enumerate(models):
+        print(f"{i}|{total}|done", end="")
         model = splitext(newPath(model))[0]
         # convert models with tints
         if game == "BO3" and model in modelTints:

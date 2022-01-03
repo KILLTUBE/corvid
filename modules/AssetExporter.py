@@ -18,9 +18,8 @@ tempDir = f"{gettempdir()}/corvid"
 def copyMaterials(mats, dir: SourceDir):
     res = []
     total = len(mats)
-    for i in range(total):
+    for i, mat in enumerate(mats):
         print(f"{i}|{total}|done", end="")
-        mat = mats[i]
         name = newPath(mat)
         dir.copy(f"materials/{mat}.vmt", f"{tempDir}/mat/{name}.vmt")
         res.append(name)
@@ -42,9 +41,8 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
     else:
         vmtDir, vtfDir = "mdlMats", "mdlTex"
     total = len(mats)
-    i = 0
-    for file in mats:
-        print(f"{i}|{total}|done", end=""); i += 1
+    for i, file in enumerate(mats):
+        print(f"{i}|{total}|done", end="")
         fileName = basename(file)
         vmtPath = f"{tempDir}/{vmtDir}/{fileName}.vmt"
         if not exists(vmtPath):
@@ -144,9 +142,8 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
 
 def copyModels(models, dir: SourceDir):
     total = len(models)
-    i = 0
-    for model in models:
-        print(f"{i}|{total}|done", end=""); i += 1
+    for i, model in enumerate(models):
+        print(f"{i}|{total}|done", end="")
         modelName = splitext(basename(model))[0]
         newName = splitext(newPath(model))[0]
         path = dirname(model)
@@ -158,9 +155,9 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, game="WaW"):
     materials = []
     res = []
     total = len(models)
-    i = 0
-    for model in models:
-        print(f"{i}|{total}|done", end=""); i += 1
+    
+    for i, model in enumerate(models):
+        print(f"{i}|{total}|done", end="")
         mdlName = splitext(newPath(model))[0]
         tints = modelTints[mdlName] if mdlName in modelTints else []
         if not exists(f"{tempDir}/mdl/{mdlName}.mdl"):
@@ -181,9 +178,8 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, game="WaW"):
                     materials.append((name, mdl.header.surface_prop, tints))
 
     total = len(materials)
-    i = 0
-    for mat, surface_prop, tints in materials:
-        print(f"{i}|{total}|done", end=""); i += 1
+    for i, (mat, surface_prop, tints) in enumerate(materials):
+        print(f"{i}|{total}|done", end="")
         name = newPath(mat)
         if dir.copy(f"materials/{mat}.vmt", f"{tempDir}/mdlMats/{name}.vmt", True):
             # unlike CoD, the surface type of a model isn't defined in the material so we have to copy that value
@@ -337,9 +333,9 @@ def createMaterialGdt(vmts: dict, game="WaW"):
     fileList = listdir(f"{tempDir}/matTex") + listdir(f"{tempDir}/mdlTex")
 
     total = len(vmts.items())
-    i = 0
-    for name, vmt in vmts.items():
-        print(f"{i}|{total}|done", end=""); i += 1
+
+    for i, (name, vmt) in enumerate(vmts.items()):
+        print(f"{i}|{total}|done", end="")
         shader = list(vmt)[0]
         
         try:
@@ -457,9 +453,9 @@ def createMaterialGdtBo3(vmts: dict):
     gdt = Gdt()
     total = len(vmts.items())
     fileList = listdir(f"{tempDir}/matTex") + listdir(f"{tempDir}/mdlTex")
-    i = 0
-    for name, vmt in vmts.items():
-        print(f"{i}|{total}|done", end=""); i += 1
+
+    for i, (name, vmt) in enumerate(vmts.items()):
+        print(f"{i}|{total}|done", end="")
         shader = list(vmt)[0]
         mat = vmt[shader]
         data = {}
@@ -628,16 +624,18 @@ def createMaterialGdtBo3(vmts: dict):
 def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}):
     gdt = Gdt()
     total = len(models)
-    i = 0
-    for model in models:
-        print(f"{i}|{total}|done", end=""); i += 1
+
+    for i, model in enumerate(models):
+        print(f"{i}|{total}|done", end="")
         name = splitext(newPath(model))[0]
         assetName = name.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
+
         gdt.add("m_" + name, "xmodel", {
             "collisionLOD" if game != "BO3" else "BulletCollisionLOD": "High",
             "filename": f"corvid\\\\{name}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
             "type": "rigid"
         })
+
         if game == "BO3" and name in modelTints:
             for tint in modelTints[name]:
                 hex = Vector3.FromStr(tint).toHex()
@@ -646,6 +644,7 @@ def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}):
                     "filename": f"corvid\\\\{name}_{hex}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
                     "type": "rigid"
                 })
+                
         if name in modelSkins:
             for skin in modelSkins[name]:
                 gdt.add(f"m_{name}_skin{skin}", "xmodel", {
@@ -665,21 +664,16 @@ def createImageGdt(images):
     images["envMapsAlpha"] = list(dict.fromkeys(images["envMapsAlpha"]))
     images["revealMaps"] = list(dict.fromkeys(images["revealMaps"]))
 
-    total = len(images["colorMaps"] + images["colorMapsAlpha"] + images["normalMaps"] + images["envMaps"] + images["envMapsAlpha"] + images["revealMaps"])
-    i = 0
+    lencolorMaps = len(images["colorMaps"])
+    lencolorMapsAlpha = len(images["colorMapsAlpha"])
+    lennormalMaps = len(images["normalMaps"])
+    lenenvMaps = len(images["envMaps"])
+    lenenvMapsAlpha = len(images["envMapsAlpha"])
+    lenrevealMaps = len(images["revealMaps"])
+    total = lencolorMaps + lencolorMapsAlpha + lennormalMaps + lenenvMaps + lenenvMapsAlpha + lenrevealMaps
 
-    gdt.add("i_404", "image", {
-        "imageType": "Texture",
-        "type": "image",
-        "baseImage": "texture_assets\\\\corvid\\\\404.tif",
-        "semantic": "diffuseMap",
-        "compressionMethod": "compressed high color",
-        "coreSemantic": "sRGB3chAlpha",
-        "streamable": "1"
-    })
-
-    for file in images["colorMaps"]:
-        print(f"{i}|{total}|done", end=""); i += 1
+    for i, file in enumerate(images["colorMaps"]):
+        print(f"{i}|{total}|done", end="")
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -689,8 +683,9 @@ def createImageGdt(images):
             "coreSemantic": "sRGB3chAlpha",
             "streamable": "1"
         })
-    for file in images["colorMapsAlpha"]:
-        print(f"{i}|{total}|done", end=""); i += 1
+
+    for i, file in enumerate(images["colorMapsAlpha"], lencolorMaps):
+        print(f"{i}|{total}|done", end="")
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -700,8 +695,9 @@ def createImageGdt(images):
             "coreSemantic": "sRGB3chAlpha",
             "streamable": "1"
         })
-    for file in images["normalMaps"]:
-        print(f"{i}|{total}|done", end=""); i += 1
+
+    for i, file in enumerate(images["normalMaps"], lencolorMaps + lencolorMapsAlpha):
+        print(f"{i}|{total}|done", end="")
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -711,8 +707,9 @@ def createImageGdt(images):
             "coreSemantic": "Normal",
             "streamable": "1"
         })
-    for file in images["envMaps"]:
-        print(f"{i}|{total}|done", end=""); i += 1
+
+    for i, file in enumerate(images["envMaps"], lencolorMaps + lencolorMapsAlpha + lennormalMaps):
+        print(f"{i}|{total}|done", end="")
         
         # some materials use the same image for both their color maps and env maps. we need to create seperate image asset for them
         file = file + "_" if file in images["colorMaps"] or file in images["colorMapsAlpha"] else file
@@ -725,8 +722,9 @@ def createImageGdt(images):
             "coreSemantic": "Linear1ch",
             "streamable": "1"
         })
-    for file in images["envMapsAlpha"]:
-        print(f"{i}|{total}|done", end=""); i += 1
+
+    for i, file in enumerate(images["envMapsAlpha"], lencolorMaps + lencolorMapsAlpha + lennormalMaps + lenenvMaps):
+        print(f"{i}|{total}|done", end="")
         gdt.add(f"i_{file}_", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -736,8 +734,9 @@ def createImageGdt(images):
             "coreSemantic": "Linear1ch",
             "streamable": "1"
         })
-    for file in images["revealMaps"]:
-        print(f"{i}|{total}|done", end=""); i += 1
+
+    for i, file in enumerate(images["revealMaps"], lencolorMaps + lencolorMapsAlpha + lennormalMaps + lenenvMaps + lenenvMapsAlpha):
+        print(f"{i}|{total}|done", end="")
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -747,6 +746,17 @@ def createImageGdt(images):
             "coreSemantic": "Linear1ch",
             "streamable": "1"
         })
+    
+    gdt.add("i_404", "image", {
+        "imageType": "Texture",
+        "type": "image",
+        "baseImage": "texture_assets\\\\corvid\\\\404.tif",
+        "semantic": "diffuseMap",
+        "compressionMethod": "compressed high color",
+        "coreSemantic": "sRGB3chAlpha",
+        "streamable": "1"
+    })
+    
     return gdt
 
 def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir, game="WaW"):
@@ -755,6 +765,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
     gdt = Gdt()
     ext = "tif" if game == "BO3" else "tga"
     convertDir = f"{tempDir}/converted/texture_assets/corvid/"
+
     for face in faces:
         name = f"{mapName}_sky_{face}"
         if dir.copy(f"materials/skybox/{skyName}{face}.vmt", f"{tempDir}/mat/{name}.vmt"):
@@ -772,6 +783,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             convertImage(f"{tempDir}/matTex/{name}.vtf", f"{convertDir}/{name}.{ext}", format="rgb", resize=True)
         else:
             return gdt # return an empty gdt in case the sky materials can't be found
+
     if game == "BO3":
         print("Converting skybox...")
         # load all sides of the cubemap
@@ -794,6 +806,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         cubemap.paste(images["lf"], (3072, 1024))
         cubemap.paste(images["dn"], (1024, 2048))
         cubemap.save(f"{convertDir}/cubemap.tif")
+
         # create an equirectangular image from the new cubemap image
         # based on https://github.com/adamb70/Python-Spherical-Projection/blob/master/Example/Example%201/SingleExample.py
         wo, ho = cubemap.size
@@ -837,14 +850,17 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "skySize": "8000"
 
         })
+
         gdt.add(f"{mapName}_skybox", "xmodel", {
             "filename": f"t6_props\\\\vista\\\\skybox\\\\t6_skybox.xmodel_bin",
             "type": "rigid",
             "skinOverride": f"mtl_skybox_default {mapName}_sky_mtl\\r\\n",
             "BulletCollisionLOD": "None"
         })
+
         suncolor = worldSpawnSettings["suncolor"] if "suncolor" in worldSpawnSettings else "1 1 1 1"
         sundirection = worldSpawnSettings["sundirection"] if "sundirection" in worldSpawnSettings else Vector3(0, 0, 0)
+
         gdt.add(f"{mapName}_ssi", "ssi", {
             "bounceCount": "4",
             "colorSRGB": f"{suncolor} 1",
