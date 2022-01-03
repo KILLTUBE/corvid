@@ -126,8 +126,8 @@ class Vector3:
 
     @staticmethod
     def FromStr(string: str):
-        string = string.replace("[","").replace("]","").replace("{","").replace("}","").strip()
-        tok = string.split(" ")
+        string = string.replace("[","").replace("]","").replace("{","").replace("}","").replace("  ", " ").strip()
+        tok = [i for i in string.split(" ") if i != ""]
         return Vector3(tok[0], tok[1], tok[2])
     
     @staticmethod
