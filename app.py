@@ -541,6 +541,15 @@ class App:
         self.conversionThread = threading.Thread(target=self.convertButton_command)
         self.conversionThread.setDaemon(True)
         self.conversionThread.start()
+        self.checkThread = threading.Thread(target=self.checkThreadFinished)
+        self.checkThread.start()
+
+    def checkThreadFinished(self):
+        while self.conversionThread.is_alive():
+            time.sleep(3) # we don't need to check it that often 
+            pass
+        # make sure the convert button is enabled even when the conversion thread fails
+        self.convertButton["state"] = "active"
 
     def stopButton_command(self):
         pass
