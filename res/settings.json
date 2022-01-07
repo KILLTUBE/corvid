@@ -3,5 +3,8 @@
     "currentGame": -1,
     "game": "BO3",
     "convertBrush": false,
-    "scale": 1
+    "scale": [
+        1.0,
+        1.0
+    ]
 }

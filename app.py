@@ -19,6 +19,7 @@ from tempfile import gettempdir
 from datetime import datetime
 from pathlib import Path
 from modules.MapExporter import exportMap
+from modules.Vector3 import Vector3
 from modules.vdfutils import parse_vdf
 
 # global settings
@@ -28,10 +29,63 @@ gameDefCustom = json.loads(open("res/gameDef.json").read())
 version = open("res/version.txt").read().split("\n")[0]
 steamAppsDirs = []
 
+class popupWindow:
+    def __init__(self, app: 'App'):
+        top = self.top = tk.Toplevel(app.root)
+        top.title("Set export scale")
+        top.resizable(0, 0)
+        top.wm_transient()
+        top.grab_set_global()
+        top.bind("<Escape>", lambda x: top.destroy())
+        top.bind("<Return>", lambda x: self.okCommand())
+        top.focus_force()
+        top.transient(app.root)
+
+        width=175
+        height=105
+        screenwidth = app.root.winfo_screenwidth()
+        screenheight = app.root.winfo_screenheight()
+        alignstr = '%dx%d+%d+%d' % (width, height, (screenwidth - width) / 2, (screenheight - height) / 2 - 30)
+        top.geometry(alignstr)
+
+        self.text=tk.Label(top, text="Please enter the scale value", justify="center")
+        self.text.place(x=0, y=0, height=30, width=175)
+        
+        self.textXY = tk.Label(top, text="X/Y")
+        self.textXY.place(x=5, y=25)
+        self.scaleXY = tk.Entry(top)
+        self.scaleXY.focus_force()
+        self.scaleXY.insert(0, settings["scale"][0])
+        self.scaleXY.place(x=30, y=25, width=140)
+        
+        self.textZ = tk.Label(top, text="Z")
+        self.textZ.place(x=5, y=50)
+        self.scaleZ = tk.Entry(top)
+        self.scaleZ.insert(0, settings["scale"][1])
+        self.scaleZ.place(x=30, y=50, width=140)
+
+        self.ok=tk.Button(top,text='OK', command=self.okCommand)
+        self.ok.place(x=5, y=75, width=83)
+        self.cancel=tk.Button(top,text='Cancel', command=top.destroy)
+        self.cancel.place(x=90, y=75, width=80)
+
+    def okCommand(self):
+        xy = z = None
+        try:
+            xy, z = float(self.scaleXY.get()), float(self.scaleZ.get())
+        except ValueError:
+            alert.showwarning(title="Error", message="Please enter a proper number.")
+            return
+        else:
+            if xy is not None and z is not None:
+                app.changeSetting("scale", [xy, z])
+                self.top.destroy()
+
 class App:
     def __init__(self, root: tk.Tk):
         root.title(f"Corvid - v{version}")
         root.iconbitmap(default="res/icon.ico")
+        self.root = root
         width=800
         height=620
         screenwidth = root.winfo_screenwidth()
@@ -42,24 +96,24 @@ class App:
         ft = tkFont.Font(family='Verdana',size=8)
 
         # menu bar
-        menuBar = tk.Menu(root)
+        self.menuBar = tk.Menu(root)
         # file menu
-        fileMenu = tk.Menu(menuBar, tearoff=0)
-        fileMenu.add_command(label="Select VMF file", command=self.chooseVmfDialog_command)
-        fileMenu.add_command(label="Clear console", command=self.clearConsoleButton_command)
-        fileMenu.add_command(label="Save console log", command=self.saveConsoleLog)
+        self.fileMenu = tk.Menu(self.menuBar, tearoff=0)
+        self.fileMenu.add_command(label="Select VMF file", command=self.chooseVmfDialog_command)
+        self.fileMenu.add_command(label="Clear console", command=self.clearConsoleButton_command)
+        self.fileMenu.add_command(label="Save console log", command=self.saveConsoleLog)
 
-        fileMenu.add_separator()
-        fileMenu.add_command(label="Exit", command=root.quit)
-        menuBar.add_cascade(label="File", menu=fileMenu)
+        self.fileMenu.add_separator()
+        self.fileMenu.add_command(label="Exit", command=root.quit)
+        self.menuBar.add_cascade(label="File", menu=self.fileMenu)
 
         # edit menu
-        settingsMenu = tk.Menu(menuBar, tearoff=0)
-        menuBar.add_cascade(label="Settings", menu=settingsMenu)
+        settingsMenu = tk.Menu(self.menuBar, tearoff=0)
+        self.menuBar.add_cascade(label="Settings", menu=settingsMenu)
 
         self.currentGame = tk.IntVar(value=settings["currentGame"] if settings["currentGame"] != -1 else len(gameDef) - 1)
 
-        currentGameMenu = tk.Menu(menuBar, tearoff=0)
+        currentGameMenu = tk.Menu(self.menuBar, tearoff=0)
         for i in range(len(gameDef)):
             if gameDef[i]["gameName"] == "seperator":
                 currentGameMenu.add_separator()
@@ -67,7 +121,7 @@ class App:
                 currentGameMenu.add_radiobutton(label=gameDef[i]["gameName"], variable=self.currentGame, value=i, command=self.setCurrentGame)
 
         self.convertBrush = tk.BooleanVar(value=settings["convertBrush"])
-        brushConversionMenu = tk.Menu(menuBar, tearoff=0)
+        brushConversionMenu = tk.Menu(self.menuBar, tearoff=0)
         brushConversionMenu.add_radiobutton(label="Terrain patches (default)", variable=self.convertBrush, value=False, command=lambda: self.changeSetting("convertBrush", False))
         brushConversionMenu.add_radiobutton(label="Plain brushes (experimental)", variable=self.convertBrush, value=True, command=lambda: self.changeSetting("convertBrush", False))
 
@@ -75,9 +129,9 @@ class App:
         settingsMenu.add_cascade(label="Brush conversion method", menu=brushConversionMenu)
         settingsMenu.add_separator()
         settingsMenu.add_command(label="Set Steam directory", command=self.setSteamDir)
-        settingsMenu.add_command(label="Change export scale", command=self.changeScale)            
+        settingsMenu.add_command(label="Change export scale", command=self.popup)        
 
-        helpMenu = tk.Menu(menuBar, tearoff=0)
+        helpMenu = tk.Menu(self.menuBar, tearoff=0)
         helpMenu.add_command(label="Corvid on Github", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid"))
         helpMenu.add_command(label="Corvid wiki", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid/wiki"))
         helpMenu.add_command(label="Video tutorial", command=lambda: webbrowser.open("https://www.youtube.com/watch?v=izALMNZjgkA"))
@@ -85,9 +139,9 @@ class App:
         helpMenu.add_separator()
         helpMenu.add_command(label="Support me on Patreon", command=lambda: webbrowser.open("https://www.patreon.com/johndoe_"))
         helpMenu.add_command(label="About Corvid", command=self.aboutButton_command)
-        menuBar.add_cascade(label="Help", menu=helpMenu)
+        self.menuBar.add_cascade(label="Help", menu=helpMenu)
 
-        root.config(menu=menuBar)
+        root.config(menu=self.menuBar)
 
         vmfLabel=tk.Label(root)
         vmfLabel["font"] = ft
@@ -355,10 +409,8 @@ class App:
         settings[key] = value
         open("res/settings.json", "w").write(json.dumps(settings, indent=4))
 
-    def changeScale(self):
-        popup = simpledialog.askfloat("Export scale", "Please enter the scale value", initialvalue=settings["scale"])
-        if popup is not None:
-            self.changeSetting("scale", popup)
+    def popup(self):
+        self.popupWindow=popupWindow(self)
 
     def setSteamDir(self, _dir=""):
         if _dir == "":
@@ -479,6 +531,10 @@ class App:
 
         self.convertButton["state"] = "disabled"
 
+        print(f"Corvid v{version}")
+        print(f"Steam directory: {settings['steamDir']}")
+        print(f"Game profile: {gameDef[settings['currentGame']]['gameName']}")
+
         start = time.time()
         vmfName = os.path.splitext(os.path.basename(vmfPath))[0].lower()
         # read the map file and convert everything
@@ -505,7 +561,7 @@ class App:
         res = exportMap(
             vmfFile, vpkFiles, gameDirs, game,
             self.skipMats.get(), self.skipModels.get(), vmfName,
-            settings["convertBrush"], scale=settings["scale"]
+            settings["convertBrush"], scale=Vector3(settings["scale"][0], settings["scale"][0], settings["scale"][1])
         )
         
         print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source/prefabs/{vmfName}\"")
