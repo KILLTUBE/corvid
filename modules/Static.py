@@ -31,6 +31,7 @@ def fixVmt(vmt: str):
     for line in lines:
         res2 = ""
         line = line.replace('"', " ").strip().lower()
+        line = line.split(" // ")[0]
         if line.startswith("{") and line != "{":
             line = line[1:]
             result += "{\n"
@@ -44,6 +45,21 @@ def fixVmt(vmt: str):
         if len(tok) == 1:
             result += line + "\n"
             continue
+        
+        # there's a very small chance that multiple key/values are in the same line
+        kvp = {}
+        for i, k in enumerate(tok):
+            if k[0] == "$" or k[0] == "%":
+                kvp[k] = ""
+            else:
+                if len(kvp.keys()) != 0:
+                    kvp[list(kvp.keys())[-1]] += k + " "
+        
+        if len(kvp.keys()) > 1:
+            for key, value in kvp.items():
+                result += f'"{key}" "{value.strip()}"\n'
+            continue
+        
         key = tok[0]
         value = " ".join(tok[1:])
         if value == "{":
