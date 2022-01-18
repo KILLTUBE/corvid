@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 from modules.Brush import Brush
 from modules.Decal import convertDecal
 from modules.Overlay import Overlay
@@ -29,6 +29,7 @@ def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     if material not in matSize:
         matSize[material] = Vector2(512, 512)
         
+    # get the uv of each point
     for point in side.points:
         side.uvs.append(side.getUV(point, matSize[material]))
     uvs: list[Vector2] = side.uvs
@@ -88,17 +89,17 @@ def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, power: i
     return res
 
 def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, game="WaW"):
-
     res = f"// Side {side.id}\n"
     points = side.points
     material = newPath(side.material)
     
-    # get uv points
     if material not in matSize:
         matSize[material] = Vector2(512, 512)
 
+    # get the uv of each point
     for point in side.points:
         side.uvs.append(side.getUV(point, matSize[material]))
+        uvs: list[Vector2] = side.uvs
 
     if len(points) != 4:
         print(f"Displacement has {len(points)} points. Displacements can have 4 points only. Side id: {side.id}\n")
@@ -106,7 +107,6 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
             print(point)
         return ""
     
-    uvs: list[Vector2] = side.uvs
     disp: dict = side.dispinfo
     power: int = int(disp["power"])
     numVerts: int = int(2 ** power) + 1
@@ -261,7 +261,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
 
         return res
 
-def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector3(0, 0, 0), scale=1, matSizes: dict={}, brushConversion=False, sideDict: dict={}):
+def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector3(0, 0, 0), scale=1, matSizes: dict={}, brushConversion=False, sideDict: dict={}, AABBmin: Vector3=Vector3.Zero(), AABBmax: Vector3=Vector3.Zero()):
     tools = {
         "toolsnodraw": "caulk",
         "toolsclip": "clip",
@@ -274,23 +274,41 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
         "toolsblocklight": "shadowcaster",
         "toolshint": "hint",
         "toolsskip": "skip",
+        "toolsladder": "ladder",
+        "toolstrigger": "trigger",
         "toolsskybox": "sky" if game == "BO3" else f"{mapName}_sky"
     }
 
     if game == "BO3" and brush.entity == "func_areaportal":
         return ""
+    elif brush.entity == "func_brush":
+        if "targetname" in brush.entData and brush.entData["targetname"].startswith("retake"):
+            return ""
+    elif brush.entity == "func_dustmotes" or brush.entity == "func_buyzone" or brush.entity.startswith("trigger"):
+        return ""
+    elif brush.sides[0].material == "tools/toolsskybox":
+        return ""
 
     resBrush = f"// Brush {brush.id}\n" 
-    resBrush = "{\n"
-    if not world:
-        if brush.entity != "func_areaportal" or brush.entity != "func_bomb_target":
-            resBrush += "contents detail;\n"
-    resPatch = ""
+    resBrush += "{\n"
 
+    if not world:
+        if brush.entity == "func_detail" or brush.entity == "func_breakable":
+            resBrush += "contents detail;\n"
+        elif brush.entity == "func_illusionary":
+            resBrush += "contents nonColliding;\n"
+
+    resPatch = ""
+    
     for side in brush.sides:
         if game == "BO3":
             if side.material in ["tools/toolsareaportal", "tools/toolshint", "tools/toolsskip"]:
                 return ""
+        
+        for point in side.points.copy():
+            point = (point - origin) * scale
+            AABBmax.set(AABBmax.max(point))
+            AABBmin.set(AABBmin.min(point))
         
         if len(side.points) >= 3:
             sideDict[side.id] = side
@@ -311,8 +329,6 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
             if mat in tools:
                 resBrush += tools[mat] + " 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
                 continue
-            elif brush.entity == "func_bomb_target":
-                resBrush += "trigger 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
             else:
                 resBrush += "clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
                 continue
@@ -332,7 +348,7 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
             if tex is not None:
                 resBrush += f"{mat} {tex}\n"
             else:
-                resBrush += "caulk 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+                resBrush += mat + " 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
                 resPatch += convertSide(side, matSizes, origin, scale)
     
     resBrush += "}\n"
@@ -354,18 +370,18 @@ def convertEntity(entity, id="", geo=""):
 
 def convertLight(entity, scale=1.0):
     if "_light" in entity:
-        _color = entity["_light"].split(" ")
+        _color = [int(i) for i in entity["_light"].split(" ")]
         if len(_color) == 3:
-            _color.append(500)
+            _color.append(300)
     else:
-        _color = [0, 0, 0, 500]
+        _color = [0, 0, 0, 300]
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
     color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
     return convertEntity({
         "classname": "light",
         "origin": Vector3.FromStr(entity["origin"]) * scale,
         "_color": color,
-        "radius": _color[3],
+        "radius": _color[3] if _color[3] > 100 else 300,
         "intensity": "1"
     }, entity["id"])
 
@@ -401,7 +417,7 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
         }, entity["id"])
         res += convertEntity({
             "classname": "info_null",
-            "origin": (origin + Vector3(0, 0, -float(_color[3]))) * scale,
+            "origin": (origin + Vector3(0, 0, -70)) * scale,
             "targetname": "spotlight_" + entity["id"]
         })
     else:
@@ -543,6 +559,7 @@ def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=
 def convertProp(entity, game="WaW", skyOrigin=Vector3(0, 0, 0), scale=1, mdlScale=1):
     origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
     modelScale = float(entity["uniformscale"] if "uniformscale" in entity else entity["modelscale"] if "modelscale" in entity else "1") * mdlScale
+
     if "model" not in entity:
         return convertEntity({
             "classname": "info_null",
@@ -579,6 +596,8 @@ def convertCubemap(entity, scale=1.0):
     }, entity["id"])
 
 def convertSpawner(entity, scale=1.0):
+    origin = Vector3.FromStr(entity["origin"]) * scale
+
     spawners = {
         "info_player_terrorist": "mp_tdm_spawn_axis_start",
         "info_player_counterterrorist": "mp_tdm_spawn_allies_start",
@@ -586,26 +605,254 @@ def convertSpawner(entity, scale=1.0):
         "info_player_deathmatch": "mp_dm_spawn",
         "info_player_start": "info_player_start",
     }
+
     if entity["classname"] in spawners:
         classname = spawners[entity["classname"]]
     else:
-        #print(f'Unknown spawner entity: {entity["classname"]}')
         return ""
-    origin = Vector3.FromStr(entity["origin"])
-    origin.z += 32 # otherwise they go through the floor
+
     res = convertEntity({
         "classname": classname,
-        "origin": origin * scale,
+        "origin": origin,
         "angles": entity["angles"]
     }, entity["id"])
 
     if classname == "info_player_start":
         res += convertEntity({
             "classname": "mp_global_intermission",
-            "origin": Vector3.FromStr(entity["origin"]) * scale
-        }, entity["id"])
+            "origin": origin
+        })
+
+        res += convertEntity({
+            "classname": "mp_tdm_spawn",
+            "origin": origin
+        })
+    
+    # make sure to add spawners for sd too
+    if classname == "mp_tdm_spawn_axis_start" or classname == "mp_tdm_spawn_allies_start":
+        res += convertEntity({
+            "classname": "mp_sd_spawn_attacker" if classname == "mp_tdm_spawn_axis_start" else "mp_sd_spawn_defender",
+            "origin": origin,
+            "angles": entity["angles"]
+        })
 
     return res
+
+def convertBombsite(entity, scale=1, game="WaW"):
+    solids = entity["solids"] if "solids" in entity else [entity["solid"]]
+    brushes: List[Brush] = []
+
+    # calculate the geo of the trigger(s)
+    for solid in solids:
+        sides: List[Side] = []
+        for side in solid["sides"]:
+            sides.append(Side(side))
+        brushes.append(Brush(sides))
+    
+    # get the center of the trigger(s) to decide where to place the bomb model
+    center = Vector3.Zero()
+    for brush in brushes:
+        for side in brush.sides:
+            center = center + side.center()
+    
+    center = center / sum([len(brush.sides) for brush in brushes])
+    bombsite = "_" + entity["targetname"][0].lower() if "targetname" in entity else "a"
+
+    res = convertEntity({
+        "classname": "trigger_use_touch",
+        "script_bombmode_original": "1",
+        "target": "target" + bombsite,
+        "script_gameobjectname": "bombzone",
+        "targetname": "bombzone",
+        "script_label": bombsite
+    }, geo="".join(convertBrush(brush, scale=scale) for brush in brushes))
+
+    res += convertEntity({
+        "targetname": "targetname" + bombsite,
+        "classname": "trigger_use_touch",
+        "script_gameobjectname": "bombzone"
+    }, geo="".join(convertBrush(brush, scale=scale) for brush in brushes))
+
+    res += convertEntity({
+        "target": "targetname" + bombsite,
+        "targetname": "target" + bombsite,
+        "spawnflags": "4",
+        "script_gameobjectname": "bombzone",
+        "script_exploder": "1",
+        "origin": center * scale,
+        "model": "xmodel/tag_origin" if game=="CoD2" else "tag_origin",
+        "classname": "script_model"
+    })
+
+    res += convertEntity({
+        "classname": "script_model",
+        "model": "xmodel/tag_origin" if game=="CoD2" else "tag_origin",
+        "origin": center * scale,
+        "spawnflags": "4",
+        "targetname": "exploder",
+        "script_exploder": "1"
+    })
+
+    return res
+
+# in CoD, it is better to seal the whole map in 6 skybox brushes
+# in Source however, there are always too many skybox brushes, which is not ideal for CoD
+# this function basically takes the two far ends of the map and then uses those positions to create 6 skybox brushes with them
+def createSkyBrushes(AABBmin: Vector3, AABBmax: Vector3, mapName="", game="WaW"):
+    if AABBmin == AABBmax:
+        return ""
+    
+    # move the points further to avoid collision with map geo
+    AABBmax += Vector3(250, 250, 500)
+    AABBmin += Vector3(250, 250, -100)
+
+    top1 = AABBmax # top points
+    top2 = Vector3(AABBmax.x, AABBmin.y, AABBmax.z)
+    top3 = Vector3(AABBmin.x, AABBmax.y, AABBmax.z)
+    top4 = Vector3(AABBmin.x, AABBmin.y, AABBmax.z)
+    bot1 = AABBmin # bottom points
+    bot2 = Vector3(AABBmin.x, AABBmax.y, AABBmin.z)
+    bot3 = Vector3(AABBmax.x, AABBmin.y, AABBmin.z)
+    bot4 = Vector3(AABBmax.x, AABBmax.y, AABBmin.z)
+
+    sky = ""
+    if game == "BO3":
+        inner = "sky 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
+        outer = "caulk 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
+    else:
+        inner = mapName + "_sky 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
+        outer = "caulk 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
+
+    up, right, forward = Vector3.Up() * 64, Vector3.Right() * 64, Vector3.Forward() * 64
+
+    # sky brushes
+    # top brush
+    sky += (
+        "{\n"
+        f"( {top1 + up} ) ( {top2 + up} ) ( {top3 + up} ) {outer}\n" # top
+        f"( {top3} ) ( {top2} ) ( {top1} ) {inner}\n" # bottom
+        f"( {top3} ) ( {top4} ) ( {bot1} ) {outer}\n" # back
+        f"( {bot4} ) ( {top2} ) ( {top1} ) {outer}\n" # front
+        f"( {top1} ) ( {top3} ) ( {bot2} ) {outer}\n" # left
+        f"( {top4} ) ( {top2} ) ( {bot3} ) {outer}\n" # right
+        "}\n"
+    )
+
+    # bottom
+    sky += (
+        "{\n"
+        f"( {bot1} ) ( {bot2} ) ( {bot3} ) {inner}\n" # top
+        f"( {bot3 - up} ) ( {bot2 - up} ) ( {bot1 - up} ) {outer}\n" # bottom
+        f"( {top3} ) ( {top4} ) ( {bot1} ) {outer}\n" # back
+        f"( {bot4} ) ( {top2} ) ( {top1} ) {outer}\n" # front
+        f"( {top1} ) ( {top3} ) ( {bot2} ) {outer}\n" # left
+        f"( {top4} ) ( {top2} ) ( {bot3} ) {outer}\n" # right
+        "}\n"
+    )
+
+    # back
+    sky += (
+        "{\n"
+        f"( {top1} ) ( {top2} ) ( {top3} ) {outer}\n" # top
+        f"( {bot3} ) ( {bot2} ) ( {bot1} ) {outer}\n" # bottom
+        f"( {bot1} ) ( {top4} ) ( {top3} ) {inner}\n" # back
+        f"( {top3 - forward} ) ( {top4 - forward} ) ( {bot1 - forward} ) {outer}\n" # front
+        f"( {top1} ) ( {top3} ) ( {bot2} ) {outer}\n" # left
+        f"( {top4} ) ( {top2} ) ( {bot3} ) {outer}\n" # right
+        "}\n"
+    )
+
+    # front
+    sky += (
+        "{\n"
+        f"( {top1} ) ( {top2} ) ( {top3} ) {outer}\n" # top
+        f"( {bot3} ) ( {bot2} ) ( {bot1} ) {outer}\n" # bottom
+        f"( {bot4 + forward} ) ( {top2 + forward} ) ( {top1 + forward} ) {outer}\n" # back
+        f"( {top1} ) ( {top2} ) ( {bot4} ) {inner}\n" # front
+        f"( {top1} ) ( {top3} ) ( {bot2} ) {outer}\n" # left
+        f"( {top4} ) ( {top2} ) ( {bot3} ) {outer}\n" # right
+        "}\n"
+    )
+
+    # left
+    sky += (
+        "{\n"
+        f"( {top1} ) ( {top2} ) ( {top3} ) {outer}\n" # top
+        f"( {bot3} ) ( {bot2} ) ( {bot1} ) {outer}\n" # bottom
+        f"( {top3} ) ( {top4} ) ( {bot1} ) {outer}\n" # back
+        f"( {bot4} ) ( {top2} ) ( {top1} ) {outer}\n" # front
+        f"( {top1 + right} ) ( {top3 + right} ) ( {bot2 + right} ) {outer}\n" # left
+        f"( {bot2} ) ( {top3} ) ( {top1} ) {inner}\n" # right
+        "}\n"
+    )
+
+    # right
+    sky += (
+        "{\n"
+        f"( {top1} ) ( {top2} ) ( {top3} ) {outer}\n" # top
+        f"( {bot3} ) ( {bot2} ) ( {bot1} ) {outer}\n" # bottom
+        f"( {top3} ) ( {top4} ) ( {bot1} ) {outer}\n" # back
+        f"( {bot4} ) ( {top2} ) ( {top1} ) {outer}\n" # front
+        f"( {bot3} ) ( {top2} ) ( {top4} ) {inner}\n" # left
+        f"( {top4 - right} ) ( {top2 - right} ) ( {bot3 - right} ) {outer}\n" # right
+        "}\n"
+    )
+
+    # create sun, fps and umbra volumes for BO3 
+    vol = ""
+    if game == "BO3":
+        suntex = "sun_volume 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
+        vol += convertEntity({
+            "classname": "volume_sun",
+            "ssi": "default_day",
+            "grid_density": "32",
+            "shadowBiasScale": "1",
+            "shadowSplitDistance": "2000",
+            "ssi1": "default_day",
+            "streamLighting": "1"
+        }, geo=(
+            "{\n"
+            f"( {top1} ) ( {top2} ) ( {top3} ) {suntex}\n" # top
+            f"( {bot3} ) ( {bot2} ) ( {bot1} ) {suntex}\n" # bottom
+            f"( {top3} ) ( {top4} ) ( {bot1} ) {suntex}\n" # back
+            f"( {bot4} ) ( {top2} ) ( {top1} ) {suntex}\n" # front
+            f"( {top1} ) ( {top3} ) ( {bot2} ) {suntex}\n" # left
+            f"( {top4} ) ( {top2} ) ( {bot3} ) {suntex}\n" # right
+
+            + "}\n"
+        ))
+
+        umbtex = "umbra_volume 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
+        vol += convertEntity({
+            "classname": "umbra_volume",
+        }, geo=(
+            "{\n"
+            f"( {top1} ) ( {top2} ) ( {top3} ) {umbtex}\n" # top
+            f"( {bot3} ) ( {bot2} ) ( {bot1} ) {umbtex}\n" # bottom
+            f"( {top3} ) ( {top4} ) ( {bot1} ) {umbtex}\n" # back
+            f"( {bot4} ) ( {top2} ) ( {top1} ) {umbtex}\n" # front
+            f"( {top1} ) ( {top3} ) ( {bot2} ) {umbtex}\n" # left
+            f"( {top4} ) ( {top2} ) ( {bot3} ) {umbtex}\n" # right
+
+            + "}\n"
+        ))
+
+        fpstex = "volume_fpstool 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
+        vol += convertEntity({
+            "classname": "volume_fpstool",
+        }, geo=(
+            "{\n"
+            f"( {top1} ) ( {top2} ) ( {top3} ) {fpstex}\n" # top
+            f"( {bot3} ) ( {bot2} ) ( {bot1} ) {fpstex}\n" # bottom
+            f"( {top3} ) ( {top4} ) ( {bot1} ) {fpstex}\n" # back
+            f"( {bot4} ) ( {top2} ) ( {top1} ) {fpstex}\n" # front
+            f"( {top1} ) ( {top3} ) ( {bot2} ) {fpstex}\n" # left
+            f"( {top4} ) ( {top2} ) ( {bot3} ) {fpstex}\n" # right
+
+            + "}\n"
+        ))
+
+    return sky, vol
 
 def exportMap(
         vmfString, vpkFiles=[], gameDirs=[], game="WaW",
@@ -708,6 +955,10 @@ def exportMap(
     mapEnts = ""
     worldSpawnSettings = {}
 
+    # store the furthest points for each axis to calculate the bounding box of the whole map
+    AABBmin = Vector3.Zero()
+    AABBmax = Vector3.Zero()
+
     # store brush sides in a dictionary for info_overlay entities
     sideDict: Dict[str, Side] = {}
     # overlays = []
@@ -726,29 +977,20 @@ def exportMap(
     lenSkyEntBrushes = len(mapData["skyEntityBrushes"])
     lenSkyEnts = len(mapData["skyEntities"])
     total = (lenWorld + lenEntBrushes + lenEnts + lenSky + lenSkyEntBrushes + lenSkyEnts)
+
     # convert world geo & entities
     for i, brush in enumerate(mapData["worldBrushes"]):
         print(f"{i}|{total}|done", end="")
-        mapGeo += convertBrush(brush, True, game, mapName, matSizes=matSizes, brushConversion=brushConversion, sideDict=sideDict, scale=scale)
+        mapGeo += convertBrush(brush, True, game, mapName, matSizes=matSizes, brushConversion=brushConversion, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax)
 
     for i, brush in enumerate(mapData["entityBrushes"], lenWorld):
         print(f"{i}|{total}|done", end="")
-        if brush.entity == "func_bomb_target":
-            mapEnts += convertEntity({
-                "classname": "trigger_use_touch",
-                "targetname": "bombzone",
-                "target": "auto1",
-                "script_bombmode_original": "1",
-                "script_gameobjectname": "bombzone",
-                "script_label": "_" + brush.entData["targetname"][0].lower() if "targetname" in brush.entData else "" 
-            },
-            id=brush.id,
-            geo=convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict, scale=scale)
-            )
-        else:
-            mapGeo += convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict, scale=scale)
+        mapGeo += convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax)
 
     for i, entity in enumerate(mapData["entities"], lenWorld + lenEntBrushes):
+        if "origin" in entity:
+            origin = Vector3.FromStr(entity["origin"]) * scale
+            AABBmax.set(AABBmax.max(origin))
         print(f"{i}|{total}|done", end="")
         if entity["classname"].startswith("prop_"):
             mapEnts += convertProp(entity, game, scale=scale)
@@ -770,9 +1012,12 @@ def exportMap(
         #         overlays.append(entity)
         # elif entity["classname"] == "infodecal":
         #     decals.append(entity)
+        elif entity["classname"] == "func_bomb_target":
+            mapEnts += convertBombsite(entity, scale=scale, game=game)
         elif entity["classname"] == "light_environment":
             sundirection = Vector3.FromStr(entity["angles"])
-            sundirection.x = float(entity["pitch"]) * -1
+            sundirection.x = float(entity["pitch"])
+            sundirection.y = sundirection.y - 180 if sundirection.y >= 180 else sundirection.y + 180
             worldSpawnSettings["sundirection"] = sundirection
             worldSpawnSettings["sunlight"] = "1"
             worldSpawnSettings["sundiffusecolor"] = "0.75 0.82 0.85"
@@ -787,21 +1032,25 @@ def exportMap(
     # convert 3d skybox geo & entities
     for i, brush in enumerate(mapData["skyBrushes"], lenWorld + lenEntBrushes + lenEnts):
         print(f"{i}|{total}|done", end="")
-        mapGeo += convertBrush(brush, True, game, mapName, origin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"] * scale, sideDict=sideDict)
+        mapGeo += convertBrush(brush, True, game, mapName, origin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], sideDict=sideDict, AABBmin=AABBmin, AABBmax=AABBmax)
 
     for i, brush in enumerate(mapData["skyEntityBrushes"], lenWorld + lenEntBrushes + lenEnts + lenSky):
         print(f"{i}|{total}|done", end="")
-        mapGeo += convertBrush(brush, False, game, mapName, origin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"] * scale, sideDict=sideDict)
+        mapGeo += convertBrush(brush, False, game, mapName, origin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], sideDict=sideDict, AABBmin=AABBmin, AABBmax=AABBmax)
 
     for i, entity in enumerate(mapData["skyEntities"], lenWorld + lenEntBrushes + lenEnts + lenSky + lenSkyEntBrushes):
         print(f"{i}|{total}|done", end="")
+
+        origin = (Vector3.FromStr(entity["origin"]) - mapData["skyBoxOrigin"]) * mapData["skyBoxScale"] * scale
+        AABBmax.set(AABBmax.max(origin))
+
         if entity["classname"].startswith("prop_"):
-            mapEnts += convertProp(entity, game, mapData["skyBoxOrigin"], mdlScale=mapData["skyBoxScale"], scale=mapData["skyBoxScale"] * scale)
+            mapEnts += convertProp(entity, game, mapData["skyBoxOrigin"], mdlScale=mapData["skyBoxScale"], scale=scale * mapData["skyBoxScale"])
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
             if game == "CoD4":
-                convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"] * scale, curve=True, ropeDict=ropeDict)
+                convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], curve=True, ropeDict=ropeDict)
             else:
-                mapEnts += convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=mapData["skyBoxScale"] * scale)
+                mapEnts += convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"])
 
     # convert ropes to curve patches for cod 4
     if game == "CoD4" or game == "CoD2":
@@ -814,7 +1063,9 @@ def exportMap(
                     val["width"],
                     game
                 )
-
+    skyBrushes, volumes = createSkyBrushes(AABBmin, AABBmax, mapName, game)
+    mapGeo += skyBrushes
+    mapEnts += volumes
     # convert overlays
     # i = 0
     # total = len(overlays)
@@ -830,12 +1081,39 @@ def exportMap(
     # for decal in decals:
     #     convertDecal(entity, sideDict)
 
+    # add corners for minimap and create a minimap material in gdt
+    if game != "CoD2":
+        minimapData, x, y = exportMinimap(mapName, gamePath, game)
+        if minimapData is not None:
+            if not skipMats:
+                gdtFile += minimapData
+
+            # make the z axis of minimap_corner entities the average of min.z/max.z
+            z = (AABBmin.z + AABBmax.z) / 2
+
+            # top left
+            mapEnts += convertEntity({
+                "classname": "script_origin",
+                "origin": f"{x} {y} {z}",
+                "targetname": "minimap_corner",
+                "_color": "1.0 0.6470588 0.0"
+            })
+
+            # bottom right
+            mapEnts += convertEntity({
+                "classname": "script_origin",
+                "origin": f"{y} {x} {z}",
+                "targetname": "minimap_corner",
+                "_color": "1.0 0.6470588 0.0"
+            })
+
     # convert the skybox textures
     if not skipMats and mapData["sky"] != "sky":
         skyData = exportSkybox(mapData["sky"], mapName, worldSpawnSettings, gamePath, game)
         gdtFile += skyData
         if game != "BO3":
             batFile += skyData.toBat()
+
 
     # write the gdt & bat files
     open(f"{copyDir}/converted/source_data/_{mapName}.gdt", "w").write(gdtFile.toStr())
