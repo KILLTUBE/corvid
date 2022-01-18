@@ -1,4 +1,7 @@
+import os
+os.environ["NO_BPY"] = "1"
 from PIL import Image
+from SourceIO.source1.vtf.VTFWrapper import VTFLib
 from modules.Vector3 import Vector3
 from modules.Vector2 import Vector2
 from modules.cube2equi import find_corresponding_pixel
@@ -367,9 +370,9 @@ def createMaterialGdt(vmts: dict, game="WaW"):
                 data["colorMap"] = textureDir + "404" + ext
         else:
             data["colorMap"] = textureDir + "404" + ext
-        
-        data["formatColor"] = "DXT1"
 
+        
+        
         if "$bumpmap" in mat and "$ssbump" not in mat:
             fileName = newPath(mat["$bumpmap"], shorten=True)
             if fileName + ".vtf" in fileList:
@@ -397,11 +400,9 @@ def createMaterialGdt(vmts: dict, game="WaW"):
 
         if "$alphatest" in mat or "$alpha" in mat:
             data["alphaTest"] = "GE128"
-            data["formatColor"] = "DXT3"
         if "$translucent" in mat:
             data["blendFunc"] = "Blend"
-            data["formatColor"] = "DXT5"
-        
+
         if "$decal" in mat:
             data["sort"] = "decal - static decal"
             data["polygonOffset"] = "Static Decal"
@@ -811,9 +812,9 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         # based on https://github.com/adamb70/Python-Spherical-Projection/blob/master/Example/Example%201/SingleExample.py
         wo, ho = cubemap.size
 
-        h = int(wo/3)
-        w = int(2*h)
-        n = ho/3
+        h = int(wo / 3)
+        w = int(2 * h)
+        n = ho / 3
 
         res = Image.new(mode="RGB", size=(w, h), color=(0, 255, 239))
 
@@ -906,3 +907,65 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "colorMap": f"texture_assets\\\\corvid\\\\{mapName}_sky_ft.tga"
         })
     return gdt
+
+def exportMinimap(mapName: str, dir: SourceDir, game="WaW"):
+    gdt = Gdt()
+    if game == "BO3":
+        return None
+    else:
+        # if it's a decompiled map, we need to remove that suffix
+        if mapName.endswith("_d"):
+            mapName = mapName[0:-2].lower()
+        elif mapName.endswith("_decompiled"):
+            mapName = mapName[0:-11].lower()
+
+        overview = dir.open(f"resource/overviews/{mapName}.txt")
+
+        if overview is None:
+            return None, None, None
+        
+        if isinstance(overview, bytes): # it's from a vpk
+            overview = overview.decode("ascii")
+        
+        overview = fixVmt(overview)
+
+        data = parse_vdf(overview)
+        data = data[list(data)[0]]
+
+        if "material" not in data:
+            print("no texture")
+            return None, None, None
+        
+        image: Image
+        # csgo uses dds images for radars whereas older games use vtf images
+        if dir.copy(f"resource/{data['material']}_radar.dds", f"{tempDir}/matTex/{mapName}_radar.dds", silent=True):
+            Image.open(f"{tempDir}/matTex/{mapName}_radar.dds").save(f"{tempDir}/converted/texture_assets/corvid/{mapName}_radar.tga", silent=True)
+        elif dir.copy(f"materials/{data['material']}_radar.vmt", f"{tempDir}/mat/{mapName}_radar.vmt"):
+            mat = parse_vdf(fixVmt(open(f"{tempDir}/mat/{mapName}_radar.vmt").read()))
+            mat = mat[list(mat)[0]]
+            if "$basetexture" in mat:
+                if not dir.copy("materials/" + mat["$basetexture"] + ".vtf", f"{tempDir}/matTex/{mapName}_radar.vtf", silent=True):
+                    return None, None, None
+            convertImage(f"{tempDir}/matTex/{mapName}_radar.vtf", f"{tempDir}/converted/texture_assets/corvid/{mapName}_radar.tga",  "rgb")
+        else:
+            return None, None, None
+
+        image = Image.open(f"{tempDir}/converted/texture_assets/corvid/{mapName}_radar.tga")
+
+        if "rotate" in data and data["rotate"] != "1":
+            image = image.rotate(90)
+        
+        image.save(f"{tempDir}/converted/texture_assets/corvid/{mapName}_radar.tga")
+
+        gdt.add(f"{mapName}_mininmap", "material", {
+            "materialType": "2d",
+            "surfaceType": "<none>",
+            "usage": "<not in editor>",
+            "colorMap": f"texture_assets\\\\corvid\\\\{mapName}_radar.tga",
+            "tileColor": "no tile",
+            "filterColor": "nomip bilinear",
+            "nopicmipColor": "1"
+        })
+
+        return gdt, data["pos_x"], data["pos_y"]
+        
