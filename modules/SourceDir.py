@@ -42,3 +42,19 @@ class SourceDir:
         if not silent:
             print(f"Could not find file {src}")
         return False
+
+    def open(self, src):
+        src = Path(src).as_posix()
+        for pak in self.paks:
+            try:
+                return pak.get_file(src).read()
+            except:
+                continue
+        
+        for dir in self.dirs:
+            try:
+                return open(f"{dir}/{src}").read()
+            except:
+                continue
+            
+        return None
