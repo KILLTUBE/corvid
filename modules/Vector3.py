@@ -108,11 +108,11 @@ class Vector3:
     def rotate(self, rot: 'Vector3') -> 'Vector3':
         return self.rotateX(rot.x).rotateY(rot.y).rotateZ(rot.z)
 
-    def min(self, value) -> 'Vector3':
-        return Vector3(min(self.x, value), min(self.y, value), min(self.z, value))
+    def min(self, rhs: 'Vector3') -> 'Vector3':
+        return Vector3(min(self.x, rhs.x), min(self.y, rhs.y), min(self.z, rhs.z))
 
-    def max(self, value) -> 'Vector3':
-        return Vector3(max(self.x, value), max(self.y, value), max(self.z, value))
+    def max(self, rhs) -> 'Vector3':
+        return Vector3(max(self.x, rhs.x), max(self.y, rhs.y), max(self.z, rhs.z))
 
     def ToBpy(self):
         return Vector((self.x, self.y, self.z))
@@ -120,9 +120,24 @@ class Vector3:
     def toHex(self):
         return "%02x%02x%02x" % (int(self.x), int(self.y), int(self.z))
 
+    def set(self, vec: 'Vector3'):
+        self.x, self.y, self.z = vec.x, vec.y, vec.z
+
     @staticmethod
     def Zero() -> 'Vector3':
         return Vector3(0.0, 0.0, 0.0)
+
+    @staticmethod
+    def Up() -> 'Vector3':
+        return Vector3(0.0, 0.0, 1.0)
+
+    @staticmethod
+    def Right() -> 'Vector3':
+        return Vector3(0.0, 1.0, 0.0)
+
+    @staticmethod
+    def Forward() -> 'Vector3':
+        return Vector3(1.0, 0.0, 0.0)
 
     @staticmethod
     def FromStr(string: str):
