@@ -80,6 +80,8 @@ def readMap(vmf):
                     if skin not in modelSkins[mdlName]:
                         modelSkins[mdlName].append(skin)
 
+        elif entity["classname"] == "func_bomb_target":
+            entities.append(entity)
         elif "solids" in entity:
             for solid in entity.solids:
                 sides = []
