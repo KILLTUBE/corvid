@@ -957,7 +957,7 @@ def exportMinimap(mapName: str, dir: SourceDir, game="WaW"):
         
         image.save(f"{tempDir}/converted/texture_assets/corvid/{mapName}_radar.tga")
 
-        gdt.add(f"{mapName}_mininmap", "material", {
+        gdt.add(f"{mapName}_minimap", "material", {
             "materialType": "2d",
             "surfaceType": "<none>",
             "usage": "<not in editor>",
