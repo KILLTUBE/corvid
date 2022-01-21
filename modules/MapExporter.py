@@ -267,14 +267,13 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
         "toolsclip": "clip",
         "toolsplayerclip": "clip",
         "toolsinvisible": "clip",
-        "toolsinvisibleladder": "clip",
+        "toolsinvisibleladder": "ladder",
         "toolsnpcclip": "clip",
         "toolsgrenadeclip": "clip_missile",
         "toolsareaportal": "portal_nodraw",
         "toolsblocklight": "shadowcaster",
         "toolshint": "hint",
         "toolsskip": "skip",
-        "toolsladder": "ladder",
         "toolstrigger": "trigger",
         "toolsskybox": "sky" if game == "BO3" else f"{mapName}_sky"
     }
@@ -656,7 +655,7 @@ def convertBombsite(entity, scale=1, game="WaW"):
             center = center + side.center()
     
     center = center / sum([len(brush.sides) for brush in brushes])
-    bombsite = "_" + entity["targetname"][0].lower() if "targetname" in entity else "a"
+    bombsite = "_" + (entity["targetname"][0].lower() if "targetname" in entity else "a")
 
     res = convertEntity({
         "classname": "trigger_use_touch",
@@ -1092,9 +1091,11 @@ def exportMap(
             z = (AABBmin.z + AABBmax.z) / 2
 
             # top left
+            origin = Vector3(x, y, z) * scale
+
             mapEnts += convertEntity({
                 "classname": "script_origin",
-                "origin": f"{x} {y} {z}",
+                "origin": f"{origin}",
                 "targetname": "minimap_corner",
                 "_color": "1.0 0.6470588 0.0"
             })
@@ -1102,7 +1103,7 @@ def exportMap(
             # bottom right
             mapEnts += convertEntity({
                 "classname": "script_origin",
-                "origin": f"{y} {x} {z}",
+                "origin": f"{origin.y} {origin.x} {z}",
                 "targetname": "minimap_corner",
                 "_color": "1.0 0.6470588 0.0"
             })
