@@ -27,6 +27,9 @@ def readMap(vmf):
     modelSkins = {}
 
     if "visgroups" in mapData:
+        if "visgroup" in mapData.visgroups:
+            if mapData.visgroups.visgroup.name == "3dskybox":
+                skyBoxId = mapData.visgroups.visgroup.visgroupid
         if "visgroups" in mapData.visgroups:
             for visgroup in mapData.visgroups.visgroups:
                 if visgroup.name == "3dskybox":
