@@ -123,7 +123,7 @@ class App:
         self.convertBrush = tk.BooleanVar(value=settings["convertBrush"])
         brushConversionMenu = tk.Menu(self.menuBar, tearoff=0)
         brushConversionMenu.add_radiobutton(label="Terrain patches (default)", variable=self.convertBrush, value=False, command=lambda: self.changeSetting("convertBrush", False))
-        brushConversionMenu.add_radiobutton(label="Plain brushes (experimental)", variable=self.convertBrush, value=True, command=lambda: self.changeSetting("convertBrush", False))
+        brushConversionMenu.add_radiobutton(label="Plain brushes (experimental)", variable=self.convertBrush, value=True, command=lambda: self.changeSetting("convertBrush", True))
 
         settingsMenu.add_cascade(label="Select game profile", menu=currentGameMenu)
         settingsMenu.add_cascade(label="Brush conversion method", menu=brushConversionMenu)
