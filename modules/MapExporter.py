@@ -336,19 +336,15 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
                 resBrush += "clip_water 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
                 continue
         
-        elif not brushConversion:
-            resBrush += "caulk 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
-            resPatch += convertSide(side, matSizes, origin, scale)
-        
-        else:
+        elif brushConversion:
             mat = newPath(side.material)
             side.texSize = matSizes.get(mat, Vector2(512, 512))
             tex = side.getTexCoords()
-            if tex is not None:
-                resBrush += f"{mat} {tex}\n"
-            else:
-                resBrush += mat + " 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
-                resPatch += convertSide(side, matSizes, origin, scale)
+            resBrush += f"{mat} {tex}\n"
+        
+        else:
+            resBrush += "caulk 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+            resPatch += convertSide(side, matSizes, origin, scale)
     
     resBrush += "}\n"
     
@@ -527,29 +523,29 @@ def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=
         + "lightmap_gray\n"
         + "5 3 16 8\n"
         + "(\n"
-        + f"v {start} t 1 1\n"
-        + f"v {mid} t 1 1\n"
-        + f"v {end} t 1 1\n"
+        + f"v {start} t 1 1 1 1\n"
+        + f"v {mid} t 1 1 1 25\n"
+        + f"v {end} t 1 1 1 25\n"
         + ")\n"
         + "(\n"
-        + f"v {start + n} t 1 1\n"
-        + f"v {mid + n} t 1 1\n"
-        + f"v {end + n} t 1 1\n"
+        + f"v {start + n} t 1 1 3 1\n"
+        + f"v {mid + n} t 1 1 3 25\n"
+        + f"v {end + n} t 1 1 3 25\n"
         + ")\n"
         + "(\n"
-        + f"v {start + n} t 1 1\n"
-        + f"v {mid + n} t 1 1\n"
-        + f"v {end + n} t 1 1\n"
+        + f"v {start + n} t 1 1 5 1\n"
+        + f"v {mid + n} t 1 1 5 25\n"
+        + f"v {end + n} t 1 1 5 25\n"
         + ")\n"
         + "(\n"
-        + f"v {start - n + up} t 1 1\n"
-        + f"v {mid - n + up} t 1 1\n"
-        + f"v {end - n + up} t 1 1\n"
+        + f"v {start - n + up} t 1 1 7 1\n"
+        + f"v {mid - n + up} t 1 1 7 25\n"
+        + f"v {end - n + up} t 1 1 7 25\n"
         + ")\n"
         + "(\n"
-        + f"v {start} t 1 1\n"
-        + f"v {mid} t 1 1\n"
-        + f"v {end} t 1 1\n"
+        + f"v {start} t 1 1 9 1\n"
+        + f"v {mid} t 1 1 9 25\n"
+        + f"v {end} t 1 1 9 25\n"
         + ")\n"
         + "}\n"
         + "}\n"
@@ -637,7 +633,7 @@ def convertSpawner(entity, scale=1.0):
 
     return res
 
-def convertBombsite(entity, scale=1, game="WaW"):
+def convertBombsite(entity, scale=1, game="WaW", site=""):
     solids = entity["solids"] if "solids" in entity else [entity["solid"]]
     brushes: List[Brush] = []
 
@@ -650,12 +646,17 @@ def convertBombsite(entity, scale=1, game="WaW"):
     
     # get the center of the trigger(s) to decide where to place the bomb model
     center = Vector3.Zero()
+    lowest = None
     for brush in brushes:
         for side in brush.sides:
+            if lowest is not None:
+                lowest = min(lowest, side.center().z)
             center = center + side.center()
     
     center = center / sum([len(brush.sides) for brush in brushes])
-    bombsite = "_" + (entity["targetname"][0].lower() if "targetname" in entity else "a")
+    if lowest is not None:
+        center.z = lowest # make sure the model is always at the bottom of the trigger
+    bombsite = "_" + (entity["targetname"][0].lower() if "targetname" in entity else site)
 
     res = convertEntity({
         "classname": "trigger_use_touch",
@@ -717,7 +718,7 @@ def createSkyBrushes(AABBmin: Vector3, AABBmax: Vector3, mapName="", game="WaW")
     sky = ""
     if game == "BO3":
         inner = "sky 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
-        outer = "caulk 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
+        outer = "sky 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
     else:
         inner = mapName + "_sky 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
         outer = "caulk 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
@@ -977,6 +978,9 @@ def exportMap(
     lenSkyEnts = len(mapData["skyEntities"])
     total = (lenWorld + lenEntBrushes + lenEnts + lenSky + lenSkyEntBrushes + lenSkyEnts)
 
+    bombsites = ["a", "b", "c", "d", "e", "f", "g"] # let's just make sure in case the maps has lots of bomb sites
+    currentBombsite = 0 
+
     # convert world geo & entities
     for i, brush in enumerate(mapData["worldBrushes"]):
         print(f"{i}|{total}|done", end="")
@@ -1012,7 +1016,8 @@ def exportMap(
         # elif entity["classname"] == "infodecal":
         #     decals.append(entity)
         elif entity["classname"] == "func_bomb_target":
-            mapEnts += convertBombsite(entity, scale=scale, game=game)
+            mapEnts += convertBombsite(entity, scale=scale, game=game, site=bombsites[currentBombsite])
+            currentBombsite += 1
         elif entity["classname"] == "light_environment":
             sundirection = Vector3.FromStr(entity["angles"])
             sundirection.x = float(entity["pitch"])
