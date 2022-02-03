@@ -98,8 +98,6 @@ class Side:
         self._radius = dist
 
         return dist
-        
-
 
     def sortVertices(self):
         # remove duplicate verts
