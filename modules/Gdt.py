@@ -4,17 +4,21 @@ class Gdt:
         self.CoD2 = False
         self.name = ""
     
-    def add(self, name: str, type: str, data: dict):
+    def add(self, name: str, type: str, data: dict, base: str=""):
         self.entries[name] = {
             "name": name,
             "type": type,
             "data": data,
+            "base": base
         }
     
     def toStr(self):
         res = "{\n"
         for entry in list(self.entries.values()):
-            res += f' "{entry["name"]}" ( "{entry["type"]}.gdf" )\n'
+            if entry["base"] != "":
+                res += f' "{entry["name"]}" ( "{entry["type"]}.gdf" ) [ {entry["base"]} ]\n'
+            else:
+                res += f' "{entry["name"]}" ( "{entry["type"]}.gdf" )\n'
             res += " {\n"
             for key, value in entry["data"].items():
                 res += f'  "{key}" "{value}"\n'
