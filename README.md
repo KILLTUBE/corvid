@@ -94,7 +94,7 @@ To run Corvid, launch `app.py`. Choose your Steam director and the game of the m
 ## Third party libraries and references
 - [PyCoD](https://github.com/SE2Dev/PyCoD)
 - [SourceIO](https://github.com/REDxEYE/SourceIO/)
-- [vrProjector](https://github.com/bhautikj/vrProjector/)
+- [vmf_tool](https://github.com/QtPyHammer-devs/vmf_tool)
 - [VDFUtils](https://github.com/darthryking/vdfutils)
 - [io_export_qmap](https://github.com/c-d-a/io_export_qmap/)
 - [io_import_vmf](https://github.com/lasa01/io_import_vmf)
