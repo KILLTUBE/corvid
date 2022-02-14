@@ -910,53 +910,73 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
 
 def exportMinimap(mapName: str, dir: SourceDir, game="WaW"):
     gdt = Gdt()
-    if game == "BO3":
-        return None
+    
+    # if it's a decompiled map, we need to remove that suffix
+    if mapName.endswith("_d"):
+        mapName = mapName[0:-2].lower()
+    elif mapName.endswith("_decompiled"):
+        mapName = mapName[0:-11].lower()
+
+    ext = "png" if game == "BO3" else "tga" # file extension
+
+    overview = dir.open(f"resource/overviews/{mapName}.txt")
+
+    if overview is None:
+        return None, None, None
+    
+    if isinstance(overview, bytes): # it's from a vpk
+        overview = overview.decode("ascii")
+    
+    overview = fixVmt(overview)
+
+    data = parse_vdf(overview)
+    data = data[list(data)[0]]
+
+    if "material" not in data:
+        return None, None, None
+    
+    image: Image
+    # csgo uses dds images for radars whereas older games use vtf images
+    if dir.copy(f"resource/{data['material']}_radar.dds", f"{tempDir}/matTex/{mapName}_radar.dds", silent=True):
+        Image.open(f"{tempDir}/matTex/{mapName}_radar.dds").save(f"{tempDir}/converted/texture_assets/corvid/{mapName}_radar.{ext}", silent=True)
+    elif dir.copy(f"materials/{data['material']}_radar.vmt", f"{tempDir}/mat/{mapName}_radar.vmt"):
+        mat = parse_vdf(fixVmt(open(f"{tempDir}/mat/{mapName}_radar.vmt").read()))
+        mat = mat[list(mat)[0]]
+        if "$basetexture" in mat:
+            if not dir.copy("materials/" + mat["$basetexture"] + ".vtf", f"{tempDir}/matTex/{mapName}_radar.vtf", silent=True):
+                return None, None, None
+        convertImage(f"{tempDir}/matTex/{mapName}_radar.vtf", f"{tempDir}/converted/texture_assets/corvid/{mapName}_radar.{ext}",  "rgb")
     else:
-        # if it's a decompiled map, we need to remove that suffix
-        if mapName.endswith("_d"):
-            mapName = mapName[0:-2].lower()
-        elif mapName.endswith("_decompiled"):
-            mapName = mapName[0:-11].lower()
+        return None, None, None
 
-        overview = dir.open(f"resource/overviews/{mapName}.txt")
+    image = Image.open(f"{tempDir}/converted/texture_assets/corvid/{mapName}_radar.{ext}")
 
-        if overview is None:
-            return None, None, None
-        
-        if isinstance(overview, bytes): # it's from a vpk
-            overview = overview.decode("ascii")
-        
-        overview = fixVmt(overview)
+    if "rotate" in data and data["rotate"] != "1":
+        image = image.rotate(90)
+    
+    image.save(f"{tempDir}/converted/texture_assets/corvid/{mapName}_radar.{ext}")
 
-        data = parse_vdf(overview)
-        data = data[list(data)[0]]
+    if game == "BO3":
+        gdt.add(f"i_{mapName}_minimap", "image",{
+            "imageType": "Texture",
+            "type": "image",
+            "baseImage": f"texture_assets\\\\corvid\\\\{mapName}_radar.png",
+            "semantic": "2d",
+            "compressionMethod": "compressed",
+            "coreSemantic": "Linear4ch",
+            "streamable": "1",
+            "clampU": "1",
+            "clampV": "1"
+        })
 
-        if "material" not in data:
-            print("no texture")
-            return None, None, None
-        
-        image: Image
-        # csgo uses dds images for radars whereas older games use vtf images
-        if dir.copy(f"resource/{data['material']}_radar.dds", f"{tempDir}/matTex/{mapName}_radar.dds", silent=True):
-            Image.open(f"{tempDir}/matTex/{mapName}_radar.dds").save(f"{tempDir}/converted/texture_assets/corvid/{mapName}_radar.tga", silent=True)
-        elif dir.copy(f"materials/{data['material']}_radar.vmt", f"{tempDir}/mat/{mapName}_radar.vmt"):
-            mat = parse_vdf(fixVmt(open(f"{tempDir}/mat/{mapName}_radar.vmt").read()))
-            mat = mat[list(mat)[0]]
-            if "$basetexture" in mat:
-                if not dir.copy("materials/" + mat["$basetexture"] + ".vtf", f"{tempDir}/matTex/{mapName}_radar.vtf", silent=True):
-                    return None, None, None
-            convertImage(f"{tempDir}/matTex/{mapName}_radar.vtf", f"{tempDir}/converted/texture_assets/corvid/{mapName}_radar.tga",  "rgb")
-        else:
-            return None, None, None
+        gdt.add(f"{mapName}_minimap", "material",{
+            "colorMap": f"i_{mapName}_minimap",
+            "materialType": "2d_add"
+        },
+        "base:local")
 
-        image = Image.open(f"{tempDir}/converted/texture_assets/corvid/{mapName}_radar.tga")
 
-        if "rotate" in data and data["rotate"] != "1":
-            image = image.rotate(90)
-        
-        image.save(f"{tempDir}/converted/texture_assets/corvid/{mapName}_radar.tga")
-
+    else:
         gdt.add(f"{mapName}_minimap", "material", {
             "materialType": "2d",
             "surfaceType": "<none>",
@@ -967,5 +987,5 @@ def exportMinimap(mapName: str, dir: SourceDir, game="WaW"):
             "nopicmipColor": "1"
         })
 
-        return gdt, data["pos_x"], data["pos_y"]
+    return gdt, data["pos_x"], data["pos_y"]
         
