@@ -1,5 +1,6 @@
 from .Vector3 import Vector3
 from .Side import Side
+from .AABB import AABB
 from math import isnan
 
 def getPlaneIntersectıon(side1: Side, side2: Side, side3: Side) -> Vector3:
@@ -58,3 +59,13 @@ class Brush:
                 self.sides[i].sortVertices()
             if self.sides[i].hasDisp:
                 self.hasDisp = True
+
+    # get the bounding box of a brush
+    def getAABB(self):
+        res = AABB()
+
+        for side in self.sides:
+            for point in side.points:
+                res.update(point)
+        
+        return res
