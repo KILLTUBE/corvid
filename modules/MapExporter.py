@@ -285,6 +285,8 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
             return ""
     elif brush.entity == "func_dustmotes" or brush.entity == "func_buyzone" or brush.entity.startswith("trigger"):
         return ""
+    elif brush.sides[0].material == "tools/toolstrigger":
+        return ""
     elif brush.sides[0].material == "tools/toolsskybox":
         return ""
 
@@ -498,15 +500,19 @@ def convertRope(entity, skyOrigin=Vector3(0, 0, 0), scale=1, curve=False, ropeDi
 
 def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=1, game="WaW"):
     mid: Vector3 = start.lerp(end, 0.5)
-    mid.z -= slack
+    mid.z -= slack * 0.75
 
-    try:
-        normal = (start - mid).cross(end - mid).normalize()
-        n = normal * width
-        up = Vector3(0, 0, width)
-    except:
-        n = 0
-        up = 0
+    # calculate the forward, left and right vectors so all the ropes will be consistent in size
+    up = Vector3.Up()
+    forward = (end - start).normalize()
+    right = forward.cross(up)
+    left = right * -1
+
+    up *= width
+    left *= width
+    right *= width
+    top = left.lerp(right, 0.5) + up
+    bottom = top - (up * 2)
 
     if game == "WaW":
         mat = "global_wires"
@@ -523,29 +529,29 @@ def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=
         + "lightmap_gray\n"
         + "5 3 16 8\n"
         + "(\n"
-        + f"v {start} t 1 1 1 1\n"
-        + f"v {mid} t 1 1 1 25\n"
-        + f"v {end} t 1 1 1 25\n"
+        + f"v {start + bottom} t 1 1 1 1\n"
+        + f"v {mid + bottom} t 1 1 1 25\n"
+        + f"v {end + bottom} t 1 1 1 25\n"
         + ")\n"
         + "(\n"
-        + f"v {start + n} t 1 1 3 1\n"
-        + f"v {mid + n} t 1 1 3 25\n"
-        + f"v {end + n} t 1 1 3 25\n"
+        + f"v {start + left} t 1 1 3 1\n"
+        + f"v {mid + left} t 1 1 3 25\n"
+        + f"v {end + left} t 1 1 3 25\n"
         + ")\n"
         + "(\n"
-        + f"v {start + n} t 1 1 5 1\n"
-        + f"v {mid + n} t 1 1 5 25\n"
-        + f"v {end + n} t 1 1 5 25\n"
+        + f"v {start + top} t 1 1 5 1\n"
+        + f"v {mid + top} t 1 1 5 25\n"
+        + f"v {end + top} t 1 1 5 25\n"
         + ")\n"
         + "(\n"
-        + f"v {start - n + up} t 1 1 7 1\n"
-        + f"v {mid - n + up} t 1 1 7 25\n"
-        + f"v {end - n + up} t 1 1 7 25\n"
+        + f"v {start + right} t 1 1 7 1\n"
+        + f"v {mid + right} t 1 1 7 25\n"
+        + f"v {end + right} t 1 1 7 25\n"
         + ")\n"
         + "(\n"
-        + f"v {start} t 1 1 9 1\n"
-        + f"v {mid} t 1 1 9 25\n"
-        + f"v {end} t 1 1 9 25\n"
+        + f"v {start + bottom} t 1 1 9 1\n"
+        + f"v {mid + bottom} t 1 1 9 25\n"
+        + f"v {end + bottom} t 1 1 9 25\n"
         + ")\n"
         + "}\n"
         + "}\n"
@@ -994,6 +1000,7 @@ def exportMap(
         if "origin" in entity:
             origin = Vector3.FromStr(entity["origin"]) * scale
             AABBmax.set(AABBmax.max(origin))
+            AABBmin.set(AABBmin.min(origin))
         print(f"{i}|{total}|done", end="")
         if entity["classname"].startswith("prop_"):
             mapEnts += convertProp(entity, game, scale=scale)
@@ -1047,6 +1054,7 @@ def exportMap(
 
         origin = (Vector3.FromStr(entity["origin"]) - mapData["skyBoxOrigin"]) * mapData["skyBoxScale"] * scale
         AABBmax.set(AABBmax.max(origin))
+        AABBmin.set(AABBmin.min(origin))
 
         if entity["classname"].startswith("prop_"):
             mapEnts += convertProp(entity, game, mapData["skyBoxOrigin"], mdlScale=mapData["skyBoxScale"], scale=scale * mapData["skyBoxScale"])
