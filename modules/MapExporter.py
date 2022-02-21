@@ -504,15 +504,28 @@ def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=
 
     # calculate the forward, left and right vectors so all the ropes will be consistent in size
     up = Vector3.Up()
-    forward = (end - start).normalize()
+
+    # sometimes, the length of (end - start) returns 0, which makes it impossible to normalize it
+    dif = end - start
+    if dif.len() == 0:
+        forward = Vector3.Zero()
+    else:
+        forward = dif.normalize()
+
     right = forward.cross(up)
     left = right * -1
 
+    # multiply each value with the half of the width value to get proper thickness
+    width *= 0.5
     up *= width
     left *= width
     right *= width
     top = left.lerp(right, 0.5) + up
-    bottom = top - (up * 2)
+    bottom = left.lerp(right, 0.5) - up
+    topLeft = top.lerp(left, 0.5) + up
+    bottomLeft = bottom.lerp(left, 0.5) - up
+    topRight = top.lerp(right, 0.5) + up
+    bottomRight = bottom.lerp(right, 0.5) - up
 
     if game == "WaW":
         mat = "global_wires"
@@ -525,13 +538,19 @@ def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=
         "{\n"
         + "curve\n"
         + "{\n"
+        + "contents nonColliding;\n"
         + f"{mat}\n"
         + "lightmap_gray\n"
-        + "5 3 16 8\n"
+        + "9 3 16 8\n"
         + "(\n"
         + f"v {start + bottom} t 1 1 1 1\n"
         + f"v {mid + bottom} t 1 1 1 25\n"
         + f"v {end + bottom} t 1 1 1 25\n"
+        + ")\n"
+        + "(\n"
+        + f"v {start + bottomLeft} t 1 1 3 1\n"
+        + f"v {mid + bottomLeft} t 1 1 3 25\n"
+        + f"v {end + bottomLeft} t 1 1 3 25\n"
         + ")\n"
         + "(\n"
         + f"v {start + left} t 1 1 3 1\n"
@@ -539,14 +558,29 @@ def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=
         + f"v {end + left} t 1 1 3 25\n"
         + ")\n"
         + "(\n"
+        + f"v {start + topLeft} t 1 1 5 1\n"
+        + f"v {mid + topLeft} t 1 1 5 25\n"
+        + f"v {end + topLeft} t 1 1 5 25\n"
+        + ")\n"
+        + "(\n"
         + f"v {start + top} t 1 1 5 1\n"
         + f"v {mid + top} t 1 1 5 25\n"
         + f"v {end + top} t 1 1 5 25\n"
         + ")\n"
         + "(\n"
+        + f"v {start + topRight} t 1 1 5 1\n"
+        + f"v {mid + topRight} t 1 1 5 25\n"
+        + f"v {end + topRight} t 1 1 5 25\n"
+        + ")\n"
+        + "(\n"
         + f"v {start + right} t 1 1 7 1\n"
         + f"v {mid + right} t 1 1 7 25\n"
         + f"v {end + right} t 1 1 7 25\n"
+        + ")\n"
+        + "(\n"
+        + f"v {start + bottomRight} t 1 1 5 1\n"
+        + f"v {mid + bottomRight} t 1 1 5 25\n"
+        + f"v {end + bottomRight} t 1 1 5 25\n"
         + ")\n"
         + "(\n"
         + f"v {start + bottom} t 1 1 9 1\n"
