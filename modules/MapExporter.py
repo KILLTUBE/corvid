@@ -1,8 +1,9 @@
 from typing import Dict, List
 from modules.Brush import Brush
-from modules.Decal import convertDecal
+from .Decal import *
 from modules.Overlay import Overlay
 from modules.SourceDir import SourceDir
+from modules.AABB import AABB
 from .Side import Side
 from .MapReader import readMap
 from .Vector2 import Vector2
@@ -287,8 +288,6 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
         return ""
     elif brush.sides[0].material == "tools/toolstrigger":
         return ""
-    elif brush.sides[0].material == "tools/toolsskybox":
-        return ""
 
     resBrush = f"// Brush {brush.id}\n" 
     resBrush += "{\n"
@@ -302,6 +301,12 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
     resPatch = ""
     
     for side in brush.sides:
+        if side.material == "tools/toolsskybox":
+            if brush.isToolBrush:
+                return ""
+            else:
+                side.material = "tools/toolsnodraw"
+        
         if game == "BO3":
             if side.material in ["tools/toolsareaportal", "tools/toolshint", "tools/toolsskip"]:
                 return ""
@@ -450,12 +455,14 @@ def convertRope(entity, skyOrigin=Vector3(0, 0, 0), scale=1, curve=False, ropeDi
                     "id": entity["id"]
                 }
         else:
-            ropeDict["end"][entity["targetname"]] = {
-                "origin": (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale,
-                "targetname": entity["targetname"],
-                "id": entity["id"]
-            }
-            if "NextKey" in entity:
+            if "targetname" in entity:
+                ropeDict["end"][entity["targetname"]] = {
+                    "origin": (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale,
+                    "targetname": entity["targetname"],
+                    "id": entity["id"]
+                }
+    
+            if "NextKey" in entity and "target" in entity:
                 ropeDict["start"][entity["NextKey"]] = {
                     "origin": (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale,
                     "target": entity["NextKey"],
@@ -744,7 +751,7 @@ def createSkyBrushes(AABBmin: Vector3, AABBmax: Vector3, mapName="", game="WaW")
     
     # move the points further to avoid collision with map geo
     AABBmax += Vector3(250, 250, 500)
-    AABBmin += Vector3(250, 250, -100)
+    AABBmin += Vector3(-250, -250, -100)
 
     top1 = AABBmax # top points
     top2 = Vector3(AABBmax.x, AABBmin.y, AABBmax.z)
@@ -844,11 +851,11 @@ def createSkyBrushes(AABBmin: Vector3, AABBmax: Vector3, mapName="", game="WaW")
         suntex = "sun_volume 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
         vol += convertEntity({
             "classname": "volume_sun",
-            "ssi": "default_day",
+            "ssi": f"{mapName}_ssi",
             "grid_density": "32",
             "shadowBiasScale": "1",
             "shadowSplitDistance": "2000",
-            "ssi1": "default_day",
+            "ssi1": f"{mapName}_ssi",
             "streamLighting": "1"
         }, geo=(
             "{\n"
@@ -1001,8 +1008,9 @@ def exportMap(
 
     # store brush sides in a dictionary for info_overlay entities
     sideDict: Dict[str, Side] = {}
-    # overlays = []
-    # decals = []
+    
+    # keep track of plain brushes that will be checked for decal collision later
+    brushDict: Dict[str, Brush] = {}
 
     # store rope entity info in a dictionary to convert them as curve patches if needed
     ropeDict: Dict[str, dict] = {
@@ -1025,10 +1033,14 @@ def exportMap(
     for i, brush in enumerate(mapData["worldBrushes"]):
         print(f"{i}|{total}|done", end="")
         mapGeo += convertBrush(brush, True, game, mapName, matSizes=matSizes, brushConversion=brushConversion, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax)
+        if not brush.isToolBrush and not brush.hasDisp:
+            brushDict[brush.id] = brush
 
     for i, brush in enumerate(mapData["entityBrushes"], lenWorld):
         print(f"{i}|{total}|done", end="")
         mapGeo += convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax)
+        if not brush.isToolBrush and not brush.hasDisp:
+            brushDict[brush.id] = brush
 
     for i, entity in enumerate(mapData["entities"], lenWorld + lenEntBrushes):
         if "origin" in entity:
@@ -1109,9 +1121,12 @@ def exportMap(
                     val["width"],
                     game
                 )
+
+    # create sky brushes and other necessary stuff
     skyBrushes, volumes = createSkyBrushes(AABBmin, AABBmax, mapName, game)
     mapGeo += skyBrushes
     mapEnts += volumes
+
     # convert overlays
     # i = 0
     # total = len(overlays)
@@ -1126,6 +1141,13 @@ def exportMap(
 
     # for decal in decals:
     #     convertDecal(entity, sideDict)
+
+    # create an octree to check for brushes colliding with infodecal entities
+    # octree = AABB(AABBmin, AABBmax, True)
+        
+    # iterate over brushes, add them to the octree
+    # for brush in brushDict.values():
+    #     AddBrusesToOctree(octree, brush)
 
     # add corners for minimap and create a minimap material in gdt
     if game != "CoD2":
