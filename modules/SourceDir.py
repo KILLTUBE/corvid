@@ -1,21 +1,27 @@
 import vpk
 from typing import List
-from os.path import isdir, isfile, exists
+from os.path import isdir, isfile
 from shutil import copyfile
 from pathlib import Path
 from sys import exit
+from .Gma import Addon, load as loadGma
 
 class SourceDir:
     def __init__(self):
         self.dirs = []
         self.paks: List[vpk.VPK] = []
+        self.addons: List[Addon] = []
 
     def add(self, path):
         if isfile(path):
-            if not path.endswith(".vpk"):
+            if path[-4:] not in [".vpk", ".gma"]:
                 print(f"\"{path}\" is not a valid file.")
                 exit()
-            self.paks.append(vpk.open(path))
+            if path.endswith(".vpk"):
+                self.paks.append(vpk.open(path))
+            elif path.endswith(".gma"):
+                self.addons.append(loadGma(path))
+
         elif isdir(path):
             self.dirs.append(path)
         else:
@@ -30,7 +36,12 @@ class SourceDir:
                 continue
             else:
                 return True
-        
+            
+        for addon in self.addons:
+            if src in addon.entries:
+                addon.entries[src].save(dest)
+                return True
+
         for dir in self.dirs:
             try:
                 copyfile(f"{dir}/{src}", dest)
@@ -50,6 +61,10 @@ class SourceDir:
                 return pak.get_file(src).read()
             except:
                 continue
+        
+        for addon in self.addons:
+            if src in addon.entries:
+                addon.entries[src].save()
         
         for dir in self.dirs:
             try:
