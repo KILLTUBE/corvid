@@ -890,7 +890,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "sunCookieScrollY": "0",
             "sunVolumetricCookie": "0",
             "type": "ssi",
-            "yaw": sundirection.y - 180 if sundirection.y >= 180 else sundirection.y + 180
+            "yaw": sundirection.y
         })
     else:
         gdt.add(f"{mapName}_sky", "material", {
