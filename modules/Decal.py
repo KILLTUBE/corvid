@@ -1,62 +1,69 @@
-from math import radians
-from typing import Dict, Tuple
-from mathutils import Vector, Matrix, geometry
+from typing import Dict
+
+from modules.Vector2 import Vector2
+from modules.Vector3 import Vector3
+from .AABB import AABB
+from .Brush import Brush
 from .Side import Side
-from .Vector3 import Vector3
-from .Vector2 import Vector2
+from mathutils import Vector, Matrix
 
-class AABB:
-    origin: Vector
-    extents: Vector
+# loop through bounding boxes and add touching brushes
+def AddBrusesToOctree(box: AABB, brush: Brush):
+    if not brush.AABB().IsTouching(box):
+        return
+    
+    if box.children is None:
+        if brush["id"] not in box.brushes:
+            box.brushes.append(brush["id"])
+    else:
+        for child in box.children:
+            AddBrusesToOctree(child, brush)
 
-    def __init__(self, origin: Vector, extents: Vector):
-        self.origin, self.extents = origin, extents
+def GetBrushes(arr: 'AABB', brushes: list):
+    if arr.children is not None:
+        for child in arr.children:
+            GetBrushes(child, brushes)
+    else:
+        for brush in arr.brushes:
+            brushes.append(brush)
 
-# based on https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_plane.html
-def checkBoxPlaneCollision(origin: Vector, side: Side):
-    box = AABB(origin, Vector((4, 4, 4)))
-    normal = side.normal().normalize().ToBpy()
-    radius = box.extents.x * abs(normal.x) + box.extents.y * abs(normal.y) + box.extents.z * abs(normal.z)
-    dist = normal.dot(origin) - ((side.p2 - side.p1).cross(side.p3 - side.p1).normalize().dot(side.p1))
-    return abs(dist) <= radius
+def GetCollidingBrushes(decal: AABB, octree: AABB, brushes: Dict[str, Brush]):
+    res = []
 
+    if octree.children is not None:
+        for child in octree.children:
+            GetCollidingBrushes(decal, child, brushes)
+    else:
+        for _brush in octree.brushes:
+            brush = brushes[_brush]
 
-def GetDecalPoints(origin: Vector, side: Side):
-    # create a quat with the origin of the decal entity's origin as its center
+            if not decal.IsTouching(brush.AABB()):
+                continue
+            
+            for side in brush.sides:
+                if not side.IsTouching(decal):
+                    continue
+
+                point = side.getClosestPoint(decal.center)
+
+                if point.isLegal(brush.sides):
+                    res.append(side.id)
+
+    return res
+
+def ProjectDecal(decal: AABB, side: Side, material: str, size: Vector2):
+    center = decal.center.ToBpy()
+
     points = [
-        origin + Vector((-128, -128, 0)),
-        origin + Vector((-128, 128, 0)),
-        origin + Vector((128, -128, 0)),
-        origin + Vector((128, 128, 0)),
+        center + Vector((-size.x / 2, -size.y / 2, 0)),
+        center + Vector((-size.x / 2, size.y / 2, 0)),
+        center + Vector((size.x / 2, -size.y / 2, 0)),
+        center + Vector((size.x / 2, size.y / 2, 0)),
     ]
 
-    # create a rotation matrix based on the side's normal
     normal = side.normal().normalize().ToBpy()
     quat = normal.to_track_quat('Z', 'Y')
     mat = quat.to_matrix().to_4x4()
     mat.translation = side.center().ToBpy()
 
-    # rotate each point with the matrix
     return [mat @ point for point in points]
-
-def convertDecal(entity, sideDict: Dict[str, Side]):
-    origin = Vector3.FromStr(entity["origin"]).ToBpy()
-    
-    # iterate through sides
-    for side in sideDict.values():
-        # displacements can't have infodecals
-        # if side.hasDisp:
-        #    continue
-        
-        # check if the box is in the radius of the side
-        # if (origin - side.center().ToBpy()).length < side.radius():
-        #    continue
-
-        # check if the box is colliding with the side
-        # since we know it is inside the radius of the side, we only need to check if the box intersects with the side's plane
-        if side.id == "14":
-            print(GetDecalPoints(origin, side))
-
-        # get points of the decal rotated with the side's normal
-        # print(f"Decal {entity['id']} collides with side {side.id}.")
-        
