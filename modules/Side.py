@@ -3,9 +3,9 @@ from .Vector2 import Vector2
 from mathutils import Vector, Matrix
 from numpy.linalg import solve
 from math import copysign, degrees, pow, radians, sqrt
+from .AABB import AABB
 import re
 import functools
-
 
 def parseTriplets(tri: str):
     res = []
@@ -16,7 +16,6 @@ def parseTriplets(tri: str):
         i += 3
     return res
 
-
 def parseSinglets(sin: str):
     res = []
     tok = sin.split(" ")
@@ -24,50 +23,61 @@ def parseSinglets(sin: str):
         res.append(float(val))
     return res
 
-
 class Side:
-    def __init__(self, data):
-        self.id = data["id"]
-
-        p = re.split(r"[(|)| ]", data["plane"])
-
-        self.p1: Vector3 = Vector3(p[1], p[2], p[3])
-        self.p2: Vector3 = Vector3(p[6], p[7], p[8])
-        self.p3: Vector3 = Vector3(p[11], p[12], p[13])
-
-        self.material: str = data["material"].lower()
-
-        u = re.split(r"[\[|\]| ]", data["uaxis"])
-        v = re.split(r"[\[|\]| ]", data["vaxis"])
-        self.uAxis: Vector3 = Vector3(u[1], u[2], u[3])
-        self.vAxis: Vector3 = Vector3(v[1], v[2], v[3])
-        self.uOffset: float = float(u[4])
-        self.vOffset: float = float(v[4])
-        self.uScale: float = float(u[6])
-        self.vScale: float = float(v[6])
-
-        self.texSize: Vector2 = Vector2(1024, 1024)
-        self.lightmapScale: int = int(data["lightmapscale"])
-        self.points: list[Vector3] = []
-        self.uvs: list[Vector2] = []
-
+    def __init__(self, data=None):
         self._center = None
-        self._radius = None
         self._normal = None
+        self.points: list[Vector3] = []
+        self.hasDisp = False
 
-        if "dispinfo" in data:
-            self.hasDisp = True
-            self.dispinfo = self.processDisplacement(data["dispinfo"])
+        if data is not None:
+            self.id = data["id"]
+
+            p = re.split(r"[(|)| ]", data["plane"])
+
+            self.p1: Vector3 = Vector3(p[1], p[2], p[3])
+            self.p2: Vector3 = Vector3(p[6], p[7], p[8])
+            self.p3: Vector3 = Vector3(p[11], p[12], p[13])
+
+            self.material: str = data["material"].lower()
+
+            u = re.split(r"[\[|\]| ]", data["uaxis"])
+            v = re.split(r"[\[|\]| ]", data["vaxis"])
+            self.uAxis: Vector3 = Vector3(u[1], u[2], u[3])
+            self.vAxis: Vector3 = Vector3(v[1], v[2], v[3])
+            self.uOffset: float = float(u[4])
+            self.vOffset: float = float(v[4])
+            self.uScale: float = float(u[6])
+            self.vScale: float = float(v[6])
+
+            self.texSize: Vector2 = Vector2(1024, 1024)
+            self.lightmapScale: int = int(data["lightmapscale"])
+            self.uvs: list[Vector2] = []
+
+            if "dispinfo" in data:
+                self.hasDisp = True
+                self.dispinfo = self.processDisplacement(data["dispinfo"])
+
         else:
-            self.hasDisp = False
+            self.p1 = self.p2 = self.p3 = None
+            self.material = "null"
+            self.id = "null"
+    
+    @staticmethod
+    def FromPoints(p1: Vector3, p2: Vector3, p3: Vector3):
+        res = Side()
+        res.p1, res.p2, res.p3 = p1, p2, p3
+        return res
 
     def normal(self):
         if self._normal is not None:
-            return self._normal()
+            return self._normal
 
         ab: Vector3 = self.p2 - self.p1
         ac: Vector3 = self.p3 - self.p1
-        return ab.cross(ac)
+        normal = ab.cross(ac)
+        self._normal = normal
+        return normal
 
     def center(self):
         return (self.p1 + self.p2 + self.p3) / 3
@@ -86,18 +96,6 @@ class Side:
         
         self._center = center / len(self.points)
         return self._center
-    
-    def radius(self) -> float:
-        center = self.pointCenter()
-        dist = 0.0
-        for point in self.points:
-            d = center.distance(point)
-            if d > dist:
-                dist = d
-        
-        self._radius = dist
-
-        return dist
 
     def sortVertices(self):
         # remove duplicate verts
@@ -132,6 +130,20 @@ class Side:
             vertex.dot(self.vAxis) / (texSize.y * self.vScale) +
             (self.vOffset / texSize.y)
         )
+    
+    # based on https://github.com/GregLukosek/3DMath/blob/master/Math3D.cs#L242
+    def getClosestPoint(self, point: Vector3):
+        normal = self.normal().normalize()
+        distance = normal.dot(point - self.p1) * -1
+        translationVector = normal * distance
+        return point + translationVector
+    
+    # based on https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_plane.html
+    def IsTouching(self, box: AABB) -> bool:
+        normal = self.normal().normalize()
+        radius = box.extends.x * abs(normal.x) + box.extends.y * abs(normal.y) + box.extends.z * abs(normal.z)
+        distance = normal.dot(box.center) - self.distance()
+        return abs(distance) <= radius
 
     # based on https://github.com/c-d-a/io_export_qmap
     def getTexCoords(self):
