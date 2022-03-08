@@ -1,8 +1,9 @@
 {
     "steamDir": "",
-    "currentGame": -1,
+    "currentGame": "none",
     "game": "BO3",
     "convertBrush": false,
+    "terrainOffset": 0.0,
     "scale": [
         1.0,
         1.0
