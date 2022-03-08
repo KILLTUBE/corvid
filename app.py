@@ -111,14 +111,14 @@ class App:
         settingsMenu = tk.Menu(self.menuBar, tearoff=0)
         self.menuBar.add_cascade(label="Settings", menu=settingsMenu)
 
-        self.currentGame = tk.IntVar(value=settings["currentGame"] if settings["currentGame"] != -1 else len(gameDef) - 1)
-
+        self.currentGame = tk.StringVar(value=settings["currentGame"])
         currentGameMenu = tk.Menu(self.menuBar, tearoff=0)
-        for i in range(len(gameDef)):
-            if gameDef[i]["gameName"] == "seperator":
+
+        for game in gameDef:
+            if gameDef[game]["gameName"] == "seperator":
                 currentGameMenu.add_separator()
             else:
-                currentGameMenu.add_radiobutton(label=gameDef[i]["gameName"], variable=self.currentGame, value=i, command=self.setCurrentGame)
+                currentGameMenu.add_radiobutton(label=gameDef[game]["gameName"], variable=self.currentGame, value=game, command=self.setCurrentGame)
 
         self.convertBrush = tk.BooleanVar(value=settings["convertBrush"])
         brushConversionMenu = tk.Menu(self.menuBar, tearoff=0)
@@ -127,9 +127,10 @@ class App:
 
         settingsMenu.add_cascade(label="Select game profile", menu=currentGameMenu)
         settingsMenu.add_cascade(label="Brush conversion method", menu=brushConversionMenu)
+        settingsMenu.add_command(label="Change export scale", command=self.popup)
+        settingsMenu.add_command(label="Change terrain offset (recommended for BO1)", command=self.changeOffset)
         settingsMenu.add_separator()
         settingsMenu.add_command(label="Set Steam directory", command=self.setSteamDir)
-        settingsMenu.add_command(label="Change export scale", command=self.popup)        
 
         helpMenu = tk.Menu(self.menuBar, tearoff=0)
         helpMenu.add_command(label="Corvid on Github", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid"))
@@ -137,7 +138,7 @@ class App:
         helpMenu.add_command(label="Video tutorial", command=lambda: webbrowser.open("https://www.youtube.com/watch?v=izALMNZjgkA"))
         #helpMenu.add_command(label="Check for new versions", command=lambda: print("Checking for new versions..."))
         helpMenu.add_separator()
-        helpMenu.add_command(label="Support me on Patreon", command=lambda: webbrowser.open("https://www.patreon.com/johndoe_"))
+        # helpMenu.add_command(label="Support me on Patreon", command=lambda: webbrowser.open("https://www.patreon.com/johndoe_"))
         helpMenu.add_command(label="About Corvid", command=self.aboutButton_command)
         self.menuBar.add_cascade(label="Help", menu=helpMenu)
 
@@ -171,9 +172,9 @@ class App:
         vpkLabel["font"] = ft
         vpkLabel["fg"] = "#333333"
         vpkLabel["justify"] = "left"
-        vpkLabel["text"] = "VPK files"
+        vpkLabel["text"] = "VPK files / Garry's Mod addons"
         vpkLabel["anchor"] = "w"
-        vpkLabel.place(x=20,y=50,width=100,height=30)
+        vpkLabel.place(x=20,y=50,width=300,height=30)
 
         self.vpkList=tk.Listbox(root)
         self.vpkList["selectmode"] = tk.EXTENDED
@@ -436,7 +437,7 @@ class App:
             self.vmfPath.insert(0, file.name)
 
     def addVpkButton_command(self):
-        file = filedialog.askopenfile(mode="r", filetypes=[("Valve pak file", "*.vpk")])
+        file = filedialog.askopenfile(mode="r", filetypes=[("Valve pak file", "*.vpk"), ("Garry's Mod addon", "*.gma")])
         if file is not None:
             self.vpkList.insert(tk.END, file.name)
 
@@ -466,6 +467,11 @@ class App:
             + "Icon file created by Freepik\n"
             + "https://www.flaticon.com/authors/freepik",
         )
+    
+    def changeOffset(self):
+        popup = simpledialog.askfloat("Terrain offset", "Please enter the terrain offset value.", initialvalue=settings["terrainOffset"])
+        if popup is not None:
+            self.changeSetting("terrainOffset", popup)
 
     def saveConsoleLog(self):
         consoleLog = self.consoleTextBox.get(1.0, tkinter.constants.END)
@@ -481,24 +487,65 @@ class App:
             alert.showwarning(title="Warning", message="Please select a directory to export the map!")
             exit()
 
+        _game = self.currentGame.get()
+        currentGame = gameDef[_game]
+
         # save the extra vpk files and directories in case the user needs them later
         vpkFiles = list(self.vpkList.get(0, self.vpkList.size() - 1))
         gameDirs = list(self.gameDirList.get(0, self.gameDirList.size() - 1))
 
-        # add the vpk files and the directories of the current game in the list
-        for vpk in gameDef[self.currentGame.get()]["vpkFiles"]:
-            for appDir in steamAppsDirs:
-                vpkPath = appDir + "/steamapps/common/" + gameDef[self.currentGame.get()]["gameRoot"] + "/" + vpk
-                if os.path.isfile(vpkPath):
-                    vpkFiles.append(vpkPath)
-                    break
+        print(f"Corvid v{version}")
+        print(f"Steam directory: {settings['steamDir']}")
+        print(f"Game profile: {currentGame['gameName']}")
 
-        for dir in gameDef[self.currentGame.get()]["gameDirs"]:
-            for appDir in steamAppsDirs:
-                dirPath = appDir + "/steamapps/common/" + gameDef[self.currentGame.get()]["gameRoot"] + "/" + dir
-                if os.path.isdir(dirPath):
-                    gameDirs.append(dirPath)
-                    break
+        def mountGame(game):
+            # add the vpk files and the directories of the current game in the list
+            for vpk in gameDef[game]["vpkFiles"]:
+                for appDir in steamAppsDirs:
+                    vpkPath = appDir + "/steamapps/common/" + gameDef[game]["gameRoot"] + "/" + vpk
+                    if os.path.isfile(vpkPath):
+                        vpkFiles.append(vpkPath)
+                        break
+
+            for dir in gameDef[game]["gameDirs"]:
+                for appDir in steamAppsDirs:
+                    dirPath = appDir + "/steamapps/common/" + gameDef[game]["gameRoot"] + "/" + dir
+                    if os.path.isdir(dirPath):
+                        gameDirs.append(dirPath)
+                        break
+
+        # add the vpk files and the directories of the current game in the list
+        mountGame(_game)
+
+        # if the current game profile is Garry's Mod, check for the mounted games
+        if _game == "gmod":
+            print("Checking for mounted games in Garry's Mod...")
+            def getMounted():
+                # try finding where Garry's Mod is installed
+                gmodDir = ""
+                for appDir in steamAppsDirs:
+                    if exists(f"{appDir}/steamapps/common/GarrysMod/hl2.exe"):
+                        gmodDir = f"{appDir}/steamapps/common/GarrysMod"
+                
+                if gmodDir == "":
+                    print("Could not find Garry's Mod installation.")
+                    return
+                
+                if not exists(f"{gmodDir}/garrysmod/cfg/mountdepots.txt"):
+                    return
+
+                mountData = parse_vdf(open(f"{gmodDir}/garrysmod/cfg/mountdepots.txt").read())
+
+                if not "gamedepotsystem" in mountData:
+                    return
+
+                data = mountData["gamedepotsystem"]
+
+                for game in data:
+                    if data[game] == "1" and game in gameDef:
+                        mountGame(game)
+
+            getMounted()
 
         vmfPath = self.vmfPath.get()
         # check if the selected file is a valid VMF file
@@ -520,8 +567,8 @@ class App:
             if not os.path.isfile(vpk):
                 alert.showerror(title="Error", message=f"\"{vpk}\" is not a valid file!")
                 exit()
-            if not vpk.endswith(".vpk"):
-                alert.showerror(title="error", message=f"\"{vpk}\" is not a VPK file!")
+            if not vpk.endswith((".vpk", ".gma")):
+                alert.showerror(title="error", message=f"\"{vpk}\" is not a VPK or a GMA file!")
                 exit()
         # check gamedirs
         for dir in gameDirs:
@@ -530,10 +577,6 @@ class App:
                 exit()
 
         self.convertButton["state"] = "disabled"
-
-        print(f"Corvid v{version}")
-        print(f"Steam directory: {settings['steamDir']}")
-        print(f"Game profile: {gameDef[settings['currentGame']]['gameName']}")
 
         start = time.time()
         vmfName = os.path.splitext(os.path.basename(vmfPath))[0].lower()
