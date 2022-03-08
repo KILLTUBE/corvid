@@ -1,4 +1,5 @@
 from pprint import pprint
+from typing import List
 
 from modules.Static import newPath
 from .Side import Side
@@ -9,12 +10,12 @@ from .Vector3 import Vector3
 
 def readMap(vmf):
     mapData = parse(vmf)
-    worldBrushes = []
-    entityBrushes = []
+    worldBrushes: List[Brush] = []
+    entityBrushes: List[Brush] = []
     entities = []
 
-    skyBrushes = []
-    skyEntityBrushes = []
+    skyBrushes: List[Brush] = []
+    skyEntityBrushes: List[Brush] = []
     skyEntities = []
 
     skyBoxId = -1
