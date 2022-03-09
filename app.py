@@ -128,7 +128,6 @@ class App:
         settingsMenu.add_cascade(label="Select game profile", menu=currentGameMenu)
         settingsMenu.add_cascade(label="Brush conversion method", menu=brushConversionMenu)
         settingsMenu.add_command(label="Change export scale", command=self.popup)
-        settingsMenu.add_command(label="Change terrain offset (recommended for BO1)", command=self.changeOffset)
         settingsMenu.add_separator()
         settingsMenu.add_command(label="Set Steam directory", command=self.setSteamDir)
 
@@ -468,11 +467,6 @@ class App:
             + "https://www.flaticon.com/authors/freepik",
         )
     
-    def changeOffset(self):
-        popup = simpledialog.askfloat("Terrain offset", "Please enter the terrain offset value.", initialvalue=settings["terrainOffset"])
-        if popup is not None:
-            self.changeSetting("terrainOffset", popup)
-
     def saveConsoleLog(self):
         consoleLog = self.consoleTextBox.get(1.0, tkinter.constants.END)
         saveFile = filedialog.asksaveasfile(title="Save console log as", initialfile="Corvid-log-" + datetime.now().strftime("%d.%m.%Y_(%H.%M.%S)"), filetypes=[('Text files', '*.txt')], defaultextension=[('Text files', '*.txt')])
