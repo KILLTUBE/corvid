@@ -93,6 +93,8 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
     res = f"// Side {side.id}\n"
     points = side.points
     material = newPath(side.material)
+    normal = side.normal().normalize()
+    offset = normal * 0.1
     
     if material not in matSize:
         matSize[material] = Vector2(512, 512)
@@ -137,7 +139,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
 
     alpha = False
 
-    # CoD 4 can't handle terrain patches bigger than 16x16
+    # CoD 4  and CoD 2 can't handle terrain patches bigger than 16x16
     # So when we're converting a map for that game, we're going to slice them into 9x9 patches
     if (game == "CoD4" or game == "CoD2") and numVerts == 17:
         for k in range(2):
@@ -247,8 +249,14 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
             res += "(\n"
             for j in range(numVerts):
                 col = row[j]
-                pos = (col["pos"] + Vector3(0, 0, disp["elevation"]) +
-                    (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
+                pos = (
+                    col["pos"] + Vector3(0, 0, disp["elevation"]) +
+                    (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i])
+                )
+
+                if game == "WaW": # move the blended patch away from the other one to avoid techset errors
+                    pos = pos + offset
+
                 uv = (col["uv"] * side.texSize) * 1
                 lm = col["uv"] * (side.lightmapScale)
                 if disp["row"][j]["alphas"][i] == 0:
