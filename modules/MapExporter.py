@@ -93,8 +93,6 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
     res = f"// Side {side.id}\n"
     points = side.points
     material = newPath(side.material)
-    normal = side.normal().normalize()
-    offset = normal * 0.1
     
     if material not in matSize:
         matSize[material] = Vector2(512, 512)
@@ -255,6 +253,8 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
                 )
 
                 if game == "WaW": # move the blended patch away from the other one to avoid techset errors
+                    normal = side.normal().normalize()
+                    offset = normal * 0.1
                     pos = pos + offset
 
                 uv = (col["uv"] * side.texSize) * 1
