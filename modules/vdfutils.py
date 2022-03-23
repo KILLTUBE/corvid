@@ -11,8 +11,6 @@ Utilities for processing Valve KeyValue data formats.
 
 __version__ = '4.0.0'
 
-from collections import OrderedDict
-
 __all__ = (
     'VDFError',
     'VDFConsistencyError',
@@ -277,7 +275,7 @@ def parse_vdf(inData, allowRepeats=False, escape=True):
 
         '''
 
-        data = OrderedDict()
+        data = {}
 
         key = None
 
