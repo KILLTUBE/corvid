@@ -105,7 +105,7 @@ def getTexSize(src):
     image.image_load(src)
     return Vector2(image.width(), image.height())
 
-def convertModels(models, modelTints, modelSkins, game="WaW", scale=1.0):
+def convertModels(models, modelTints, modelSkins, skinTints, game="WaW", scale=1.0):
     codModel = Model()
     mdlDir = f"{tempDir}/mdl"
     convertDir = f"{tempDir}/converted/model_export/corvid"
@@ -140,6 +140,21 @@ def convertModels(models, modelTints, modelSkins, game="WaW", scale=1.0):
                         print(f"Could not convert {model} to xmodel_bin...")
                     else:
                         os.remove(f"{convertDir}/{model}_skin{skin}.xmodel_export")
+        
+        if game == "BO3" and  model in skinTints:
+            for skin, tints in skinTints[model].items():
+                for tint in tints:
+                    hex = Vector3.FromStr(tint).toHex()
+                    convertModel(f"{mdlDir}/{model}", convertDir, hex, skin, scale)
+                    try:
+                        codModel.LoadFile_Raw(f"{convertDir}/{model}_skin{skin}_{hex}.xmodel_export")
+                        codModel.WriteFile_Bin(f"{convertDir}/{model}_skin{skin}_{hex}.xmodel_bin")
+                    except:
+                        print(f"Could not convert {model} to xmodel_bin...")
+                    else:
+                        os.remove(f"{convertDir}/{model}_skin{skin}_{hex}.xmodel_export")
+
+
 
         if game == "BO3":
             try:

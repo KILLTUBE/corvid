@@ -160,7 +160,9 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0):
                     "material": material_indices_array[int(i / 3)]
                 })
 
-    if tint != "":
+    if skin != 0 and tint != "":
+        fileName = basename(filePath) + f"_skin{skin}_{tint}"
+    elif tint != "":
         fileName = basename(filePath) + f"_{tint}"
     elif skin != 0:
         fileName = basename(filePath) + f"_skin{skin}"

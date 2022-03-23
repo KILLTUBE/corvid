@@ -1,5 +1,5 @@
 from pprint import pprint
-from typing import List
+from typing import Dict, List
 
 from modules.Static import newPath
 from .Side import Side
@@ -26,6 +26,7 @@ def readMap(vmf):
     models = []
     modelTints = {}
     modelSkins = {}
+    skinTints: Dict[str, Dict[int, List[str]]] = {}
 
     if "visgroups" in mapData:
         if "visgroup" in mapData.visgroups:
@@ -66,24 +67,32 @@ def readMap(vmf):
             mdlName = entity.model.lower()
             if mdlName not in models:
                 models.append(mdlName)
-            # need to create duplicates of a model and its materails in order to apply tint
-            if "rendercolor" in entity:
-                if entity.rendercolor != "255 255 255":
+
+            # create duplicate models for models that have skins and color tints (and both)
+            if "skin" in entity or "rendercolor" in entity:
+                if "rendercolor" in entity and entity.rendercolor != "255 255 255" and "skin" in entity and entity.skin != "0":
+                    mdlName = splitext(newPath(mdlName))[0]
+                    skin = int(entity.skin)
+                    if mdlName not in skinTints:
+                        skinTints[mdlName] = {}
+                        if skin not in skinTints[mdlName]:
+                            skinTints[mdlName][skin] = []
+                    if entity.rendercolor not in skinTints[mdlName][skin]:
+                        skinTints[mdlName][skin].append(entity.rendercolor)
+                elif "rendercolor" in entity and entity.rendercolor != "255 255 255":
                     mdlName = splitext(newPath(mdlName))[0]
                     if mdlName not in modelTints:
                         modelTints[mdlName] = []
                     if entity.rendercolor not in modelTints[mdlName]:
                         modelTints[mdlName].append(entity.rendercolor)
-            # need to create duplicates of a model and its materails in order to use different skins
-            if "skin" in entity:
-                if entity.skin != "0":
+                elif "skin" in entity and entity.skin != "0":
                     skin = int(entity.skin)
                     mdlName = splitext(newPath(mdlName))[0]
                     if mdlName not in modelSkins:
                         modelSkins[mdlName] = []
                     if skin not in modelSkins[mdlName]:
                         modelSkins[mdlName].append(skin)
-
+                    
         elif entity["classname"] == "func_bomb_target":
             entities.append(entity)
         elif "solids" in entity:
@@ -162,6 +171,7 @@ def readMap(vmf):
         "models": models,
         "modelTints": modelTints,
         "modelSkins": modelSkins,
+        "skinTints": skinTints,
         
         "sky": mapData.world.skyname.lower() if "skyname" in mapData.world else "sky"
     }

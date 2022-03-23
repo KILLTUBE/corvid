@@ -154,7 +154,7 @@ def copyModels(models, dir: SourceDir):
         for ext in ["dx90.vtx", "vtx", "vvd"]:
             dir.copy(f"{path}/{modelName}.{ext}", f"{tempDir}/mdl/{newName}.{ext}", True)
 
-def copyModelMaterials(models, dir: SourceDir, modelTints, game="WaW"):
+def copyModelMaterials(models, dir: SourceDir, modelTints, skinTints, game="WaW"):
     materials = []
     res = []
     total = len(models)
@@ -163,6 +163,11 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, game="WaW"):
         print(f"{i}|{total}|done", end="")
         mdlName = splitext(newPath(model))[0]
         tints = modelTints[mdlName] if mdlName in modelTints else []
+        
+        if mdlName in skinTints:
+            for _, _tints in skinTints[mdlName].items():
+                tints += _tints
+        
         if not exists(f"{tempDir}/mdl/{mdlName}.mdl"):
             continue
         mdl = Mdl(f"{tempDir}/mdl/{mdlName}.mdl")
@@ -370,8 +375,6 @@ def createMaterialGdt(vmts: dict, game="WaW"):
                 data["colorMap"] = textureDir + "404" + ext
         else:
             data["colorMap"] = textureDir + "404" + ext
-
-        
         
         if "$bumpmap" in mat and "$ssbump" not in mat:
             fileName = newPath(mat["$bumpmap"], shorten=True)
@@ -622,14 +625,13 @@ def createMaterialGdtBo3(vmts: dict):
     
     return gdt
 
-def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}):
+def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}, skinTints={}):
     gdt = Gdt()
     total = len(models)
 
     for i, model in enumerate(models):
         print(f"{i}|{total}|done", end="")
         name = splitext(newPath(model))[0]
-        assetName = name.strip().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
 
         gdt.add("m_" + name, "xmodel", {
             "collisionLOD" if game != "BO3" else "BulletCollisionLOD": "High",
@@ -645,7 +647,7 @@ def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}):
                     "filename": f"corvid\\\\{name}_{hex}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
                     "type": "rigid"
                 })
-                
+
         if name in modelSkins:
             for skin in modelSkins[name]:
                 gdt.add(f"m_{name}_skin{skin}", "xmodel", {
@@ -653,6 +655,16 @@ def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}):
                     "filename": f"corvid\\\\{name}_skin{skin}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
                     "type": "rigid"
                 })
+
+        if name in skinTints:
+            for skin, tints in skinTints[name].items():
+                for tint in tints:
+                    hex = Vector3.FromStr(tint).toHex()
+                    gdt.add(f"m_{name}_skin{skin}_{hex}", "xmodel", {
+                        "collisionLOD" if game != "BO3" else "BulletCollisionLOD": "High",
+                        "filename": f"corvid\\\\{name}_skin{skin}_{hex}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
+                        "type": "rigid"
+                    })
 
     return gdt
 
@@ -875,7 +887,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "lensFlarePitchOffset": "0",
             "lensFlareYawOffset": "0",
             "penumbra_inches": "1.5",
-            "pitch": sundirection.x,
+            "pitch": -sundirection.x,
             "skyboxmodel": f"{mapName}_skybox",
             "spec_comp": "0",
             "stops": "14",
@@ -890,7 +902,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "sunCookieScrollY": "0",
             "sunVolumetricCookie": "0",
             "type": "ssi",
-            "yaw": sundirection.y
+            "yaw": (sundirection.y + 180) % 360
         })
     else:
         gdt.add(f"{mapName}_sky", "material", {
