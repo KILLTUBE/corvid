@@ -234,7 +234,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
 
         # move the blended terrain away from the other one to avoid techset issues
         if game == "WaW":
-            offset = side.normal().normalize() * 2.5
+            offset = side.normal().normalize() * 0.5
 
         res += (
             "{\n" +
@@ -257,7 +257,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
                 )
 
                 if game == "WaW":
-                    pos += offset
+                    pos -= offset
 
                 uv = (col["uv"] * side.texSize) * 1
                 lm = col["uv"] * (side.lightmapScale)
