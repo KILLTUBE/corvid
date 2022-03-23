@@ -232,6 +232,10 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
         if material + "_" not in matSize:
             return res
 
+        # move the blended terrain away from the other one to avoid techset issues
+        if game == "WaW":
+            offset = side.normal().normalize() * 2.5
+
         res += (
             "{\n" +
             "mesh\n" +
@@ -252,10 +256,8 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
                     (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i])
                 )
 
-                if game == "WaW": # move the blended patch away from the other one to avoid techset errors
-                    normal = side.normal().normalize()
-                    offset = normal * 0.1
-                    pos = pos + offset
+                if game == "WaW":
+                    pos += offset
 
                 uv = (col["uv"] * side.texSize) * 1
                 lm = col["uv"] * (side.lightmapScale)
@@ -438,7 +440,7 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
             "origin": origin * scale,
             "_color": color,
             "PRIMARY_TYPE": "PRIMARY_SPOT",
-            "angles": Vector3(angles.x, pitch, angles.z),
+            "angles": Vector3(pitch + 90, angles.y, 0),
             "radius": radius,
             "fov_outer": entity["_cone"],
             "fov_inner": entity["_inner_cone"],
@@ -542,12 +544,8 @@ def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=
     topRight = top.lerp(right, 0.5) + up
     bottomRight = bottom.lerp(right, 0.5) - up
 
-    if game == "WaW":
-        mat = "global_wires"
-    elif game == "CoD4":
-        mat = "ap_chrome_trim"
-    elif game == "CoD2":
-        mat = "egypt_metal_pipe2"
+    mats = {"WaW": "global_wires", "CoD4": "ap_chrome_trim", "CoD2": "egypt_metal_pipe2"}
+    mat = mats[game]
     
     return (
         "{\n"
@@ -619,8 +617,7 @@ def convertProp(entity, game="WaW", skyOrigin=Vector3(0, 0, 0), scale=1, mdlScal
 
     modelName = "m_" + splitext(newPath(entity["model"]))[0]
 
-    if "skin" in entity:
-        if entity["skin"] != "0":
+    if "skin" in entity and entity["skin"] != "0":
             modelName += f'_skin{entity["skin"]}'
 
     if game == "BO3" and "rendercolor" in entity:
@@ -956,7 +953,7 @@ def exportMap(
         print("Extracting models...")
         copyModels(mapData["models"], gamePath)
         print("Loading model materials...")
-        mdlMaterials = copyModelMaterials(mapData["models"], gamePath, mapData["modelTints"], game)
+        mdlMaterials = copyModelMaterials(mapData["models"], gamePath, mapData["modelTints"], mapData["skinTints"], game)
         mdlMatData = copyTextures(mdlMaterials, gamePath, True)
 
     # create GDT files
@@ -981,7 +978,7 @@ def exportMap(
     if game != "BO3" and not skipModels:
         batFile += modelMats.toBat()
     if not skipModels:
-        models = createModelGdt(mapData["models"], game, mapData["modelTints"], mapData["modelSkins"])
+        models = createModelGdt(mapData["models"], game, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"])
         gdtFile += models
     if game != "BO3" and not skipModels:
         batFile += models.toBat()
@@ -1002,7 +999,7 @@ def exportMap(
     # convert the models
     if not skipModels:
         print("Converting models...")
-        convertModels(mapData["models"], mapData["modelTints"], mapData["modelSkins"], game, scale)
+        convertModels(mapData["models"], mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], game, scale)
 
     # generate map geometry
     print("Generating .map file...")
