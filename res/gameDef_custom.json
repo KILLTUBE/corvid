@@ -1,9 +1,0 @@
-[
-	{
-		"comment": "Here you can define your own custom game definitions for the games that are not defined in gameDef.json",
-		"gameName": "Custom game",
-		"gameRoot": "custom game path",
-		"vpkFiles": [],
-		"gameDirs": []
-	}
-]
