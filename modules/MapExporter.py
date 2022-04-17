@@ -1,3 +1,4 @@
+from math import sin, cos
 from typing import Dict, List
 from modules.Brush import Brush
 from .Decal import *
@@ -415,8 +416,18 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
         radius = (int(entity["_fifty_percent_distance"]) * 2 + int(entity["_zero_percent_distance"])) / 2
     else:
         radius = 250
+    if radius == 0:
+        radius = 250
     
     if game != "BO3":
+        angles = Vector3.FromStr(entity["angles"])
+        pitch = float(entity["pitch"])
+        yaw = angles.y
+        null_origin = Vector3(
+            sin(yaw),
+            -(sin(pitch) * cos(yaw)),
+            -(cos(pitch) * cos(yaw))
+        )
         res = convertEntity({
             "classname": "light",
             "origin": origin * scale,
@@ -429,12 +440,13 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
         }, entity["id"])
         res += convertEntity({
             "classname": "info_null",
-            "origin": (origin + Vector3(0, 0, -70)) * scale,
+            "origin": (origin + null_origin * 50) * scale,
             "targetname": "spotlight_" + entity["id"]
         })
     else:
         angles = Vector3.FromStr(entity["angles"])
         pitch = float(entity["pitch"])
+        
         res = convertEntity({
             "classname": "light",
             "origin": origin * scale,
@@ -1064,7 +1076,7 @@ def exportMap(
                 convertRope(entity, curve=True, ropeDict=ropeDict, scale=scale)
             else:
                 mapEnts += convertRope(entity)
-        elif entity["classname"] == "env_cubemap" and game != "CoD2":
+        elif entity["classname"] == "env_cubemap" and (game != "CoD2" or game != "BO3"):
             mapEnts += convertCubemap(entity, scale=scale)
         elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
             mapEnts += convertSpawner(entity, scale=scale)
