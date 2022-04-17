@@ -81,7 +81,7 @@
 		]
 	},
 	"ep1": {
-		"gameName": "Half-Life 2: Espiode 1",
+		"gameName": "Half-Life 2: Episode 1",
 		"gameRoot": "half-life 2",
 		"vpkFiles": [
 			"hl2/hl2_textures_dir.vpk",
@@ -94,7 +94,7 @@
 		]
 	},
 	"ep2": {
-		"gameName": "Half-Life 2: Espiode 2",
+		"gameName": "Half-Life 2: Episode 2",
 		"gameRoot": "half-life 2",
 		"vpkFiles": [
 			"hl2/hl2_textures_dir.vpk",
