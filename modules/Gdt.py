@@ -16,13 +16,13 @@ class Gdt:
         res = "{\n"
         for entry in list(self.entries.values()):
             if entry["base"] != "":
-                res += f' "{entry["name"]}" ( "{entry["type"]}.gdf" ) [ {entry["base"]} ]\n'
+                res += f'\t"{entry["name"]}" ( "{entry["type"]}.gdf" ) [ {entry["base"]} ]\n'
             else:
-                res += f' "{entry["name"]}" ( "{entry["type"]}.gdf" )\n'
-            res += " {\n"
+                res += f'\t"{entry["name"]}" ( "{entry["type"]}.gdf" )\n'
+            res += "\t{\n"
             for key, value in entry["data"].items():
-                res += f'  "{key}" "{value}"\n'
-            res += " }\n"
+                res += f'\t\t"{key}" "{value}"\n'
+            res += "\t}\n"
         res += "}\n"
         return res
                 
