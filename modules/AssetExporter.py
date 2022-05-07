@@ -215,7 +215,7 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, skinTints, game="WaW"
 
     return sorted(set(res))
 
-def surfaceType(surface, game=""):
+def surfaceType(surface: str, game=""):
     surface = surface.lower()
     surfaces =     {
         "default": ["plaster", "plaster"],
@@ -309,6 +309,14 @@ def surfaceType(surface, game=""):
         "computer": ["plastic", "plastic"],
         "pottery": ["brick", "brick"]
     }
+
+    glossranges = {
+        "<full>": (0.0, 17.0), "asphalt": (0.0, 4.0), "brick": (0.0, 4.0), "carpet": (0.0, 2.0),"ceramic": (0.0, 17.0), "cloth": (0.0, 4.0), "concrete": (0.0, 4.0),
+        "dirt": (0.0, 4.0), "skin": (2.0, 10.0), "foliage": (0.0, 6.5), "glass": (6.0, 17.0), "gravel": (0.0, 4.0), "ice": (4.0, 17.0), "metal": (0.0, 17.0),
+        "mud": (4.0, 13.0), "paint": (2.0, 7.0), "paper": (0.0, 2.0), "plaster": (0.0, 2.0), "plastic": (4.0, 13.0), "rock": (0.0, 4.0), "rubber": (0.0, 4.0),
+        "sand": (2.0, 8.0), "snow": (4.0, 12.0), "water": (6.0, 17.0), "wood": (2.0, 5.0), "bark": (0.0, 4.0)
+    }
+
     if surface in surfaces:
         if game == "CoD2": # some surface types don't exist in CoD 2
             cod2surfs = [
@@ -324,11 +332,14 @@ def surfaceType(surface, game=""):
         return {
             "surface": surfaces[surface][0],
             "gloss": surfaces[surface][1],
+            "glossrange": glossranges[surfaces[surface][1]]
         }
+
     else:
         return {
             "surface": "<none>",
-            "gloss": "<full>"
+            "gloss": "<custom>",
+            "glossrange": (0, 4)
         }
     
 def createMaterialGdt(vmts: dict, game="WaW"):
@@ -462,9 +473,10 @@ def createMaterialGdtBo3(vmts: dict):
         print(f"{i}|{total}|done", end="")
         shader = list(vmt)[0]
         mat = vmt[shader]
-        data = {}
-
         assetName = name
+
+        data = {}
+        data["template"] = "material.template"
 
         # these are default values and should stay the same unless the material requires more than a color map and a normal map
         data["materialCategory"] = "Geometry"
@@ -510,13 +522,14 @@ def createMaterialGdtBo3(vmts: dict):
         if "$surfaceprop" in mat:
             surfaceprop = surfaceType(mat["$surfaceprop"].strip())
             data["surfaceType"] = surfaceprop["surface"]
-            if "cosinePowerMap" not in data:
-                data["glossSurfaceType"] = surfaceprop["gloss"]
-            else:
-                data["glossSurfaceType"] = "<custom>"
+            data["glossSurfaceType"] = surfaceprop["gloss"]
+            data["glossRangeMin"] = surfaceprop["glossrange"][0]
+            data["glossRangeMax"] = surfaceprop["glossrange"][1]
         else:
             data["surfaceType"] = "<none>"
-            data["glossSurfaceType"] = "<full>" if not "cosinePowerMap" in data else "<custom>"
+            data["glossSurfaceType"] = "<custom>"
+            data["glossRangeMin"] = "0.0"
+            data["glossRangeMax"] = "4.0"
         
         # gotta change the material type for things like alphatest, translucency and back face culling
         # that's one of the major differences between the old and new asset pipeline from what I can tell
@@ -547,9 +560,9 @@ def createMaterialGdtBo3(vmts: dict):
             else:
                 data["materialType"] = "lit_nocull"
                 
-        if "$selfillum" in mat:
-            if mat["$selfillum"] == "1":
-                data["materialType"] = "lit_emissive"
+        # if "$selfillum" in mat:
+        #     if mat["$selfillum"] == "1":
+        #         data["materialType"] = "lit_emissive"
 
         if "$color" in mat:
             if mat["$color"].startswith("{"):
@@ -605,13 +618,14 @@ def createMaterialGdtBo3(vmts: dict):
             if "$surfaceprop2" in mat:
                 surfaceprop = surfaceType(mat["$surfaceprop2"].strip())
                 data2["surfaceType"] = surfaceprop["surface"]
-                if "cosinePowerMap" not in data:
-                    data2["glossSurfaceType"] = surfaceprop["gloss"]
-                else:
-                    data2["glossSurfaceType"] = "<custom>"
+                data2["glossSurfaceType"] = surfaceprop["gloss"]
+                data2["glossRangeMin"] = surfaceprop["glossrange"][0]
+                data2["glossRangeMax"] = surfaceprop["glossrange"][1]
             else:
                 data2["surfaceType"] = "<none>"
-                data2["glossSurfaceType"] = "<full>" if not "cosinePowerMap" in data2 else "<custom>"
+                data2["glossSurfaceType"] = "<custom>"
+                data2["glossRangeMin"] = "0.0"
+                data2["glossRangeMax"] = "0.4"
 
             if "$layertint2" in mat:
                 if mat["$layertint2"].startswith("{"):
