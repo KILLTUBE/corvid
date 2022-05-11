@@ -51,7 +51,7 @@ def merge_meshes(model, vtx_model):
 
     return vtx_vertices, np.hstack(indices_array), np.hstack(mat_arrays)
 
-def convertModel(filePath, writePath, tint="", skin=0, scale=1.0):
+def convertModel(filePath, writePath, tint="", skin=0, scale=1.0, mapname=""):
     tempDir = f"{gettempdir()}/corvid/mdlMats"
     # read mdl, vtx and vvd files
     if not os.path.exists(f"{filePath}.mdl"):
@@ -83,20 +83,20 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0):
     # check for the following and add if a material file exists with that name
     for mat in mdl.materials:
         # if the model contains the full path
-        name = newPath(mat.name)
+        name = newPath(mat.name, prefix=mapname)
         if exists(f"{tempDir}/{name}.vmt"):
             materials.append(name)
             continue
         
         for path in mdl.materials_paths:
             # if path/materialname exists
-            name = newPath(f"{path}/{mat.name}")
+            name = newPath(f"{path}/{mat.name}", prefix=mapname)
             if exists(f"{tempDir}/{name}.vmt"):
                 materials.append(name)
                 continue
 
             # sometimes a material might contain both. we don't really need this but it won't hurt to have extra measures.
-            name = newPath(f"{path}/{basename(mat.name)}")
+            name = newPath(f"{path}/{basename(mat.name)}", prefix=mapname)
             if exists(f"{tempDir}/{name}.vmt"):
                 materials.append(name)
                 continue
