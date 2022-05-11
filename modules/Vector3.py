@@ -41,7 +41,7 @@ class Vector3:
         return Vector3(self.x ** p, self.y ** p, self.z ** p)
 
     def __str__(self):
-        return f"{self.x:.5g} {self.y:.5g} {self.z:.5g}"
+        return "%f %f %f" % (self.x, self.y, self.z)
     
     def __repr__(self):
         return f"<Vector3 {self.x} {self.y} {self.z}>"
