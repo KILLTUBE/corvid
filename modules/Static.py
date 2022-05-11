@@ -35,6 +35,8 @@ def fixVmt(vmt: str):
         if line.startswith("{") and line != "{":
             line = line[1:]
             result += "{\n"
+        if "}" in line and "[" in line and "]" not in line and "{" not in line:
+            line = line.replace("[", "").replace("}", "")
         if line.endswith("}") and line != "}" and "{" not in line:
             line = line[:-1]
             res2 = "}\n"
