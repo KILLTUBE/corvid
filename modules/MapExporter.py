@@ -16,7 +16,7 @@ from tempfile import gettempdir
 from .AssetExporter import *
 from .AssetConverter import convertImages, convertModels
 
-def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, mapname=""):
+def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     # skip invalid sides
     if len(side.points) < 3:
         print(f"Brush face {side.id} has less than 3 vertices. Skipping...")
@@ -25,7 +25,7 @@ def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, mapname="
     res = f"// Side {side.id}\n"
     points = side.points
 
-    material = newPath(side.material, prefix=mapname)
+    material = newPath(side.material)
 
     # get uv points
     if material not in matSize:
@@ -90,10 +90,10 @@ def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, power: i
         })
     return res
 
-def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, game="WaW", mapname=""):
+def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, game="WaW"):
     res = f"// Side {side.id}\n"
     points = side.points
-    material = newPath(side.material, prefix=mapname)
+    material = newPath(side.material)
     
     if material not in matSize:
         matSize[material] = Vector2(512, 512)
@@ -312,8 +312,14 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
     resPatch = ""
     
     for side in brush.sides:
+        if side.material == "tools/toolsskybox":
+            if brush.isToolBrush:
+                return ""
+            else:
+                side.material = "tools/toolsnodraw"
+        
         if game == "BO3":
-            if side.material in ["tools/toolsskybox", "tools/toolsareaportal", "tools/toolshint", "tools/toolsskip"]:
+            if side.material in ["tools/toolsareaportal", "tools/toolshint", "tools/toolsskip"]:
                 return ""
         
         for point in side.points.copy():
@@ -325,7 +331,7 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
             sideDict[side.id] = side
 
         if side.hasDisp:
-            resPatch += convertDisplacement(side, matSizes, origin, scale, game, mapName)
+            resPatch += convertDisplacement(side, matSizes, origin, scale, game)
             continue
         
         if brush.hasDisp and not side.hasDisp:
@@ -349,14 +355,14 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
                 continue
         
         elif brushConversion:
-            mat = newPath(side.material, prefix=mapName)
+            mat = newPath(side.material)
             side.texSize = matSizes.get(mat, Vector2(512, 512))
             tex = side.getTexCoords()
             resBrush += f"{mat} {tex}\n"
         
         else:
             resBrush += "caulk 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
-            resPatch += convertSide(side, matSizes, origin, scale, mapName)
+            resPatch += convertSide(side, matSizes, origin, scale)
     
     resBrush += "}\n"
     
@@ -550,7 +556,7 @@ def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=
     topRight = top.lerp(right, 0.5) + up
     bottomRight = bottom.lerp(right, 0.5) - up
 
-    mats = {"WaW": "global_wires", "CoD4": "credits_black", "CoD2": "egypt_metal_pipe2"}
+    mats = {"WaW": "global_wires", "CoD4": "ap_chrome_trim", "CoD2": "egypt_metal_pipe2"}
     mat = mats[game]
     
     return (
@@ -610,7 +616,7 @@ def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=
         + "}\n"
     )
 
-def convertProp(entity, game="WaW", skyOrigin=Vector3(0, 0, 0), scale=1, mdlScale=1, mapname=""):
+def convertProp(entity, game="WaW", skyOrigin=Vector3(0, 0, 0), scale=1, mdlScale=1):
     origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
     modelScale = float(entity["uniformscale"] if "uniformscale" in entity else entity["modelscale"] if "modelscale" in entity else "1") * mdlScale
 
@@ -621,7 +627,7 @@ def convertProp(entity, game="WaW", skyOrigin=Vector3(0, 0, 0), scale=1, mdlScal
             "origin": origin
         }, entity["id"])
 
-    modelName = "m_" + splitext(newPath(entity["model"], prefix=mapname))[0]
+    modelName = "m_" + splitext(newPath(entity["model"]))[0]
 
     if "skin" in entity and entity["skin"] != "0":
             modelName += f'_skin{entity["skin"]}'
@@ -929,9 +935,9 @@ def exportMap(
             makedirs(f"{copyDir}/mdlTex")
             if game != "BO3":
                 makedirs(f"{copyDir}/converted/bin")
-            makedirs(f"{copyDir}/converted/model_export/corvid/{mapName}")
+            makedirs(f"{copyDir}/converted/model_export/corvid")
             makedirs(f"{copyDir}/converted/source_data")
-            makedirs(f"{copyDir}/converted/texture_assets/corvid/{mapName}")
+            makedirs(f"{copyDir}/converted/texture_assets/corvid")
         except:
             pass
 
@@ -949,18 +955,18 @@ def exportMap(
     # extract world materials and textures
     # can't skip exporting these becasue the textures (or the base textures of those materaials) are needed to get the UV of brush faces
     print("Loading materials...")
-    materials = copyMaterials(mapData["materials"], gamePath, mapname=mapName)
+    materials = copyMaterials(mapData["materials"], gamePath)
     print("Loading texture data...")
-    matData = copyTextures(materials, gamePath, mapname=mapName)
+    matData = copyTextures(materials, gamePath)
     matSizes = matData["sizes"]
 
     # extract models, model materials and textures
     if not skipModels:
         print("Extracting models...")
-        copyModels(mapData["models"], gamePath, mapname=mapName)
+        copyModels(mapData["models"], gamePath)
         print("Loading model materials...")
-        mdlMaterials = copyModelMaterials(mapData["models"], gamePath, mapData["modelTints"], mapData["skinTints"], game, mapname=mapName)
-        mdlMatData = copyTextures(mdlMaterials, gamePath, True, mapname=mapName)
+        mdlMaterials = copyModelMaterials(mapData["models"], gamePath, mapData["modelTints"], mapData["skinTints"], game)
+        mdlMatData = copyTextures(mdlMaterials, gamePath, True)
 
     # create GDT files
     gdtFile = Gdt()
@@ -974,38 +980,38 @@ def exportMap(
     if not skipMats or not skipModels:
         print("Generating GDT file...")
     if not skipMats:
-        worldMats = createMaterialGdt(matData["vmts"], game, mapname=mapName)
+        worldMats = createMaterialGdt(matData["vmts"], game)
         gdtFile += worldMats
     if game != "BO3" and not skipMats:
         batFile += worldMats.toBat()
     if not skipModels:
-        modelMats = createMaterialGdt(mdlMatData["vmts"], game, mapname=mapName)
+        modelMats = createMaterialGdt(mdlMatData["vmts"], game)
         gdtFile += modelMats
     if game != "BO3" and not skipModels:
         batFile += modelMats.toBat()
     if not skipModels:
-        models = createModelGdt(mapData["models"], game, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], mapname=mapName)
+        models = createModelGdt(mapData["models"], game, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"])
         gdtFile += models
     if game != "BO3" and not skipModels:
         batFile += models.toBat()
     # create GDT files for images for Bo3
     if game == "BO3":
         if not skipMats:
-            gdtFile += createImageGdt(matData, mapname=mapName)
+            gdtFile += createImageGdt(matData)
         if not skipModels:
-            gdtFile += createImageGdt(mdlMatData, mapname=mapName)
+            gdtFile += createImageGdt(mdlMatData)
 
     # convert the textures
     if not skipMats:
         print("Converting textures...")
-        convertImages(matData, "matTex", f"texture_assets/corvid/{mapName}", "tif" if game == "BO3" else "tga")
+        convertImages(matData, "matTex", "texture_assets/corvid", "tif" if game == "BO3" else "tga")
         if not skipModels:
-            convertImages(mdlMatData, "mdlTex", f"texture_assets/corvid/{mapName}", "tif" if game == "BO3" else "tga")
+            convertImages(mdlMatData, "mdlTex", "texture_assets/corvid", "tif" if game == "BO3" else "tga")
 
     # convert the models
     if not skipModels:
         print("Converting models...")
-        convertModels(mapData["models"], mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], game, scale, mapname=mapName)
+        convertModels(mapData["models"], mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], game, scale)
 
     # generate map geometry
     print("Generating .map file...")
@@ -1060,7 +1066,7 @@ def exportMap(
             AABBmin.set(AABBmin.min(origin))
         print(f"{i}|{total}|done", end="")
         if entity["classname"].startswith("prop_"):
-            mapEnts += convertProp(entity, game, scale=scale, mapname=mapName)
+            mapEnts += convertProp(entity, game, scale=scale)
         elif entity["classname"] == "light":
             mapEnts += convertLight(entity, scale=scale)
         elif entity["classname"] == "light_spot":
@@ -1114,7 +1120,7 @@ def exportMap(
         AABBmin.set(AABBmin.min(origin))
 
         if entity["classname"].startswith("prop_"):
-            mapEnts += convertProp(entity, game, mapData["skyBoxOrigin"], mdlScale=mapData["skyBoxScale"], scale=scale * mapData["skyBoxScale"], mapname=mapName)
+            mapEnts += convertProp(entity, game, mapData["skyBoxOrigin"], mdlScale=mapData["skyBoxScale"], scale=scale * mapData["skyBoxScale"])
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
             if game == "CoD4":
                 convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], curve=True, ropeDict=ropeDict)

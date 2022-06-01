@@ -586,9 +586,9 @@ class App:
         prefabDir = "prefabs" if game == "CoD4" or game == "CoD2" else "_prefabs"
         try:
             makedirs(f"{outputDir}/map_source")
-            makedirs(f"{outputDir}/model_export/corvid/{vmfName}")
+            makedirs(f"{outputDir}/model_export/corvid")
             makedirs(f"{outputDir}/source_data")
-            makedirs(f"{outputDir}/texture_assets/corvid/{vmfName}")
+            makedirs(f"{outputDir}/texture_assets/corvid")
             if game != "BO3":
                 makedirs(f"{outputDir}/bin")
             makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}")
@@ -601,23 +601,16 @@ class App:
             settings["convertBrush"], scale=Vector3(settings["scale"][0], settings["scale"][0], settings["scale"][1])
         )
         
-        
-        if game == "BO3":
-            writePath = f"{outputDir}/map_source/{prefabDir}/{vmfName}/{vmfName}.map"
-        else:
-            writePath = f"{outputDir}/map_source/{vmfName}.map"
-
-        print(f"Writing \"{vmfName}.map\" in \"{writePath}\"")
-        
-        with open(writePath, "w") as file:
+        print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source/prefabs/{vmfName}\"")
+        with open(f"{outputDir}/map_source/{prefabDir}/{vmfName}/{vmfName}.map", "w") as file:
             file.write(res)
 
         convertedDir = gettempdir() + "/corvid/converted"
 
         dirs = [
-            f"model_export/corvid/{vmfName}",
+            "model_export/corvid",
             "source_data",
-            f"texture_assets/corvid/{vmfName}"
+            "texture_assets/corvid"
         ]
 
         if game != "BO3":
