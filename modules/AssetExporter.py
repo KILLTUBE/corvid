@@ -969,7 +969,7 @@ def exportMinimap(mapName: str, dir: SourceDir, game="WaW"):
     
     image: Image
     # csgo uses dds images for radars whereas older games use vtf images
-    if dir.copy(f"resource/{data['material']}_radar.dds", f"{tempDir}/matTex/{mapName}_radar.dds", silent=True):
+    if dir.copy(f"resource/overviews/{data['material']}_radar.dds", f"{tempDir}/matTex/{mapName}_radar.dds", silent=True):
         Image.open(f"{tempDir}/matTex/{mapName}_radar.dds").save(f"{tempDir}/converted/texture_assets/corvid/{mapName}/{mapName}_radar.{ext}", silent=True)
     elif dir.copy(f"materials/{data['material']}_radar.vmt", f"{tempDir}/mat/{mapName}_radar.vmt"):
         mat = parse_vdf(fixVmt(open(f"{tempDir}/mat/{mapName}_radar.vmt").read()))
