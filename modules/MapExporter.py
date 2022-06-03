@@ -386,8 +386,14 @@ def convertLight(entity, scale=1.0):
         _color = [int(i) for i in entity["_light"].split(" ")]
         if len(_color) == 3:
             _color.append(300)
+    elif len(_color) < 3:
+        _color = [255, 255, 255, 300]
     else:
-        _color = [0, 0, 0, 300]
+        _color = [255, 255, 255, 300]
+
+    if _color[3] == "":
+        _color[3] = 300
+
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
     color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
     return convertEntity({
@@ -403,8 +409,11 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
         _color = [i for i in entity["_light"].split(" ") if i != ""]
         if len(_color) == 3:
             _color.append(500)
+        elif len(_color) < 3 or _color[3] == "":
+            _color = [255, 255, 255, 300]
     else:
-        _color = [0, 0, 0, 500]
+        _color = [255, 255, 255, 300]
+
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
     color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
     origin = Vector3.FromStr(entity["origin"])
