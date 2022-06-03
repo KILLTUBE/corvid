@@ -728,8 +728,10 @@ if __name__ == "__main__":
 
     if exists(f"{settings['steamDir']}/steamapps/libraryfolders.vdf"):
         libraryFolders = parse_vdf(open(f'{settings["steamDir"]}/steamapps/libraryfolders.vdf').read())["libraryfolders"]
-        for i in range(1, len(libraryFolders) - 1):
-            steamAppsDirs.append(Path(libraryFolders[str(i)]["path"]).as_posix())
+        for key, value in libraryFolders.items():
+            libraryDir = Path(value["path"]).as_posix()
+            if libraryDir not in steamAppsDirs:
+                steamAppsDirs.append(libraryDir)
     else:
         print("Cannot detect Steam libraries. Make sure your Steam directory is correct.")
     

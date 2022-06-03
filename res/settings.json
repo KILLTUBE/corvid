@@ -1,6 +1,6 @@
 {
-    "steamDir": "",
-    "currentGame": "none",
+    "steamDir": "C:/Stuff/Games/Steam",
+    "currentGame": "dod",
     "game": "BO3",
     "convertBrush": false,
     "terrainOffset": 0.0,
