@@ -591,7 +591,8 @@ class App:
             makedirs(f"{outputDir}/texture_assets/corvid")
             if game != "BO3":
                 makedirs(f"{outputDir}/bin")
-            makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}")
+            else:
+                makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}")
         except:
             pass
         
@@ -601,9 +602,14 @@ class App:
             settings["convertBrush"], scale=Vector3(settings["scale"][0], settings["scale"][0], settings["scale"][1])
         )
         
-        print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source/prefabs/{vmfName}\"")
-        with open(f"{outputDir}/map_source/{prefabDir}/{vmfName}/{vmfName}.map", "w") as file:
-            file.write(res)
+        if game == "BO3":
+            print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source/prefabs/{vmfName}\"")
+            with open(f"{outputDir}/map_source/{prefabDir}/{vmfName}/{vmfName}.map", "w") as file:
+                file.write(res)
+        else:
+            print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
+            with open(f"{outputDir}/map_source/{vmfName}.map", "w") as file:
+                file.write(res)
 
         convertedDir = gettempdir() + "/corvid/converted"
 
