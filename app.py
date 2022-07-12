@@ -17,6 +17,7 @@ from os import makedirs, listdir
 from os.path import exists
 from tempfile import gettempdir
 from datetime import datetime
+from time import gmtime, strftime
 from pathlib import Path
 from modules.MapExporter import exportMap
 from modules.Vector3 import Vector3
@@ -28,6 +29,28 @@ gameDef = json.loads(open("res/gameDef.json").read())
 gameDefCustom = json.loads(open("res/gameDef.json").read())
 version = open("res/version.txt").read().split("\n")[0]
 steamAppsDirs = []
+
+def ProperTime(time):
+    f = strftime('%H:%M:%S', gmtime(time)).split(":")
+    h, m, s = int(f[0]), int(f[1]), int(f[2])
+
+    res = ""
+    if h == 1:
+        res += "1 hour "
+    elif h > 1:
+        res += f"{h} hours "
+    
+    if m == 1:
+        res += "1 minute "
+    elif m > 1:
+        res += f"{m} minutes "
+    
+    if s == 1:
+        res += "1 second"
+    else:
+        res += f"{s} seconds"
+    
+    return res
 
 class popupWindow:
     def __init__(self, app: 'App'):
@@ -623,7 +646,8 @@ class App:
                 shutil.move(f"{convertedDir}/{folder}/{f}", f"{outputDir}/{folder}/{f}")
 
         end = time.time()
-        print(f"Conversion finished in {round(end - start)} seconds")
+        total = ProperTime(round(end - start))
+        print(f"Conversion finished in {total}")
 
         open(f"{outputDir}/log.txt", "w").write(self.consoleTextBox.get(1.0, tkinter.constants.END))
 
