@@ -1,5 +1,5 @@
 from math import sin, cos
-from typing import Dict, List
+from typing import Dict, List, Union
 from modules.Brush import Brush
 from .Decal import *
 from modules.Overlay import Overlay
@@ -15,22 +15,22 @@ from os import makedirs
 from tempfile import gettempdir
 from .AssetExporter import *
 from .AssetConverter import convertImages, convertModels
+import modules.CoDMap.CoDMap as cod
 
-def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
+def convertSide(side: Side, matSize, origin=Vector3.Zero(), scale=1):
     # skip invalid sides
     if len(side.points) < 3:
         print(f"Brush face {side.id} has less than 3 vertices. Skipping...")
         return ""
-
-    res = f"// Side {side.id}\n"
+    
     points = side.points
 
     material = newPath(side.material)
 
-    # get uv points
+    #get uv points
     if material not in matSize:
         matSize[material] = Vector2(512, 512)
-        
+    
     # get the uv of each point
     for point in side.points:
         side.uvs.append(side.getUV(point, matSize[material]))
@@ -42,66 +42,46 @@ def convertSide(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1):
     count = len(points)
     rows = int(count / 2)
 
-    if side.material.lower().strip().startswith("liquids"):
-        side.material = "clip_water"
-
-    # material = "me_floorsmoothconcrete"
+    res = cod.Patch(type="mesh", texture=material, size=(rows, 2))
     
-    res += (
-        "{\n" +
-        "mesh\n" +
-        "{\n" +
-        "" + material + "\n" +
-        "lightmap_gray\n" +
-        "" + str(rows) + " 2 " + str(side.lightmapScale) + " 8\n"
-    )
-
     for i in range(rows):
-        p1 = {
-            "pos": str((points[i] - origin) * scale),
-            "uv": str(uvs[i] * side.texSize),
-            "lm": str(uvs[i] * side.lightmapScale)
-        }
-        p2 = {
-            "pos": str((points[count - i - 1] - origin) * scale),
-            "uv": str(uvs[count - i - 1] * side.texSize),
-            "lm": str(uvs[count - i - 1] * side.lightmapScale)
-        }
-        res += (
-            "(\n" +
-            f'v {p1["pos"]} t {p1["uv"]} {p1["lm"]}\n' +
-            f'v {p2["pos"]} t {p2["uv"]} {p2["lm"]}\n' +
-            ")\n"
+        res.verts.append([])
+        res.verts[-1].append(
+            cod.PatchVert((points[i] - origin) * scale, uvs[i] * side.texSize, side.getLmapUV(points[i]))
         )
+        res.verts[-1].append(
+            cod.PatchVert((points[count - i - 1] - origin) * scale, uvs[count - i - 1] * side.texSize, side.getLmapUV(points[count - i - 1]))
+        )
+    
+    return str(res)
 
-    res += (
-        "}\n" +
-        "}\n"
-    )
-    return res
 
-def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, power: int):
+def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, lm1: Vector2, lm2: Vector2, power: int):
     res = []
     rowCount = int(2 ** power) + 1
     for i in range(rowCount):
-        res.append({
-            "pos": p1.lerp(p2, 1 / (rowCount - 1) * i),
-            "uv": uv1.lerp(uv2, 1 / (rowCount - 1) * i)
-        })
+        res.append((
+            p1.lerp(p2, 1 / (rowCount - 1) * i), # pos
+            uv1.lerp(uv2, 1 / (rowCount - 1) * i), # uv
+            uv1.lerp(uv2, 1 / (rowCount - 1) * i) # lightmap
+        ))
     return res
 
-def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, game="WaW"):
-    res = f"// Side {side.id}\n"
+def convertDisplacement(side: Side, matSize, origin=Vector3.Zero(), scale=1, game="WaW"):
     points = side.points
     material = newPath(side.material)
     
     if material not in matSize:
         matSize[material] = Vector2(512, 512)
 
+    lms: List[Vector2] = []
+
     # get the uv of each point
     for point in side.points:
         side.uvs.append(side.getUV(point, matSize[material]))
-        uvs: list[Vector2] = side.uvs
+        lms.append(side.getLmapUV(point))
+
+    uvs: list[Vector2] = side.uvs
 
     if len(points) != 4:
         print(f"Displacement has {len(points)} points. Displacements can have 4 points only. Side id: {side.id}\n")
@@ -118,175 +98,87 @@ def convertDisplacement(side: Side, matSize, origin=Vector3(0, 0, 0), scale=1, g
             s = i
             break
 
-    a = points[s]
-    b = points[(s + 1) % 4]
-    c = points[(s + 2) % 4]
-    d = points[(s + 3) % 4]
+    a, UVa, LMa = points[s], uvs[s], lms[s]
+    b, UVb, LMb = points[(s + 1) % 4], uvs[(s + 1) % 4], lms[(s + 1) % 4]
+    c, UVc, LMc = points[(s + 2) % 4], uvs[(s + 2) % 4], lms[(s + 2) % 4]
+    d, UVd, LMd = points[(s + 3) % 4], uvs[(s + 3) % 4], lms[(s + 3) % 4]
 
-    UVa = uvs[s]
-    UVb = uvs[(s + 1) % 4]
-    UVc = uvs[(s + 2) % 4]
-    UVd = uvs[(s + 3) % 4]
-
-    ab = getDispPoints(a, b, UVa, UVb, power)
-    dc = getDispPoints(d, c, UVd, UVc, power)
+    ab = getDispPoints(a, b, UVa, UVb, LMa, LMb, power)
+    dc = getDispPoints(d, c, UVd, UVc, LMd, LMc, power)
 
     rows = []
     for i in range(len(ab)):
         rows.append(
-            getDispPoints(ab[i]["pos"], dc[i]["pos"], ab[i]["uv"], dc[i]["uv"], power))
+            getDispPoints(ab[i][0], dc[i][0], ab[i][1], dc[i][1], ab[i][2], dc[i][2], power))
 
     alpha = False
 
-    # CoD 4  and CoD 2 can't handle terrain patches bigger than 16x16
-    # So when we're converting a map for that game, we're going to slice them into 9x9 patches
-    if (game == "CoD4" or game == "CoD2") and numVerts == 17:
-        for k in range(2):
-            for l in range(2):
-                res += (
-                    "{\n" +
-                    "mesh\n" +
-                    "{\n" +
-                    "" + material + "\n" +
-                    "lightmap_gray\n"
-                    "9 9 " + str(side.lightmapScale) + " 8\n"
-                )
-                for i in range(k * 8, k * 8 + 9):
-                    row = rows[i]
-                    res += "(\n"
-                    for j in range(l * 8, l * 8 + 9):
-                        if disp["row"][j]["alphas"][i] != 0 and alpha != True:
-                            alpha = True
-                        col = row[j]
-                        pos = (col["pos"] + Vector3(0, 0, disp["elevation"]) +
-                            (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
-                        uv = (col["uv"] * side.texSize) * 1
-                        lm = col["uv"] * (side.lightmapScale)
-                        res += f"v {(pos - origin) * scale} t {uv} {lm}\n"
-                    res += ")\n"
-                res += ("}\n" +
-                        "}\n")
-        
-        if not alpha:
-            return res
-        if material + "_" not in matSize:
-            return res
+    res = cod.Patch(texture=material, size=(len(rows[0]), len(rows[0])))
 
-        for k in range(2):
-            for l in range(2):
-                res += (
-                    "{\n" +
-                    "mesh\n" +
-                    "{\n" +
-                    "" + material + "\n" +
-                    "lightmap_gray\n"
-                    "9 9 " + str(side.lightmapScale) + " 8\n"
-                )
-                for i in range(k * 8, k * 8 + 9):
-                    row = rows[i]
-                    res += "(\n"
-                    for j in range(l * 8, l * 8 + 9):
-                        col = row[j]
-                        pos = (col["pos"] + Vector3(0, 0, disp["elevation"]) +
-                            (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
-                        uv = (col["uv"] * side.texSize) * 1
-                        lm = col["uv"] * (side.lightmapScale)
-                        if disp["row"][j]["alphas"][i] == 0:
-                            res += f"v {(pos - origin) * scale} c 255 255 255 0 t {uv} {lm}\n"
-                        else:
-                            color = "255 255 255 " + str(disp["row"][j]["alphas"][i])
-                            res += f"v {(pos - origin) * scale} c {color} t {uv} {lm}\n"
-                    res += ")\n"
-                res += ("}\n" +
-                        "}\n")
-        
-        return res
+    for i in range(numVerts):
+        row = rows[i]
+        res.verts.append([])
 
-    else:
-        res += (
-            "{\n" +
-            "mesh\n" +
-            "{\n" +
-            "" + material + "\n" +
-            "lightmap_gray\n"
-            "" + str(len(rows[0])) + " " + str(len(rows[0])) + " " + str(side.lightmapScale) + " 8\n"
-        )
-
-        for i in range(numVerts):
-            row = rows[i]
-            res += "(\n"
-            for j in range(numVerts):
-                if disp["row"][j]["alphas"][i] != 0 and alpha != True:
+        for j in range(numVerts):
+            if disp["row"][j]["alphas"][i] != 0 and alpha != True:
                     alpha = True
-                col = row[j]
-                pos = (col["pos"] + Vector3(0, 0, disp["elevation"]) +
-                    (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i]))
-                uv = (col["uv"] * side.texSize) * 1
-                lm = col["uv"] * (side.lightmapScale)
-                res += f"v {(pos - origin) * scale} t {uv} {lm}\n"
-            res += ")\n"
-        res += ("}\n" +
-                "}\n")
+            
+            pos, uv, lm = row[j]
 
-        if not alpha:
-            return res
-        if material + "_" not in matSize:
-            return res
-
-        # move the blended terrain away from the other one to avoid techset issues
-        if game == "WaW":
-            offset = side.normal().normalize() * 0.5
-
-        res += (
-            "{\n" +
-            "mesh\n" +
-            "{\n" +
-            "" + material + "_blend\n" +
-            "lightmap_gray\n" +
-            "" + str(len(rows[0])) + " " + str(len(rows[0])
-                                                ) + " " + str(side.lightmapScale) + " 8\n"
-        )
-
-        for i in range(numVerts):
-            row = rows[i]
-            res += "(\n"
-            for j in range(numVerts):
-                col = row[j]
-                pos = (
-                    col["pos"] + Vector3(0, 0, disp["elevation"]) +
-                    (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i])
+            res.verts[-1].append(
+                cod.PatchVert(
+                    ((pos + Vector3(0, 0, disp["elevation"]) + (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i])) - origin) * scale,
+                    (uv * side.texSize) * 1,
+                    lm
                 )
+            )
+    
+    if res.size[0] == (game == "CoD4" or game == "CoD2") and numVerts == 17:
+        res = res.Slice(9)
 
-                if game == "WaW":
-                    pos -= offset
+    if not alpha or material + "_blend" not in matSize:
+        if isinstance(res, list):
+            return "\n".join([str(r) for r in res])
+        else:
+            return str(res)
 
-                uv = (col["uv"] * side.texSize) * 1
-                lm = col["uv"] * (side.lightmapScale)
-                if disp["row"][j]["alphas"][i] == 0:
-                    res += f"v {(pos - origin) * scale} c 255 255 255 0 t {uv} {lm}\n"
-                else:
-                    color = "255 255 255 " + str(disp["row"][j]["alphas"][i])
-                    res += f"v {(pos - origin) * scale} c {color} t {uv} {lm}\n"
-            res += ")\n"
-        res += ("}\n" +
-                "}\n")
+    offset = Vector3.Zero()
+    if game == "WaW":
+        offset = side.normal().normalize() * 0.5
+    
+    res2 = cod.Patch(texture=material + "_blend", size=(len(rows[0]), len(rows[0])))
 
-        return res
+    for i in range(numVerts):
+        row = rows[i]
+        res2.verts.append([])
 
-def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector3(0, 0, 0), scale=1, matSizes: dict={}, brushConversion=False, sideDict: dict={}, AABBmin: Vector3=Vector3.Zero(), AABBmax: Vector3=Vector3.Zero()):
+        for j in range(numVerts):
+            pos, uv, lm = row[j]
+
+            res2.verts[-1].append(
+                cod.PatchVert(
+                    (((pos + Vector3(0, 0, disp["elevation"]) + (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i])) - origin) * scale) - offset,
+                    (uv * side.texSize) * 1,
+                    lm,
+                    (255, 255, 255, disp["row"][j]["alphas"][i])
+                )
+            )
+    
+    if res2.size[0] == (game == "CoD4" or game == "CoD2") and numVerts == 17:
+        res2 = res2.Slice(9)
+    
+    if isinstance(res, list):
+        return "\n".join([str(r) for r in res]) + "\n".join([str(r) for r in res2])
+    else:
+        return str(res) + str(res2)
+
+
+def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector3.Zero(), scale=1, matSizes: dict={}, brushConversion=False, sideDict: dict={}, AABBmin: Vector3=Vector3.Zero(), AABBmax: Vector3=Vector3.Zero()):
     tools = {
         "toolsnodraw": "caulk",
-        "toolsclip": "clip",
-        "toolsplayerclip": "clip",
-        "toolsinvisible": "clip",
-        "toolsinvisibleladder": "ladder",
-        "toolsnpcclip": "clip",
-        "toolsgrenadeclip": "clip_missile",
-        "toolsareaportal": "portal_nodraw",
-        "toolsblocklight": "shadowcaster",
-        "toolshint": "hint",
-        "toolsskip": "skip",
-        "toolstrigger": "trigger",
+        "toolsclip": "clip", "toolsplayerclip": "clip", "toolsinvisible": "clip", "toolsnpcclip": "clip", "toolsgrenadeclip": "clip_missile",
+        "toolsinvisibleladder": "ladder", "toolsareaportal": "portal_nodraw",
+        "toolsblocklight": "shadowcaster", "toolshint": "hint", "toolsskip": "skip", "toolstrigger": "trigger",
         "toolsskybox": "sky" if game == "BO3" else f"{mapName}_sky"
     }
 
@@ -300,18 +192,19 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
     elif brush.sides[0].material == "tools/toolstrigger":
         return ""
 
-    resBrush = f"// Brush {brush.id}\n" 
-    resBrush += "{\n"
+    faces: List[cod.Face] = []
 
-    if not world:
-        if brush.entity == "func_detail" or brush.entity == "func_breakable":
-            resBrush += "contents detail;\n"
-        elif brush.entity == "func_illusionary":
-            resBrush += "contents nonColliding;\n"
-
-    resPatch = ""
+    # if not world:
+    #     if brush.entity == "func_detail" or brush.entity == "func_breakable":
+    #         resBrush.contents.append("detail")
+    #     elif brush.entity == "func_illusionary":
+    #         resBrush.contents.append("nonColliding")
     
+    resPatch = ""
+
     for side in brush.sides:
+        material = "caulk"
+
         if side.material == "tools/toolsskybox":
             if brush.isToolBrush:
                 return ""
@@ -321,63 +214,60 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
         if game == "BO3":
             if side.material in ["tools/toolsareaportal", "tools/toolshint", "tools/toolsskip"]:
                 return ""
-        
+
         for point in side.points.copy():
             point = (point - origin) * scale
             AABBmax.set(AABBmax.max(point))
             AABBmin.set(AABBmin.min(point))
-        
+
         if len(side.points) >= 3:
             sideDict[side.id] = side
-
+        
         if side.hasDisp:
             resPatch += convertDisplacement(side, matSizes, origin, scale, game)
             continue
         
         if brush.hasDisp and not side.hasDisp:
             continue
+
         p1 = (side.p1 - origin) * scale
         p2 = (side.p2 - origin) * scale
         p3 = (side.p3 - origin) * scale
-        resBrush += f"( {p1} ) ( {p2} ) ( {p3} ) "
 
         if side.material.startswith("tools"):
             mat = basename(side.material)
             if mat in tools:
-                resBrush += tools[mat] + " 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
-                continue
+                material = tools[mat]
             else:
-                resBrush += "clip 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
-                continue
+                material = "clip"
 
         elif side.material.startswith("liquid"):
-                resBrush += "clip_water 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
-                continue
+                material = "clip_water"
         
         elif brushConversion:
             mat = newPath(side.material)
-            side.texSize = matSizes.get(mat, Vector2(512, 512))
-            tex = side.getTexCoords()
-            resBrush += f"{mat} {tex}\n"
+            # side.texSize = matSizes.get(mat, Vector2(512, 512))
+            # tex = side.getTexCoords()
+            # resBrush += f"{mat} {tex}\n"
         
         else:
-            resBrush += "caulk 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0\n"
+            material = "caulk"
             resPatch += convertSide(side, matSizes, origin, scale)
-    
-    resBrush += "}\n"
-    
+
+        faces.append(cod.Face(p1, p2, p3, material))
+
     if brush.hasDisp:
         return resPatch
 
-    return resBrush + resPatch
-
+    return str(cod.Brush(faces)) + resPatch
+    
 def convertEntity(entity, id="", geo=""):
     res = f"// Entity {id}\n" if id != "" else ""
     res += "{\n"
     for key, value in entity.items():
         res += f'"{key}" "{value}"\n'
     if geo != "":
-        res += geo
+        res += str(geo)
     res += "}\n"
     return res
 
@@ -459,7 +349,7 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
         }, entity["id"])
     return res
 
-def convertRope(entity, skyOrigin=Vector3(0, 0, 0), scale=1, curve=False, ropeDict: dict={}):
+def convertRope(entity, skyOrigin=Vector3.Zero(), scale=1, curve=False, ropeDict: dict={}):
     # sadly, cod 4 does not support rope entities, so we have to create curve patches for them instead
     if curve:
         if entity["classname"] == "move_rope":
@@ -556,67 +446,60 @@ def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=
     topRight = top.lerp(right, 0.5) + up
     bottomRight = bottom.lerp(right, 0.5) - up
 
-    mats = {"WaW": "global_wires", "CoD4": "ap_chrome_trim", "CoD2": "egypt_metal_pipe2"}
+    mats = {"WaW": "global_wires", "CoD4": "credits_black", "CoD2": "egypt_metal_pipe2"}
     mat = mats[game]
     
-    return (
-        "{\n"
-        + "curve\n"
-        + "{\n"
-        + "contents nonColliding;\n"
-        + f"{mat}\n"
-        + "lightmap_gray\n"
-        + "9 3 16 8\n"
-        + "(\n"
-        + f"v {start + bottom} t 1 1 1 1\n"
-        + f"v {mid + bottom} t 1 1 1 25\n"
-        + f"v {end + bottom} t 1 1 1 25\n"
-        + ")\n"
-        + "(\n"
-        + f"v {start + bottomLeft} t 1 1 3 1\n"
-        + f"v {mid + bottomLeft} t 1 1 3 25\n"
-        + f"v {end + bottomLeft} t 1 1 3 25\n"
-        + ")\n"
-        + "(\n"
-        + f"v {start + left} t 1 1 3 1\n"
-        + f"v {mid + left} t 1 1 3 25\n"
-        + f"v {end + left} t 1 1 3 25\n"
-        + ")\n"
-        + "(\n"
-        + f"v {start + topLeft} t 1 1 5 1\n"
-        + f"v {mid + topLeft} t 1 1 5 25\n"
-        + f"v {end + topLeft} t 1 1 5 25\n"
-        + ")\n"
-        + "(\n"
-        + f"v {start + top} t 1 1 5 1\n"
-        + f"v {mid + top} t 1 1 5 25\n"
-        + f"v {end + top} t 1 1 5 25\n"
-        + ")\n"
-        + "(\n"
-        + f"v {start + topRight} t 1 1 5 1\n"
-        + f"v {mid + topRight} t 1 1 5 25\n"
-        + f"v {end + topRight} t 1 1 5 25\n"
-        + ")\n"
-        + "(\n"
-        + f"v {start + right} t 1 1 7 1\n"
-        + f"v {mid + right} t 1 1 7 25\n"
-        + f"v {end + right} t 1 1 7 25\n"
-        + ")\n"
-        + "(\n"
-        + f"v {start + bottomRight} t 1 1 5 1\n"
-        + f"v {mid + bottomRight} t 1 1 5 25\n"
-        + f"v {end + bottomRight} t 1 1 5 25\n"
-        + ")\n"
-        + "(\n"
-        + f"v {start + bottom} t 1 1 9 1\n"
-        + f"v {mid + bottom} t 1 1 9 25\n"
-        + f"v {end + bottom} t 1 1 9 25\n"
-        + ")\n"
-        + "}\n"
-        + "}\n"
-    )
+    res = cod.Patch(type="curve", contents=["nonColliding"], texture=mat, size=(9, 3))
 
-def convertProp(entity, game="WaW", skyOrigin=Vector3(0, 0, 0), scale=1, mdlScale=1):
+    res.verts.append([
+        cod.PatchVert(start + bottom, Vector2(1, 1), Vector2(1, 1)),
+        cod.PatchVert(mid + bottom, Vector2(1, 1), Vector2(1, 25)),
+        cod.PatchVert(end + bottom, Vector2(1, 1), Vector2(1, 25))
+    ])
+    res.verts.append([
+        cod.PatchVert(start + bottomLeft, Vector2(1, 1), Vector2(3, 1)),
+        cod.PatchVert(mid + bottomLeft, Vector2(1, 1), Vector2(3, 25)),
+        cod.PatchVert(end + bottomLeft, Vector2(1, 1), Vector2(3, 25))
+    ])
+    res.verts.append([
+        cod.PatchVert(start + left, Vector2(1, 1), Vector2(3, 1)),
+        cod.PatchVert(mid + left, Vector2(1, 1), Vector2(3, 25)),
+        cod.PatchVert(end + left, Vector2(1, 1), Vector2(3, 25))
+    ])
+    res.verts.append([
+        cod.PatchVert(start + topLeft, Vector2(1, 1), Vector2(5, 1)),
+        cod.PatchVert(mid + topLeft, Vector2(1, 1), Vector2(5, 25)),
+        cod.PatchVert(end + topLeft, Vector2(1, 1), Vector2(5, 25))
+    ])
+    res.verts.append([
+        cod.PatchVert(start + top, Vector2(1, 1), Vector2(5, 1)),
+        cod.PatchVert(mid + top, Vector2(1, 1), Vector2(5, 25)),
+        cod.PatchVert(end + top, Vector2(1, 1), Vector2(5, 25))
+    ])
+    res.verts.append([
+        cod.PatchVert(start + topRight, Vector2(1, 1), Vector2(5, 1)),
+        cod.PatchVert(mid + topRight, Vector2(1, 1), Vector2(5, 25)),
+        cod.PatchVert(end + topRight, Vector2(1, 1), Vector2(5, 25))
+    ])
+    res.verts.append([
+        cod.PatchVert(start + right, Vector2(1, 1), Vector2(7, 1)),
+        cod.PatchVert(mid + right, Vector2(1, 1), Vector2(7, 25)),
+        cod.PatchVert(end + right, Vector2(1, 1), Vector2(7, 25))
+    ])
+    res.verts.append([
+        cod.PatchVert(start + bottomRight, Vector2(1, 1), Vector2(5, 1)),
+        cod.PatchVert(mid + bottomRight, Vector2(1, 1), Vector2(5, 25)),
+        cod.PatchVert(end + bottomRight, Vector2(1, 1), Vector2(5, 25))
+    ])
+    res.verts.append([
+        cod.PatchVert(start + bottom, Vector2(1, 1), Vector2(9, 1)),
+        cod.PatchVert(mid + bottom, Vector2(1, 1), Vector2(9, 25)),
+        cod.PatchVert(end + bottom, Vector2(1, 1), Vector2(9, 25))
+    ])
+
+    return str(res)
+
+def convertProp(entity, game="WaW", skyOrigin=Vector3.Zero(), scale=1, mdlScale=1):
     origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
     modelScale = float(entity["uniformscale"] if "uniformscale" in entity else entity["modelscale"] if "modelscale" in entity else "1") * mdlScale
 
@@ -759,14 +642,7 @@ def convertBombsite(entity, scale=1, game="WaW", site=""):
 
     return res
 
-# in CoD, it is better to seal the whole map in 6 skybox brushes
-# in Source however, there are always too many skybox brushes, which is not ideal for CoD
-# this function basically takes the two far ends of the map and then uses those positions to create 6 skybox brushes with them
-def createSkyBrushes(AABBmin: Vector3, AABBmax: Vector3, mapName="", game="WaW"):
-    if AABBmin == AABBmax:
-        return ""
-    
-    # move the points further to avoid collision with map geo
+def createVolume(AABBmin: Vector3, AABBmax: Vector3, texture="caulk", hollow=False, caulked=False) -> Union[cod.Brush, List[cod.Brush]]:
     AABBmax += Vector3(250, 250, 500)
     AABBmin += Vector3(-250, -250, -100)
 
@@ -779,93 +655,98 @@ def createSkyBrushes(AABBmin: Vector3, AABBmax: Vector3, mapName="", game="WaW")
     bot3 = Vector3(AABBmax.x, AABBmin.y, AABBmin.z)
     bot4 = Vector3(AABBmax.x, AABBmax.y, AABBmin.z)
 
-    sky = ""
-    if game == "BO3":
-        inner = "sky 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
-        outer = "sky 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
-    else:
-        inner = mapName + "_sky 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
-        outer = "caulk 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
+    if hollow:
+        res: List[cod.Brush] = []
+        up, right, forward = Vector3.Up() * 64, Vector3.Right() * 64, Vector3.Forward() * 64
+        outer = "caulk" if caulked else texture
 
-    up, right, forward = Vector3.Up() * 64, Vector3.Right() * 64, Vector3.Forward() * 64
+        # top brush
+        res.append(cod.Brush([
+            cod.Face(top1 + up, top2 + up, top3 + up, outer), # outer
+            cod.Face(top3, top2, top1, texture), # inner
+            cod.Face(top3, top4, bot1, outer), # outer
+            cod.Face(bot4, top2, top1, outer), # outer
+            cod.Face(top1, top3, bot2, outer), # outer
+            cod.Face(top4, top2, bot3, outer), # outer
+        ]))
 
-    # sky brushes
-    # top brush
-    sky += (
-        "{\n"
-        f"( {top1 + up} ) ( {top2 + up} ) ( {top3 + up} ) {outer}\n" # top
-        f"( {top3} ) ( {top2} ) ( {top1} ) {inner}\n" # bottom
-        f"( {top3} ) ( {top4} ) ( {bot1} ) {outer}\n" # back
-        f"( {bot4} ) ( {top2} ) ( {top1} ) {outer}\n" # front
-        f"( {top1} ) ( {top3} ) ( {bot2} ) {outer}\n" # left
-        f"( {top4} ) ( {top2} ) ( {bot3} ) {outer}\n" # right
-        "}\n"
-    )
+        # bottom
+        res.append(cod.Brush([
+            cod.Face(bot1, bot2, bot3, texture), # inner
+            cod.Face(bot3 - up, bot2 - up, bot1 - up, outer), # outer
+            cod.Face(top3, top4, bot1, outer), # outer
+            cod.Face(bot4, top2, top1, outer), # outer
+            cod.Face(top1, top3, bot2, outer), # outer
+            cod.Face(top4, top2, bot3, outer), # outer
+        ]))
 
-    # bottom
-    sky += (
-        "{\n"
-        f"( {bot1} ) ( {bot2} ) ( {bot3} ) {inner}\n" # top
-        f"( {bot3 - up} ) ( {bot2 - up} ) ( {bot1 - up} ) {outer}\n" # bottom
-        f"( {top3} ) ( {top4} ) ( {bot1} ) {outer}\n" # back
-        f"( {bot4} ) ( {top2} ) ( {top1} ) {outer}\n" # front
-        f"( {top1} ) ( {top3} ) ( {bot2} ) {outer}\n" # left
-        f"( {top4} ) ( {top2} ) ( {bot3} ) {outer}\n" # right
-        "}\n"
-    )
+        # back
+        res.append(cod.Brush([
+            cod.Face(top1, top2, top3, outer), # outer
+            cod.Face(bot3, bot2, bot1, outer), # outer
+            cod.Face(bot1, top4, top3, texture), # inner
+            cod.Face(top3 - forward, top4 - forward, bot1 - forward, outer), # outer
+            cod.Face(top1, top3, bot2, outer), # outer
+            cod.Face(top4, top2, bot3, outer), # outer
+        ]))
 
-    # back
-    sky += (
-        "{\n"
-        f"( {top1} ) ( {top2} ) ( {top3} ) {outer}\n" # top
-        f"( {bot3} ) ( {bot2} ) ( {bot1} ) {outer}\n" # bottom
-        f"( {bot1} ) ( {top4} ) ( {top3} ) {inner}\n" # back
-        f"( {top3 - forward} ) ( {top4 - forward} ) ( {bot1 - forward} ) {outer}\n" # front
-        f"( {top1} ) ( {top3} ) ( {bot2} ) {outer}\n" # left
-        f"( {top4} ) ( {top2} ) ( {bot3} ) {outer}\n" # right
-        "}\n"
-    )
+        # front
+        res.append(cod.Brush([
+            cod.Face(top1, top2, top3, outer), # outer
+            cod.Face(bot3, bot2, bot1, outer), # outer
+            cod.Face(bot4 + forward, top2 + forward, top1 + forward, outer), # outer
+            cod.Face(top1, top2, bot4, texture), # inner
+            cod.Face(top1, top3, bot2, outer), # outer
+            cod.Face(top4, top2, bot3, outer), # outer
+        ]))
 
-    # front
-    sky += (
-        "{\n"
-        f"( {top1} ) ( {top2} ) ( {top3} ) {outer}\n" # top
-        f"( {bot3} ) ( {bot2} ) ( {bot1} ) {outer}\n" # bottom
-        f"( {bot4 + forward} ) ( {top2 + forward} ) ( {top1 + forward} ) {outer}\n" # back
-        f"( {top1} ) ( {top2} ) ( {bot4} ) {inner}\n" # front
-        f"( {top1} ) ( {top3} ) ( {bot2} ) {outer}\n" # left
-        f"( {top4} ) ( {top2} ) ( {bot3} ) {outer}\n" # right
-        "}\n"
-    )
+        # left
+        res.append(cod.Brush([
+            cod.Face(top1, top2, top3, outer), # outer
+            cod.Face(bot3, bot2, bot1, outer), # outer
+            cod.Face(top3, top4, bot1, outer), # outer
+            cod.Face(bot4, top2, top1, outer), # outer
+            cod.Face(top1 + right, top3 + right, bot2 + right, outer), # outer
+            cod.Face(bot2, top3, top1, texture), # inner
+        ]))
 
-    # left
-    sky += (
-        "{\n"
-        f"( {top1} ) ( {top2} ) ( {top3} ) {outer}\n" # top
-        f"( {bot3} ) ( {bot2} ) ( {bot1} ) {outer}\n" # bottom
-        f"( {top3} ) ( {top4} ) ( {bot1} ) {outer}\n" # back
-        f"( {bot4} ) ( {top2} ) ( {top1} ) {outer}\n" # front
-        f"( {top1 + right} ) ( {top3 + right} ) ( {bot2 + right} ) {outer}\n" # left
-        f"( {bot2} ) ( {top3} ) ( {top1} ) {inner}\n" # right
-        "}\n"
-    )
+        # right
+        res.append(cod.Brush([
+            cod.Face(top1, top2, top3, outer), # outer
+            cod.Face(bot3, bot2, bot1, outer), # outer
+            cod.Face(top3, top4, bot1, outer), # outer
+            cod.Face(bot4, top2, top1, outer), # outer
+            cod.Face(bot3, top2, top4, texture), # inner
+            cod.Face(top4 - right, top2 - right, bot3 - right, outer), # outer
+        ]))
 
-    # right
-    sky += (
-        "{\n"
-        f"( {top1} ) ( {top2} ) ( {top3} ) {outer}\n" # top
-        f"( {bot3} ) ( {bot2} ) ( {bot1} ) {outer}\n" # bottom
-        f"( {top3} ) ( {top4} ) ( {bot1} ) {outer}\n" # back
-        f"( {bot4} ) ( {top2} ) ( {top1} ) {outer}\n" # front
-        f"( {bot3} ) ( {top2} ) ( {top4} ) {inner}\n" # left
-        f"( {top4 - right} ) ( {top2 - right} ) ( {bot3 - right} ) {outer}\n" # right
-        "}\n"
-    )
+        return res
+
+    return cod.Brush([
+        cod.Face(top1, top2, top3, texture), # top
+        cod.Face(bot3, bot2, bot1, texture), # bottom
+        cod.Face(top3, top4, bot1, texture), # back
+        cod.Face(bot4, top2, top1, texture), # front
+        cod.Face(top1, top3, bot2, texture), # left
+        cod.Face(top4, top2, bot3, texture) # right
+    ])
+
+# in CoD, it is better to seal the whole map in 6 skybox brushes
+# in Source however, there are always too many skybox brushes, which is not ideal for CoD
+# this function basically takes the two far ends of the map and then uses those positions to create 6 skybox brushes with them
+def createSkyBrushes(AABBmin: Vector3, AABBmax: Vector3, mapName="", game="WaW"):
+    if AABBmin == AABBmax:
+        return ""
+    
+    # move the points further to avoid collision with map geo
+    AABBmax += Vector3(250, 250, 500)
+    AABBmin += Vector3(-250, -250, -100)
+
+    sky = " ".join([str(b) for b in createVolume(AABBmin, AABBmax, "sky" if game == "BO3" else mapName + "_sky", True, True if game != "BO3" else False)])
 
     # create sun, fps and umbra volumes for BO3 
     vol = ""
     if game == "BO3":
-        suntex = "sun_volume 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
         vol += convertEntity({
             "classname": "volume_sun",
             "ssi": f"{mapName}_ssi",
@@ -874,47 +755,15 @@ def createSkyBrushes(AABBmin: Vector3, AABBmax: Vector3, mapName="", game="WaW")
             "shadowSplitDistance": "2000",
             "ssi1": f"{mapName}_ssi",
             "streamLighting": "1"
-        }, geo=(
-            "{\n"
-            f"( {top1} ) ( {top2} ) ( {top3} ) {suntex}\n" # top
-            f"( {bot3} ) ( {bot2} ) ( {bot1} ) {suntex}\n" # bottom
-            f"( {top3} ) ( {top4} ) ( {bot1} ) {suntex}\n" # back
-            f"( {bot4} ) ( {top2} ) ( {top1} ) {suntex}\n" # front
-            f"( {top1} ) ( {top3} ) ( {bot2} ) {suntex}\n" # left
-            f"( {top4} ) ( {top2} ) ( {bot3} ) {suntex}\n" # right
+        }, geo=createVolume(AABBmin, AABBmax, "sun_volume"))
 
-            + "}\n"
-        ))
-
-        umbtex = "umbra_volume 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
         vol += convertEntity({
             "classname": "umbra_volume",
-        }, geo=(
-            "{\n"
-            f"( {top1} ) ( {top2} ) ( {top3} ) {umbtex}\n" # top
-            f"( {bot3} ) ( {bot2} ) ( {bot1} ) {umbtex}\n" # bottom
-            f"( {top3} ) ( {top4} ) ( {bot1} ) {umbtex}\n" # back
-            f"( {bot4} ) ( {top2} ) ( {top1} ) {umbtex}\n" # front
-            f"( {top1} ) ( {top3} ) ( {bot2} ) {umbtex}\n" # left
-            f"( {top4} ) ( {top2} ) ( {bot3} ) {umbtex}\n" # right
+        }, geo=createVolume(AABBmin, AABBmax, "umbra_volume"))
 
-            + "}\n"
-        ))
-
-        fpstex = "volume_fpstool 128 128 0 0 0 0 lightmap_gray 16384 16384 0 0 0 0"
         vol += convertEntity({
             "classname": "volume_fpstool",
-        }, geo=(
-            "{\n"
-            f"( {top1} ) ( {top2} ) ( {top3} ) {fpstex}\n" # top
-            f"( {bot3} ) ( {bot2} ) ( {bot1} ) {fpstex}\n" # bottom
-            f"( {top3} ) ( {top4} ) ( {bot1} ) {fpstex}\n" # back
-            f"( {bot4} ) ( {top2} ) ( {top1} ) {fpstex}\n" # front
-            f"( {top1} ) ( {top3} ) ( {bot2} ) {fpstex}\n" # left
-            f"( {top4} ) ( {top2} ) ( {bot3} ) {fpstex}\n" # right
-
-            + "}\n"
-        ))
+        }, geo=createVolume(AABBmin, AABBmax, "volume_fpstool"))
 
     return sky, vol
 
