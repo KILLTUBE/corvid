@@ -2,7 +2,7 @@ from .Vector3 import Vector3
 from .Vector2 import Vector2
 from mathutils import Vector, Matrix
 from numpy.linalg import solve
-from math import copysign, degrees, pow, radians, sqrt
+from math import copysign, cos, degrees, pow, radians, sin, sqrt, fabs
 from .AABB import AABB
 import re
 import functools
@@ -130,6 +130,33 @@ class Side:
             vertex.dot(self.vAxis) / (texSize.y * self.vScale) +
             (self.vOffset / texSize.y)
         )
+    
+    def getLmapUV(self, vertex: Vector3):
+        uv = Vector2(0, 0)
+        texSize = Vector2(1024, 1024)
+        n = self.normal().normalize()
+        
+        du = fabs(n.dot(Vector3.Up()))
+        dr = fabs(n.dot(Vector3.Right()))
+        df = fabs(n.dot(Vector3.Forward()))
+
+        if du >= dr and du >= df:
+            uv = Vector2(vertex.x, -vertex.y)
+        elif dr >= du and dr >= df:
+            uv = Vector2(vertex.x, -vertex.z)
+        elif df >= du and df >= dr:
+            uv = Vector2(vertex.y, -vertex.z)
+        
+        # we're gonna assume the rotation is 0
+        rotated = Vector2(0, 0)
+        rotated.x = uv.x * cos(0) - uv.y * sin(0)
+        rotated.y = uv.x * sin(0) + uv.y * cos(0)
+        uv = rotated
+
+        uv /= texSize
+        uv /= self.lightmapScale
+
+        return uv * 1024
     
     # based on https://github.com/GregLukosek/3DMath/blob/master/Math3D.cs#L242
     def getClosestPoint(self, point: Vector3):
