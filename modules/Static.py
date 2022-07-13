@@ -77,3 +77,12 @@ def fixVmt(vmt: str):
                 line = f'"{key}" "{value}"'
         result += line + "\n" + res2
     return result
+
+def flatten(lst: list):
+    res = []
+    for i in lst:
+        if isinstance(i, list):
+            res += flatten(i)
+        else:
+            res.append(i)
+    return res
