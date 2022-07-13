@@ -618,15 +618,13 @@ class App:
         except:
             pass
         
-        res = exportMap(
-            vmfFile, vpkFiles, gameDirs, game,
-            self.skipMats.get(), self.skipModels.get(), vmfName,
-            settings["convertBrush"], scale=Vector3(settings["scale"][0], settings["scale"][0], settings["scale"][1])
-        )
-        
         print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source/prefabs/{vmfName}\"")
         with open(f"{outputDir}/map_source/{prefabDir}/{vmfName}/{vmfName}.map", "w") as file:
-            file.write(res)
+            exportMap(
+                vmfFile, vpkFiles, gameDirs, game,
+                self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"],
+                scale=Vector3(settings["scale"][0], settings["scale"][0], settings["scale"][1]), file=file
+            )
 
         convertedDir = gettempdir() + "/corvid/converted"
 

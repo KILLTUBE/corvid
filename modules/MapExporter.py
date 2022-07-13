@@ -1,5 +1,7 @@
+from io import TextIOWrapper
 from math import sin, cos
 from typing import Dict, List, Union
+from numpy import append
 from modules.Brush import Brush
 from .Decal import *
 from modules.Overlay import Overlay
@@ -21,7 +23,7 @@ def convertSide(side: Side, matSize, origin=Vector3.Zero(), scale=1):
     # skip invalid sides
     if len(side.points) < 3:
         print(f"Brush face {side.id} has less than 3 vertices. Skipping...")
-        return ""
+        return None
     
     points = side.points
 
@@ -53,17 +55,16 @@ def convertSide(side: Side, matSize, origin=Vector3.Zero(), scale=1):
             cod.PatchVert((points[count - i - 1] - origin) * scale, uvs[count - i - 1] * side.texSize, side.getLmapUV(points[count - i - 1]))
         )
     
-    return str(res)
+    return res
 
 
-def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, lm1: Vector2, lm2: Vector2, power: int):
+def getDispPoints(p1: Vector3, p2: Vector3, uv1: Vector2, uv2: Vector2, power: int):
     res = []
     rowCount = int(2 ** power) + 1
     for i in range(rowCount):
         res.append((
             p1.lerp(p2, 1 / (rowCount - 1) * i), # pos
             uv1.lerp(uv2, 1 / (rowCount - 1) * i), # uv
-            uv1.lerp(uv2, 1 / (rowCount - 1) * i) # lightmap
         ))
     return res
 
@@ -74,42 +75,40 @@ def convertDisplacement(side: Side, matSize, origin=Vector3.Zero(), scale=1, gam
     if material not in matSize:
         matSize[material] = Vector2(512, 512)
 
-    lms: List[Vector2] = []
-
     # get the uv of each point
     for point in side.points:
         side.uvs.append(side.getUV(point, matSize[material]))
-        lms.append(side.getLmapUV(point))
 
-    uvs: list[Vector2] = side.uvs
+    uvs: List[Vector2] = side.uvs
 
     if len(points) != 4:
         print(f"Displacement has {len(points)} points. Displacements can have 4 points only. Side id: {side.id}\n")
         for point in points:
             print(point)
-        return ""
+        return None
     
     disp: dict = side.dispinfo
     power: int = int(disp["power"])
     numVerts: int = int(2 ** power) + 1
     s: int = 0
+
     for i in range(4):
         if points[i] == disp["startpos"]:
             s = i
             break
 
-    a, UVa, LMa = points[s], uvs[s], lms[s]
-    b, UVb, LMb = points[(s + 1) % 4], uvs[(s + 1) % 4], lms[(s + 1) % 4]
-    c, UVc, LMc = points[(s + 2) % 4], uvs[(s + 2) % 4], lms[(s + 2) % 4]
-    d, UVd, LMd = points[(s + 3) % 4], uvs[(s + 3) % 4], lms[(s + 3) % 4]
+    a, UVa = points[s], uvs[s]
+    b, UVb = points[(s + 1) % 4], uvs[(s + 1) % 4]
+    c, UVc = points[(s + 2) % 4], uvs[(s + 2) % 4]
+    d, UVd = points[(s + 3) % 4], uvs[(s + 3) % 4]
 
-    ab = getDispPoints(a, b, UVa, UVb, LMa, LMb, power)
-    dc = getDispPoints(d, c, UVd, UVc, LMd, LMc, power)
+    ab = getDispPoints(a, b, UVa, UVb, power)
+    dc = getDispPoints(d, c, UVd, UVc, power)
 
     rows = []
     for i in range(len(ab)):
         rows.append(
-            getDispPoints(ab[i][0], dc[i][0], ab[i][1], dc[i][1], ab[i][2], dc[i][2], power))
+            getDispPoints(ab[i][0], dc[i][0], ab[i][1], dc[i][1], power))
 
     alpha = False
 
@@ -123,13 +122,13 @@ def convertDisplacement(side: Side, matSize, origin=Vector3.Zero(), scale=1, gam
             if disp["row"][j]["alphas"][i] != 0 and alpha != True:
                     alpha = True
             
-            pos, uv, lm = row[j]
+            pos, uv = row[j]
 
             res.verts[-1].append(
                 cod.PatchVert(
                     ((pos + Vector3(0, 0, disp["elevation"]) + (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i])) - origin) * scale,
                     (uv * side.texSize) * 1,
-                    lm
+                    side.getLmapUV(pos)
                 )
             )
     
@@ -137,10 +136,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3.Zero(), scale=1, gam
         res = res.Slice(9)
 
     if not alpha or material + "_blend" not in matSize:
-        if isinstance(res, list):
-            return "\n".join([str(r) for r in res])
-        else:
-            return str(res)
+        return res
 
     offset = Vector3.Zero()
     if game == "WaW":
@@ -153,13 +149,13 @@ def convertDisplacement(side: Side, matSize, origin=Vector3.Zero(), scale=1, gam
         res2.verts.append([])
 
         for j in range(numVerts):
-            pos, uv, lm = row[j]
+            pos, uv = row[j]
 
             res2.verts[-1].append(
                 cod.PatchVert(
                     (((pos + Vector3(0, 0, disp["elevation"]) + (disp["row"][j]["normals"][i] * disp["row"][j]["distances"][i])) - origin) * scale) - offset,
                     (uv * side.texSize) * 1,
-                    lm,
+                    side.getLmapUV(pos),
                     (255, 255, 255, disp["row"][j]["alphas"][i])
                 )
             )
@@ -167,10 +163,7 @@ def convertDisplacement(side: Side, matSize, origin=Vector3.Zero(), scale=1, gam
     if res2.size[0] == (game == "CoD4" or game == "CoD2") and numVerts == 17:
         res2 = res2.Slice(9)
     
-    if isinstance(res, list):
-        return "\n".join([str(r) for r in res]) + "\n".join([str(r) for r in res2])
-    else:
-        return str(res) + str(res2)
+    return [res, res2]
 
 
 def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector3.Zero(), scale=1, matSizes: dict={}, brushConversion=False, sideDict: dict={}, AABBmin: Vector3=Vector3.Zero(), AABBmax: Vector3=Vector3.Zero()):
@@ -183,37 +176,31 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
     }
 
     if game == "BO3" and brush.entity == "func_areaportal":
-        return ""
+        return None
     elif brush.entity == "func_brush":
         if "targetname" in brush.entData and brush.entData["targetname"].startswith("retake"):
-            return ""
+            return None
     elif brush.entity == "func_dustmotes" or brush.entity == "func_buyzone" or brush.entity.startswith("trigger"):
-        return ""
+        return None
     elif brush.sides[0].material == "tools/toolstrigger":
-        return ""
+        return None
 
     faces: List[cod.Face] = []
-
-    # if not world:
-    #     if brush.entity == "func_detail" or brush.entity == "func_breakable":
-    #         resBrush.contents.append("detail")
-    #     elif brush.entity == "func_illusionary":
-    #         resBrush.contents.append("nonColliding")
     
-    resPatch = ""
+    resPatch: List[cod.Patch] = []
 
     for side in brush.sides:
         material = "caulk"
 
         if side.material == "tools/toolsskybox":
             if brush.isToolBrush:
-                return ""
+                return None
             else:
                 side.material = "tools/toolsnodraw"
         
         if game == "BO3":
             if side.material in ["tools/toolsareaportal", "tools/toolshint", "tools/toolsskip"]:
-                return ""
+                return None
 
         for point in side.points.copy():
             point = (point - origin) * scale
@@ -224,7 +211,7 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
             sideDict[side.id] = side
         
         if side.hasDisp:
-            resPatch += convertDisplacement(side, matSizes, origin, scale, game)
+            resPatch.append(convertDisplacement(side, matSizes, origin, scale, game))
             continue
         
         if brush.hasDisp and not side.hasDisp:
@@ -252,25 +239,15 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
         
         else:
             material = "caulk"
-            resPatch += convertSide(side, matSizes, origin, scale)
+            resPatch.append(convertSide(side, matSizes, origin, scale))
 
         faces.append(cod.Face(p1, p2, p3, material))
 
     if brush.hasDisp:
         return resPatch
 
-    return str(cod.Brush(faces)) + resPatch
+    return [cod.Brush(faces), resPatch]
     
-def convertEntity(entity, id="", geo=""):
-    res = f"// Entity {id}\n" if id != "" else ""
-    res += "{\n"
-    for key, value in entity.items():
-        res += f'"{key}" "{value}"\n'
-    if geo != "":
-        res += str(geo)
-    res += "}\n"
-    return res
-
 def convertLight(entity, scale=1.0):
     if "_light" in entity:
         _color = [int(i) for i in entity["_light"].split(" ")]
@@ -280,13 +257,13 @@ def convertLight(entity, scale=1.0):
         _color = [0, 0, 0, 300]
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
     color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
-    return convertEntity({
+    return cod.Entity({
         "classname": "light",
         "origin": Vector3.FromStr(entity["origin"]) * scale,
         "_color": color,
         "radius": _color[3] if _color[3] > 100 else 300,
         "intensity": "1"
-    }, entity["id"])
+    })
 
 def convertSpotLight(entity, game="WaW", scale=1.0):
     if "_light" in entity:
@@ -295,6 +272,9 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
             _color.append(500)
     else:
         _color = [0, 0, 0, 500]
+    
+    res = []
+
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
     color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
     origin = Vector3.FromStr(entity["origin"])
@@ -313,12 +293,14 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
         angles = Vector3.FromStr(entity["angles"])
         pitch = float(entity["pitch"])
         yaw = angles.y
+
         null_origin = Vector3(
             sin(yaw),
             -(sin(pitch) * cos(yaw)),
             -(cos(pitch) * cos(yaw))
         )
-        res = convertEntity({
+
+        res.append(cod.Entity({
             "classname": "light",
             "origin": origin * scale,
             "_color": color,
@@ -327,17 +309,19 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
             "target": "spotlight_" + entity["id"],
             "fov_outer": entity["_cone"],
             "fov_inner": entity["_inner_cone"],
-        }, entity["id"])
-        res += convertEntity({
+        }))
+
+        res.append(cod.Entity({
             "classname": "info_null",
             "origin": (origin + null_origin * 50) * scale,
             "targetname": "spotlight_" + entity["id"]
-        })
+        }))
+
     else:
         angles = Vector3.FromStr(entity["angles"])
         pitch = float(entity["pitch"])
         
-        res = convertEntity({
+        res = cod.Entity({
             "classname": "light",
             "origin": origin * scale,
             "_color": color,
@@ -346,7 +330,8 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
             "radius": radius,
             "fov_outer": entity["_cone"],
             "fov_inner": entity["_inner_cone"],
-        }, entity["id"])
+        })
+
     return res
 
 def convertRope(entity, skyOrigin=Vector3.Zero(), scale=1, curve=False, ropeDict: dict={}):
@@ -383,38 +368,38 @@ def convertRope(entity, skyOrigin=Vector3.Zero(), scale=1, curve=False, ropeDict
                     "id": entity["id"]
                 }
     else:
-        res = ""
+        res = []
         if entity["classname"] == "move_rope":
             origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
-            res += convertEntity({
+            res.append(cod.Entity({
                 "classname": "rope",
                 "origin": origin,
                 "target": entity["NextKey"] if "NextKey" in entity else entity["id"],
                 "length_scale": float(entity["Slack"]) / 128,
                 "width": float(entity["Width"]) * 3
-            }, entity["id"])
+            }))
             if "targetname" in entity:
                 origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
-                res += convertEntity({
+                res.append(cod.Entity({
                     "classname": "info_null",
                     "origin": origin,
                     "targetname": entity["targetname"] if "targetname" in entity else entity["id"]
-                }, entity["id"])
+                }))
         else:
             origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
-            res += convertEntity({
+            res.append(cod.Entity({
                 "classname": "info_null",
                 "origin": origin,
                 "targetname": entity["targetname"]
-            }, entity["id"])
+            }))
             if "NextKey" in entity:
-                res += convertEntity({
+                res.append(cod.Entity({
                     "classname": "rope",
                     "origin": origin,
                     "target": entity["NextKey"],
                     "length_scale": float(entity["Slack"]) / 125,
                     "width": entity["width"] if "width" in entity else "1"
-                }, entity["id"])
+                }))
         return res
 
 def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=1, game="WaW"):
@@ -452,63 +437,63 @@ def convertRopeAsCurve(start: Vector3, end: Vector3, slack: float, width: float=
     res = cod.Patch(type="curve", contents=["nonColliding"], texture=mat, size=(9, 3))
 
     res.verts.append([
-        cod.PatchVert(start + bottom, Vector2(1, 1), Vector2(1, 1)),
-        cod.PatchVert(mid + bottom, Vector2(1, 1), Vector2(1, 25)),
-        cod.PatchVert(end + bottom, Vector2(1, 1), Vector2(1, 25))
+        cod.PatchVert(start + bottom, Vector2(0, 0), Vector2(1, 1)),
+        cod.PatchVert(mid + bottom, Vector2(0, -84316), Vector2(1, 45)),
+        cod.PatchVert(end + bottom, Vector2(0, -167833), Vector2(1, 89))
     ])
     res.verts.append([
-        cod.PatchVert(start + bottomLeft, Vector2(1, 1), Vector2(3, 1)),
-        cod.PatchVert(mid + bottomLeft, Vector2(1, 1), Vector2(3, 25)),
-        cod.PatchVert(end + bottomLeft, Vector2(1, 1), Vector2(3, 25))
+        cod.PatchVert(start + bottomLeft, Vector2(87, 0), Vector2(3, 1)),
+        cod.PatchVert(mid + bottomLeft, Vector2(87, -84316), Vector2(3, 45)),
+        cod.PatchVert(end + bottomLeft, Vector2(87, -167833), Vector2(3, 89))
     ])
     res.verts.append([
-        cod.PatchVert(start + left, Vector2(1, 1), Vector2(3, 1)),
-        cod.PatchVert(mid + left, Vector2(1, 1), Vector2(3, 25)),
-        cod.PatchVert(end + left, Vector2(1, 1), Vector2(3, 25))
+        cod.PatchVert(start + left, Vector2(276, 0), Vector2(5, 1)),
+        cod.PatchVert(mid + left, Vector2(276, -84316), Vector2(5, 45)),
+        cod.PatchVert(end + left, Vector2(276, -167833), Vector2(5, 89))
     ])
     res.verts.append([
-        cod.PatchVert(start + topLeft, Vector2(1, 1), Vector2(5, 1)),
-        cod.PatchVert(mid + topLeft, Vector2(1, 1), Vector2(5, 25)),
-        cod.PatchVert(end + topLeft, Vector2(1, 1), Vector2(5, 25))
+        cod.PatchVert(start + topLeft, Vector2(465, 0), Vector2(7, 1)),
+        cod.PatchVert(mid + topLeft, Vector2(465, -84316), Vector2(7, 45)),
+        cod.PatchVert(end + topLeft, Vector2(465, -167833), Vector2(7, 89))
     ])
     res.verts.append([
-        cod.PatchVert(start + top, Vector2(1, 1), Vector2(5, 1)),
-        cod.PatchVert(mid + top, Vector2(1, 1), Vector2(5, 25)),
-        cod.PatchVert(end + top, Vector2(1, 1), Vector2(5, 25))
+        cod.PatchVert(start + top, Vector2(552, 0), Vector2(9, 1)),
+        cod.PatchVert(mid + top, Vector2(552, -84316), Vector2(9, 45)),
+        cod.PatchVert(end + top, Vector2(552, -167833), Vector2(9, 89))
     ])
     res.verts.append([
-        cod.PatchVert(start + topRight, Vector2(1, 1), Vector2(5, 1)),
-        cod.PatchVert(mid + topRight, Vector2(1, 1), Vector2(5, 25)),
-        cod.PatchVert(end + topRight, Vector2(1, 1), Vector2(5, 25))
+        cod.PatchVert(start + topRight, Vector2(639, 0), Vector2(9, 1)),
+        cod.PatchVert(mid + topRight, Vector2(639, -84316), Vector2(9, 45)),
+        cod.PatchVert(end + topRight, Vector2(639, -167833), Vector2(9, 89))
     ])
     res.verts.append([
-        cod.PatchVert(start + right, Vector2(1, 1), Vector2(7, 1)),
-        cod.PatchVert(mid + right, Vector2(1, 1), Vector2(7, 25)),
-        cod.PatchVert(end + right, Vector2(1, 1), Vector2(7, 25))
+        cod.PatchVert(start + right, Vector2(828, 0), Vector2(11, 1)),
+        cod.PatchVert(mid + right, Vector2(828, -84316), Vector2(11, 45)),
+        cod.PatchVert(end + right, Vector2(828, -167833), Vector2(11, 89))
     ])
     res.verts.append([
-        cod.PatchVert(start + bottomRight, Vector2(1, 1), Vector2(5, 1)),
-        cod.PatchVert(mid + bottomRight, Vector2(1, 1), Vector2(5, 25)),
-        cod.PatchVert(end + bottomRight, Vector2(1, 1), Vector2(5, 25))
+        cod.PatchVert(start + bottomRight, Vector2(1017, 0), Vector2(13, 1)),
+        cod.PatchVert(mid + bottomRight, Vector2(1017, -84316), Vector2(13, 45)),
+        cod.PatchVert(end + bottomRight, Vector2(1017, -167833), Vector2(13, 89))
     ])
     res.verts.append([
-        cod.PatchVert(start + bottom, Vector2(1, 1), Vector2(9, 1)),
-        cod.PatchVert(mid + bottom, Vector2(1, 1), Vector2(9, 25)),
-        cod.PatchVert(end + bottom, Vector2(1, 1), Vector2(9, 25))
+        cod.PatchVert(start + bottom, Vector2(1104, 0), Vector2(15, 1)),
+        cod.PatchVert(mid + bottom, Vector2(1104, -84316), Vector2(15, 45)),
+        cod.PatchVert(end + bottom, Vector2(1104, -167833), Vector2(15, 89))
     ])
 
-    return str(res)
+    return res
 
 def convertProp(entity, game="WaW", skyOrigin=Vector3.Zero(), scale=1, mdlScale=1):
     origin = (Vector3.FromStr(entity["origin"]) - skyOrigin) * scale
     modelScale = float(entity["uniformscale"] if "uniformscale" in entity else entity["modelscale"] if "modelscale" in entity else "1") * mdlScale
 
     if "model" not in entity:
-        return convertEntity({
+        return cod.Entity({
             "classname": "info_null",
             "original_classname": entity["classname"],
             "origin": origin
-        }, entity["id"])
+        })
 
     modelName = "m_" + splitext(newPath(entity["model"]))[0]
 
@@ -522,23 +507,24 @@ def convertProp(entity, game="WaW", skyOrigin=Vector3.Zero(), scale=1, mdlScale=
     if game == "CoD2":
         modelName = "xmodel/" + modelName
 
-    return convertEntity({
+    return cod.Entity({
         "classname": "dyn_model" if entity["classname"].startswith("prop_physics") and game != "CoD2" else "misc_model",
         "model": modelName,
         "origin": origin,
         "angles": entity["angles"],
         "spawnflags": "16" if entity["classname"].startswith("prop_physics") else "",
         "modelscale": modelScale
-    }, entity["id"])
+    })
 
 def convertCubemap(entity, scale=1.0):
-    return convertEntity({
+    return cod.Entity({
         "classname": "reflection_probe",
         "origin": Vector3.FromStr(entity["origin"]) * scale
-    }, entity["id"])
+    })
 
 def convertSpawner(entity, scale=1.0):
     origin = Vector3.FromStr(entity["origin"]) * scale
+    origin.z += 32
 
     spawners = {
         "info_player_terrorist": "mp_tdm_spawn_axis_start",
@@ -551,32 +537,34 @@ def convertSpawner(entity, scale=1.0):
     if entity["classname"] in spawners:
         classname = spawners[entity["classname"]]
     else:
-        return ""
+        return None
 
-    res = convertEntity({
+    res = []
+
+    res.append(cod.Entity({
         "classname": classname,
         "origin": origin,
         "angles": entity["angles"]
-    }, entity["id"])
+    }))
 
     if classname == "info_player_start":
-        res += convertEntity({
+        res.append(cod.Entity({
             "classname": "mp_global_intermission",
             "origin": origin
-        })
+        }))
 
-        res += convertEntity({
+        res.append(cod.Entity({
             "classname": "mp_tdm_spawn",
             "origin": origin
-        })
+        }))
     
     # make sure to add spawners for sd too
     if classname == "mp_tdm_spawn_axis_start" or classname == "mp_tdm_spawn_allies_start":
-        res += convertEntity({
+        res.append(cod.Entity({
             "classname": "mp_sd_spawn_attacker" if classname == "mp_tdm_spawn_axis_start" else "mp_sd_spawn_defender",
             "origin": origin,
             "angles": entity["angles"]
-        })
+        }))
 
     return res
 
@@ -605,22 +593,26 @@ def convertBombsite(entity, scale=1, game="WaW", site=""):
         center.z = lowest # make sure the model is always at the bottom of the trigger
     bombsite = "_" + (entity["targetname"][0].lower() if "targetname" in entity else site)
 
-    res = convertEntity({
+    res: List[cod.Entity] = []
+
+    res.append(cod.Entity({
         "classname": "trigger_use_touch",
         "script_bombmode_original": "1",
         "target": "target" + bombsite,
         "script_gameobjectname": "bombzone",
         "targetname": "bombzone",
         "script_label": bombsite
-    }, geo="".join(convertBrush(brush, scale=scale) for brush in brushes))
+    }))
+    res[-1].geo.append([convertBrush(brush, scale=scale) for brush in brushes])
 
-    res += convertEntity({
+    res.append(cod.Entity({
         "targetname": "targetname" + bombsite,
         "classname": "trigger_use_touch",
         "script_gameobjectname": "bombzone"
-    }, geo="".join(convertBrush(brush, scale=scale) for brush in brushes))
+    }))
+    res[-1].geo.append([convertBrush(brush, scale=scale) for brush in brushes])
 
-    res += convertEntity({
+    res.append(cod.Entity({
         "target": "targetname" + bombsite,
         "targetname": "target" + bombsite,
         "spawnflags": "4",
@@ -629,16 +621,16 @@ def convertBombsite(entity, scale=1, game="WaW", site=""):
         "origin": center * scale,
         "model": "xmodel/tag_origin" if game=="CoD2" else "tag_origin",
         "classname": "script_model"
-    })
+    }))
 
-    res += convertEntity({
+    res.append(cod.Entity({
         "classname": "script_model",
         "model": "xmodel/tag_origin" if game=="CoD2" else "tag_origin",
         "origin": center * scale,
         "spawnflags": "4",
         "targetname": "exploder",
         "script_exploder": "1"
-    })
+    }))
 
     return res
 
@@ -736,18 +728,18 @@ def createVolume(AABBmin: Vector3, AABBmax: Vector3, texture="caulk", hollow=Fal
 # this function basically takes the two far ends of the map and then uses those positions to create 6 skybox brushes with them
 def createSkyBrushes(AABBmin: Vector3, AABBmax: Vector3, mapName="", game="WaW"):
     if AABBmin == AABBmax:
-        return ""
+        return None, None
     
     # move the points further to avoid collision with map geo
     AABBmax += Vector3(250, 250, 500)
     AABBmin += Vector3(-250, -250, -100)
 
-    sky = " ".join([str(b) for b in createVolume(AABBmin, AABBmax, "sky" if game == "BO3" else mapName + "_sky", True, True if game != "BO3" else False)])
+    sky = createVolume(AABBmin, AABBmax, "sky" if game == "BO3" else mapName + "_sky", True, True if game != "BO3" else False)
 
     # create sun, fps and umbra volumes for BO3 
-    vol = ""
+    vol: List[cod.Entity] = []
     if game == "BO3":
-        vol += convertEntity({
+        vol.append(cod.Entity({
             "classname": "volume_sun",
             "ssi": f"{mapName}_ssi",
             "grid_density": "32",
@@ -755,22 +747,25 @@ def createSkyBrushes(AABBmin: Vector3, AABBmax: Vector3, mapName="", game="WaW")
             "shadowSplitDistance": "2000",
             "ssi1": f"{mapName}_ssi",
             "streamLighting": "1"
-        }, geo=createVolume(AABBmin, AABBmax, "sun_volume"))
+        }))
+        vol[-1].geo.append(createVolume(AABBmin, AABBmax, "sun_volume"))
 
-        vol += convertEntity({
+        vol.append(cod.Entity({
             "classname": "umbra_volume",
-        }, geo=createVolume(AABBmin, AABBmax, "umbra_volume"))
+        }))
+        vol[-1].geo.append(createVolume(AABBmin, AABBmax, "umbra_volume"))
 
-        vol += convertEntity({
+        vol.append(cod.Entity({
             "classname": "volume_fpstool",
-        }, geo=createVolume(AABBmin, AABBmax, "volume_fpstool"))
+        }))
+        vol[-1].geo.append(createVolume(AABBmin, AABBmax, "volume_fpstool"))
 
     return sky, vol
 
 def exportMap(
         vmfString, vpkFiles=[], gameDirs=[], game="WaW",
         skipMats=False, skipModels=False, mapName="",
-        brushConversion=False, scale=1.0
+        brushConversion=False, scale=1.0, file: TextIOWrapper=None
     ):
     # create temporary directories to extract assets
     copyDir = gettempdir() + "/corvid"
@@ -864,8 +859,12 @@ def exportMap(
 
     # generate map geometry
     print("Generating .map file...")
-    mapGeo = ""
-    mapEnts = ""
+    res = cod.Map()
+    world = cod.Entity({
+        "classname": "worldspawn"
+    })
+    res.entities.append(world)
+
     worldSpawnSettings = {}
 
     # store the furthest points for each axis to calculate the bounding box of the whole map
@@ -898,13 +897,19 @@ def exportMap(
     # convert world geo & entities
     for i, brush in enumerate(mapData["worldBrushes"]):
         print(f"{i}|{total}|done", end="")
-        mapGeo += convertBrush(brush, True, game, mapName, matSizes=matSizes, brushConversion=brushConversion, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax)
+        geo = convertBrush(brush, True, game, mapName, matSizes=matSizes, brushConversion=brushConversion, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax)
+        if geo is not None:
+            world.geo.append(geo)
+
         if not brush.isToolBrush and not brush.hasDisp:
             brushDict[brush.id] = brush
 
     for i, brush in enumerate(mapData["entityBrushes"], lenWorld):
         print(f"{i}|{total}|done", end="")
-        mapGeo += convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax)
+        geo = convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax)
+        if geo is not None:
+            world.geo.append(geo)
+        
         if not brush.isToolBrush and not brush.hasDisp:
             brushDict[brush.id] = brush
 
@@ -913,29 +918,31 @@ def exportMap(
             origin = Vector3.FromStr(entity["origin"]) * scale
             AABBmax.set(AABBmax.max(origin))
             AABBmin.set(AABBmin.min(origin))
+
         print(f"{i}|{total}|done", end="")
+
         if entity["classname"].startswith("prop_"):
-            mapEnts += convertProp(entity, game, scale=scale)
+            res.entities.append(convertProp(entity, game, scale=scale))
         elif entity["classname"] == "light":
-            mapEnts += convertLight(entity, scale=scale)
+            res.entities.append(convertLight(entity, scale=scale))
         elif entity["classname"] == "light_spot":
-            mapEnts += convertSpotLight(entity, game, scale=scale)
+            res.entities.append(convertSpotLight(entity, game, scale=scale))
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
             if game == "CoD4" or game == "CoD2":
                 convertRope(entity, curve=True, ropeDict=ropeDict, scale=scale)
             else:
-                mapEnts += convertRope(entity)
+                res.entities.append(convertRope(entity))
         elif entity["classname"] == "env_cubemap" and (game != "CoD2" or game != "BO3"):
-            mapEnts += convertCubemap(entity, scale=scale)
+            res.entities.append(convertCubemap(entity, scale=scale))
         elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
-            mapEnts += convertSpawner(entity, scale=scale)
+            res.entities.append(convertSpawner(entity, scale=scale))
         # elif entity["classname"] == "info_overlay":
         #     if entity["sides"] != "":
         #         overlays.append(entity)
         # elif entity["classname"] == "infodecal":
         #     decals.append(entity)
         elif entity["classname"] == "func_bomb_target":
-            mapEnts += convertBombsite(entity, scale=scale, game=game, site=bombsites[currentBombsite])
+            res.entities.append(convertBombsite(entity, scale=scale, game=game, site=bombsites[currentBombsite]))
             currentBombsite += 1
         elif entity["classname"] == "light_environment":
             sundirection = Vector3.FromStr(entity["angles"])
@@ -955,11 +962,15 @@ def exportMap(
     # convert 3d skybox geo & entities
     for i, brush in enumerate(mapData["skyBrushes"], lenWorld + lenEntBrushes + lenEnts):
         print(f"{i}|{total}|done", end="")
-        mapGeo += convertBrush(brush, True, game, mapName, origin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], sideDict=sideDict, AABBmin=AABBmin, AABBmax=AABBmax)
+        geo = convertBrush(brush, True, game, mapName, origin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], sideDict=sideDict, AABBmin=AABBmin, AABBmax=AABBmax)
+        if geo is not None:
+            world.geo.append(geo)
 
     for i, brush in enumerate(mapData["skyEntityBrushes"], lenWorld + lenEntBrushes + lenEnts + lenSky):
         print(f"{i}|{total}|done", end="")
-        mapGeo += convertBrush(brush, False, game, mapName, origin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], sideDict=sideDict, AABBmin=AABBmin, AABBmax=AABBmax)
+        geo = convertBrush(brush, False, game, mapName, origin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], sideDict=sideDict, AABBmin=AABBmin, AABBmax=AABBmax)
+        if geo is not None:
+            world.geo.append(geo)
 
     for i, entity in enumerate(mapData["skyEntities"], lenWorld + lenEntBrushes + lenEnts + lenSky + lenSkyEntBrushes):
         print(f"{i}|{total}|done", end="")
@@ -969,29 +980,31 @@ def exportMap(
         AABBmin.set(AABBmin.min(origin))
 
         if entity["classname"].startswith("prop_"):
-            mapEnts += convertProp(entity, game, mapData["skyBoxOrigin"], mdlScale=mapData["skyBoxScale"], scale=scale * mapData["skyBoxScale"])
+            res.entities.append(convertProp(entity, game, mapData["skyBoxOrigin"], mdlScale=mapData["skyBoxScale"], scale=scale * mapData["skyBoxScale"]))
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
             if game == "CoD4":
                 convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], curve=True, ropeDict=ropeDict)
             else:
-                mapEnts += convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"])
+                res.entities.append(convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"]))
 
     # convert ropes to curve patches for cod 4
     if game == "CoD4" or game == "CoD2":
         for val in ropeDict["start"].values(): 
             if val["target"] in ropeDict["end"]:
-                mapGeo += convertRopeAsCurve(
+                world.geo.append(convertRopeAsCurve(
                     val["origin"],
                     ropeDict["end"][val["target"]]["origin"],
                     val["slack"],
                     val["width"],
                     game
-                )
+                ))
 
     # create sky brushes and other necessary stuff
     skyBrushes, volumes = createSkyBrushes(AABBmin, AABBmax, mapName, game)
-    mapGeo += skyBrushes
-    mapEnts += volumes
+    if skyBrushes is not None:
+        world.geo.append(skyBrushes)
+    if volumes is not None:
+        res.entities.append(volumes)
 
     # convert overlays
     # i = 0
@@ -1028,20 +1041,20 @@ def exportMap(
             # top left
             origin = Vector3(x, y, z) * scale
 
-            mapEnts += convertEntity({
+            res.entities.append(cod.Entity({
                 "classname": "script_origin",
                 "origin": f"{origin}",
                 "targetname": "minimap_corner",
                 "_color": "1.0 0.6470588 0.0"
-            })
+            }))
 
             # bottom right
-            mapEnts += convertEntity({
+            res.entities.append(cod.Entity({
                 "classname": "script_origin",
                 "origin": f"{origin.y} {origin.x} {z}",
                 "targetname": "minimap_corner",
                 "_color": "1.0 0.6470588 0.0"
-            })
+            }))
 
     # convert the skybox textures
     if not skipMats and mapData["sky"] != "sky":
@@ -1057,47 +1070,32 @@ def exportMap(
         open(f"{copyDir}/converted/bin/_convert_{mapName}_assets.bat", "w").write(gdtFile.toBat())
 
     if game == "BO3":
-        res = (
-                "iwmap 4\n"
-                + '"script_startingnumber" 0\n'
-                + '"000_Global" flags expanded  active\n'
-                + '"000_Global/No Comp" flags hidden ignore \n'
-                + '"The Map" flags expanded \n'
-                + convertEntity({
-                    "classname": "worldspawn",
-                    "lightingquality": "1024",
-                    "samplescale": "1",
-                    "skyboxmodel": f"{mapName}_ssi",
-                    "ssi": "default_day",
-                    "wsi": "default_day",
-                    "fsi": "default",
-                    "gravity": "800",
-                    "lodbias": "default",
-                    "lutmaterial": "luts_t7_default",
-                    "numOmniShadowSlices": "24",
-                    "numSpotShadowSlices": "64",
-                    "sky_intensity_factor0": "1",
-                    "sky_intensity_factor1": "1",
-                    "state_alias_1": "State 1",
-                    "state_alias_2": "State 2",
-                    "state_alias_3": "State 3",
-                    "state_alias_4": "State 4"
-                },
-                id="",
-                geo=mapGeo)
-                + mapEnts
-        )
+        res.flags.append('"script_startingnumber" 0\n')
+        res.flags.append('"000_Global" flags expanded  active\n')
+        res.flags.append('"000_Global/No Comp" flags hidden ignore \n')
+        res.flags.append('"The Map" flags expanded \n')
+
+        world.properties.update({
+            "lightingquality": "1024",
+            "samplescale": "1",
+            "skyboxmodel": f"{mapName}_ssi",
+            "ssi": "default_day",
+            "wsi": "default_day",
+            "fsi": "default",
+            "gravity": "800",
+            "lodbias": "default",
+            "lutmaterial": "luts_t7_default",
+            "numOmniShadowSlices": "24",
+            "numSpotShadowSlices": "64",
+            "sky_intensity_factor0": "1",
+            "sky_intensity_factor1": "1",
+            "state_alias_1": "State 1",
+            "state_alias_2": "State 2",
+            "state_alias_3": "State 3",
+            "state_alias_4": "State 4"
+        })
 
     else:
-        worldSpawnSettings["classname"] = "worldspawn"
-        res = (
-            "iwmap 4\n"
-            + convertEntity(
-                worldSpawnSettings,
-                id="0",
-                geo=mapGeo
-            )
-            + mapEnts
-        )
+        world.properties.update(worldSpawnSettings)
 
-    return res
+    res.Save(file)
