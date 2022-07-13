@@ -1,4 +1,7 @@
+from io import TextIOWrapper
 from typing import Dict, List, Union
+
+from modules.Static import flatten
 from .Brush import Brush
 from .Patch import Patch
 
@@ -26,13 +29,15 @@ class Entity:
     
     def __str__(self) -> str:
         res = "{\n"
-        
+
         if self.layer is not None:
             res += f"layer {self.layer}\n"
 
         for key, value in self.properties.items():
             res += f'"{key}" "{value}"\n'
-        
+
+        self.geo = flatten(self.geo)
+
         for i, geo in enumerate(self.geo):
             res += f"// brush {i}\n"
             if isinstance(geo, list):
@@ -44,3 +49,20 @@ class Entity:
         res += "}\n"
 
         return res
+
+    def Save(self, file: TextIOWrapper):
+        file.write("{\n")
+
+        if self.layer is not None:
+            file.write(f"layer {self.layer}\n")
+
+        for key, value in self.properties.items():
+            file.write(f'"{key}" "{value}"\n')
+
+        self.geo = flatten(self.geo)
+
+        for i, geo in enumerate(self.geo):
+            file.write(f"// brush {i}\n")
+            geo.Save(file)
+
+        file.write("}\n")

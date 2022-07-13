@@ -1,6 +1,8 @@
 from copy import copy
+from io import TextIOWrapper
 from typing import List, Union
 from modules.Brush import Brush
+from modules.Static import flatten
 from .Entity import Entity
 from .Face import Face
 from .Patch import Patch
@@ -99,26 +101,29 @@ class Map:
         
         self.entities = newlist
     
-    def Save(self, filename):
-        with open(filename, "w") as file:
-            file.write("iwmap 4\n")
-
-            for flag in self.flags:
-                file.write(flag + "\n")
-
-            for i, entity in enumerate(self.entities):
-                file.write(f"// Entity {i}\n")
-                file.write(str(entity))
-    
     def __str__(self) -> str:
         res = "iwmap 4\n"
 
         for flag in self.flags:
             res += flag + "\n"
         
+        self.entities = flatten(self.entities)
+
         for i, entity in enumerate(self.entities):
             res += f"// entity {i}\n"
             res += str(entity)
         
         return res
+    
+    def Save(self, file: TextIOWrapper):
+        file.write("iwmap 4\n")
+
+        for flag in self.flags:
+            file.write(flag + "\n")
+        
+        self.entities = flatten(self.entities)
+
+        for i, entity in enumerate(self.entities):
+            file.write(f"// entity {i}\n")
+            entity.Save(file)
     

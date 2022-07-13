@@ -1,3 +1,4 @@
+from io import TextIOWrapper
 from ..Vector3 import Vector3
 
 class Face:
@@ -34,9 +35,12 @@ class Face:
         
         if self.smoothing is not None:
             res += " smoothing " + self.smoothing
-        
-        return res + "\n"
+
+        return res
 
     def __repr__(self) -> str:
         address = "%.2x" % id(self)
         return f"<Face ({self.p1} {self.p2} {self.p3}) object at {address}>"
+    
+    def Save(self, file: TextIOWrapper):
+        file.write(str(self) + "\n")

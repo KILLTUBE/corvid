@@ -1,3 +1,4 @@
+from io import TextIOWrapper
 from ..Vector3 import Vector3
 from ..Vector2 import Vector2
 import numpy as np
@@ -29,6 +30,9 @@ class PatchVert:
         elif self.color == None:
             return f"v {self.pos} t {self.uv} {self.lm}"
         return f"v {self.pos} c {Color2Str(self.color)} t {self.uv} {self.lm}"
+    
+    def Save(self, file: TextIOWrapper):
+        file.write(str(self) + "\n")
 
 class Patch:
     type: str
@@ -42,7 +46,6 @@ class Patch:
     layer: str
     smoothing: str
     filters: dict
-    blend: bool
     nolightmap: bool
 
     def __init__(self,
@@ -59,7 +62,6 @@ class Patch:
         self.verts = []
         self.layer = None
         self.smoothing = smoothing
-        self.blend = False
         self.nolightmap = False
 
     def Slice(self, maxsize=30) -> List['Patch']:
@@ -134,3 +136,26 @@ class Patch:
         res += "}\n"
         res += "}\n"
         return res
+    
+    def Save(self, file: TextIOWrapper):
+        file.write("{\n")
+        file.write(self.type + "\n")
+        file.write("{\n")
+        file.write((f"contents {' '.join([content for content in self.contents])};\n" if len(self.contents) != 0 else ""))
+        file.write((f"toolFlags {' '.join([flag for flag in self.toolflags])};\n" if len(self.toolflags) != 0 else ""))
+        file.write(self.texture + "\n")
+        file.write(self.lightmap + "\n")
+        file.write((f"smoothing {self.smoothing}\n" if self.smoothing is not None else ""))
+        file.write(f"{self.size[0]} {self.size[1]} {self.samplesize} 8\n")
+
+        for row in self.verts:
+            file.write("(\n")
+
+            for vert in row:
+                vert.nolightmap = self.nolightmap
+                vert.Save(file)
+
+            file.write(")\n")
+
+        file.write("}\n")
+        file.write("}\n")

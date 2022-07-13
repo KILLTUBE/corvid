@@ -1,3 +1,4 @@
+from io import TextIOWrapper
 from typing import List
 from .Face import Face
 
@@ -36,3 +37,20 @@ class Brush:
     def __repr__(self) -> str:
         address = "%.2x" % id(self)
         return f"<Brush object at {address}>"
+    
+    def Save(self, file: TextIOWrapper):
+        file.write("{\n")
+
+        if self.layer is not None:
+            file.write(f"layer {self.layer}\n")
+
+        if len(self.toolflags) > 0:
+            file.write("toolFlags " + " ".join(self.toolflags) + ";\n")
+
+        if len(self.contents) > 0:
+            file.write("contents " + " ".join(self.contents) + ";\n")
+            
+        for face in self.faces:
+            face.Save(file)
+
+        file.write("}\n")
