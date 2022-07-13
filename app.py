@@ -614,7 +614,8 @@ class App:
             makedirs(f"{outputDir}/texture_assets/corvid")
             if game != "BO3":
                 makedirs(f"{outputDir}/bin")
-            makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}")
+            else:
+                makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}")
         except:
             pass
         
@@ -679,7 +680,7 @@ class TextRedirector(object):
         self.tag = tag
         self.eof = False
 
-    def write(self, str):        
+    def write(self, str: str):        
         # update the progress bars depending on the printed text
         # I'm not really a Python guy normally, so I'm not sure if this is the best way to do this
         overAllSteps = [
@@ -740,12 +741,12 @@ if __name__ == "__main__":
         )
         app.setSteamDir()
     
-    steamAppsDirs.append(settings["steamDir"])
-
     if exists(f"{settings['steamDir']}/steamapps/libraryfolders.vdf"):
         libraryFolders = parse_vdf(open(f'{settings["steamDir"]}/steamapps/libraryfolders.vdf').read())["libraryfolders"]
-        for i in range(1, len(libraryFolders) - 1):
-            steamAppsDirs.append(Path(libraryFolders[str(i)]["path"]).as_posix())
+        for key, value in libraryFolders.items():
+            libraryDir = Path(value["path"]).as_posix()
+            if libraryDir not in steamAppsDirs:
+                steamAppsDirs.append(libraryDir)
     else:
         print("Cannot detect Steam libraries. Make sure your Steam directory is correct.")
     
