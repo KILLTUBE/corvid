@@ -172,7 +172,6 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
         "toolsclip": "clip", "toolsplayerclip": "clip", "toolsinvisible": "clip", "toolsnpcclip": "clip", "toolsgrenadeclip": "clip_missile",
         "toolsinvisibleladder": "ladder", "toolsareaportal": "portal_nodraw",
         "toolsblocklight": "shadowcaster", "toolshint": "hint", "toolsskip": "skip", "toolstrigger": "trigger",
-        "toolsskybox": "sky" if game == "BO3" else f"{mapName}_sky"
     }
 
     if game == "BO3" and brush.entity == "func_areaportal":
@@ -193,10 +192,7 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
         material = "caulk"
 
         if side.material == "tools/toolsskybox":
-            if brush.isToolBrush:
                 return None
-            else:
-                side.material = "tools/toolsnodraw"
         
         if game == "BO3":
             if side.material in ["tools/toolsareaportal", "tools/toolshint", "tools/toolsskip"]:
@@ -253,10 +249,15 @@ def convertLight(entity, scale=1.0):
         _color = [int(i) for i in entity["_light"].split(" ")]
         if len(_color) == 3:
             _color.append(300)
+    elif len(_color) < 3:
+        _color = [255, 255, 255, 300]
     else:
-        _color = [0, 0, 0, 300]
+        _color = [255, 255, 255, 300]
+
+    if _color[3] == "":
+        _color[3] = 300
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
-    color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
+    color = Vector3(_color[0], _color[1], _color[2]) / 255
     return cod.Entity({
         "classname": "light",
         "origin": Vector3.FromStr(entity["origin"]) * scale,
@@ -270,13 +271,15 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
         _color = [i for i in entity["_light"].split(" ") if i != ""]
         if len(_color) == 3:
             _color.append(500)
+        elif len(_color) < 3 or _color[3] == "":
+            _color = [255, 255, 255, 300]
     else:
-        _color = [0, 0, 0, 500]
+        _color = [255, 255, 255, 300]
     
     res = []
 
     # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
-    color = (Vector3(_color[0], _color[1], _color[2]) / 255).round(3)
+    color = (Vector3(_color[0], _color[1], _color[2]) / 255)
     origin = Vector3.FromStr(entity["origin"])
     if "_fifty_percent_distance" in entity and "_zero_percent_distance" not in entity:
         radius = int(entity["_fifty_percent_distance"])
@@ -532,6 +535,8 @@ def convertSpawner(entity, scale=1.0):
         "info_deathmatch_spawn": "mp_dm_spawn",
         "info_player_deathmatch": "mp_dm_spawn",
         "info_player_start": "info_player_start",
+        "info_player_allies": "mp_tdm_spawn_allies_start",
+        "info_player_axis": "mp_tdm_spawn_axis_start"
     }
 
     if entity["classname"] in spawners:
@@ -932,7 +937,9 @@ def exportMap(
                 convertRope(entity, curve=True, ropeDict=ropeDict, scale=scale)
             else:
                 res.entities.append(convertRope(entity))
-        elif entity["classname"] == "env_cubemap" and (game != "CoD2" or game != "BO3"):
+        elif entity["classname"] == "env_cubemap":
+            if game == "CoD2" or game == "BO3":
+                continue
             res.entities.append(convertCubemap(entity, scale=scale))
         elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
             res.entities.append(convertSpawner(entity, scale=scale))
@@ -955,9 +962,9 @@ def exportMap(
             worldSpawnSettings["ambient"] = ".116"
             worldSpawnSettings["reflection_ignore_portals"] = "1"
             if "ambient" in entity:
-                worldSpawnSettings["_color"] = (Vector3.FromStr(entity["_ambient"] if "_ambient" in entity else entity["ambient"]) / 255).round(3)
+                worldSpawnSettings["_color"] = Vector3.FromStr(entity["_ambient"] if "_ambient" in entity else entity["ambient"]) / 255
             if "_light" in entity:
-                worldSpawnSettings["suncolor"] = (Vector3.FromStr(entity["_light"]) / 255).round(3)
+                worldSpawnSettings["suncolor"] = Vector3.FromStr(entity["_light"]) / 255
             
     # convert 3d skybox geo & entities
     for i, brush in enumerate(mapData["skyBrushes"], lenWorld + lenEntBrushes + lenEnts):
@@ -1097,5 +1104,6 @@ def exportMap(
 
     else:
         world.properties.update(worldSpawnSettings)
-
+    
+    print("Writing map file...")
     res.Save(file)
