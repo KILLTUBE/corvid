@@ -619,8 +619,10 @@ class App:
         except:
             pass
         
-        print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source/prefabs/{vmfName}\"")
-        with open(f"{outputDir}/map_source/{prefabDir}/{vmfName}/{vmfName}.map", "w") as file:
+        writePath = f"map_source/{prefabDir}/{vmfName}" if game == "BO3" else "map_source"
+        print("Generating map data...")
+
+        with open(f"{outputDir}/{writePath}/{vmfName}.map", "w") as file:
             exportMap(
                 vmfFile, vpkFiles, gameDirs, game,
                 self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"],
