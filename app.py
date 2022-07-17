@@ -618,7 +618,7 @@ class App:
                 makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}")
         except:
             pass
-        
+
         writePath = f"map_source/{prefabDir}/{vmfName}" if game == "BO3" else "map_source"
         print("Generating map data...")
 
