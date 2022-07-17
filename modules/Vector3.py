@@ -41,7 +41,7 @@ class Vector3:
         return Vector3(self.x ** p, self.y ** p, self.z ** p)
 
     def __str__(self):
-        return "%f %f %f" % (self.x, self.y, self.z)
+        return "%g %g %g" % (self.x, self.y, self.z)
     
     def __repr__(self):
         return f"<Vector3 {self.x} {self.y} {self.z}>"
@@ -123,6 +123,14 @@ class Vector3:
     def set(self, vec: 'Vector3'):
         self.x, self.y, self.z = vec.x, vec.y, vec.z
 
+    def Translate(self) -> 'Matrix4x4':
+        return Matrix4x4([
+            0.0, 0.0, 0.0, self.x,
+            0.0, 0.0, 0.0, self.y,
+            0.0, 0.0, 0.0, self.z,
+            0.0, 0.0, 0.0, 0.0,
+        ])
+
     @staticmethod
     def Zero() -> 'Vector3':
         return Vector3(0.0, 0.0, 0.0)
@@ -148,3 +156,5 @@ class Vector3:
     @staticmethod
     def FromArray(arr):
         return Vector3(arr[0], arr[1], arr[2])
+
+from .Matrix import Matrix4x4

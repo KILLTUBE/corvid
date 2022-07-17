@@ -122,7 +122,7 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
             name: str = newPath(splitext(basetexture2)[0], True)
             dir.copy(f"materials/{basetexture2}.vtf", f"{tempDir}/{vtfDir}/{name}.vtf")
             res["colorMaps"].append(name)
-            res["sizes"][file.strip() + "_"] = getTexSize(f"{tempDir}/{vtfDir}/{name}.vtf")
+            res["sizes"][file.strip() + "_blend"] = getTexSize(f"{tempDir}/{vtfDir}/{name}.vtf")
         if "$bumpmap2" in mat:
             bumpMap2 = mat["$bumpmap2"].strip()
             name: str = newPath(splitext(bumpMap2)[0], True)

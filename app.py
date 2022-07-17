@@ -17,6 +17,7 @@ from os import makedirs, listdir
 from os.path import exists
 from tempfile import gettempdir
 from datetime import datetime
+from time import gmtime, strftime
 from pathlib import Path
 from modules.MapExporter import exportMap
 from modules.Vector3 import Vector3
@@ -28,6 +29,28 @@ gameDef = json.loads(open("res/gameDef.json").read())
 gameDefCustom = json.loads(open("res/gameDef.json").read())
 version = open("res/version.txt").read().split("\n")[0]
 steamAppsDirs = []
+
+def ProperTime(time):
+    f = strftime('%H:%M:%S', gmtime(time)).split(":")
+    h, m, s = int(f[0]), int(f[1]), int(f[2])
+
+    res = ""
+    if h == 1:
+        res += "1 hour "
+    elif h > 1:
+        res += f"{h} hours "
+    
+    if m == 1:
+        res += "1 minute "
+    elif m > 1:
+        res += f"{m} minutes "
+    
+    if s == 1:
+        res += "1 second"
+    else:
+        res += f"{s} seconds"
+    
+    return res
 
 class popupWindow:
     def __init__(self, app: 'App'):
@@ -595,21 +618,16 @@ class App:
                 makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}")
         except:
             pass
-        
-        res = exportMap(
-            vmfFile, vpkFiles, gameDirs, game,
-            self.skipMats.get(), self.skipModels.get(), vmfName,
-            settings["convertBrush"], scale=Vector3(settings["scale"][0], settings["scale"][0], settings["scale"][1])
-        )
-        
-        if game == "BO3":
-            print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source/prefabs/{vmfName}\"")
-            with open(f"{outputDir}/map_source/{prefabDir}/{vmfName}/{vmfName}.map", "w") as file:
-                file.write(res)
-        else:
-            print(f"Writing \"{vmfName}.map\" in \"{outputDir}/map_source\"")
-            with open(f"{outputDir}/map_source/{vmfName}.map", "w") as file:
-                file.write(res)
+
+        writePath = f"map_source/{prefabDir}/{vmfName}" if game == "BO3" else "map_source"
+        print("Generating map data...")
+
+        with open(f"{outputDir}/{writePath}/{vmfName}.map", "w") as file:
+            exportMap(
+                vmfFile, vpkFiles, gameDirs, game,
+                self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"],
+                scale=Vector3(settings["scale"][0], settings["scale"][0], settings["scale"][1]), file=file
+            )
 
         convertedDir = gettempdir() + "/corvid/converted"
 
@@ -629,7 +647,8 @@ class App:
                 shutil.move(f"{convertedDir}/{folder}/{f}", f"{outputDir}/{folder}/{f}")
 
         end = time.time()
-        print(f"Conversion finished in {round(end - start)} seconds")
+        total = ProperTime(round(end - start))
+        print(f"Conversion finished in {total}")
 
         open(f"{outputDir}/log.txt", "w").write(self.consoleTextBox.get(1.0, tkinter.constants.END))
 
@@ -663,7 +682,7 @@ class TextRedirector(object):
         self.tag = tag
         self.eof = False
 
-    def write(self, str):        
+    def write(self, str: str):        
         # update the progress bars depending on the printed text
         # I'm not really a Python guy normally, so I'm not sure if this is the best way to do this
         overAllSteps = [
@@ -724,8 +743,6 @@ if __name__ == "__main__":
         )
         app.setSteamDir()
     
-    steamAppsDirs.append(settings["steamDir"])
-
     if exists(f"{settings['steamDir']}/steamapps/libraryfolders.vdf"):
         libraryFolders = parse_vdf(open(f'{settings["steamDir"]}/steamapps/libraryfolders.vdf').read())["libraryfolders"]
         for key, value in libraryFolders.items():

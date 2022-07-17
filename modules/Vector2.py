@@ -36,7 +36,7 @@ class Vector2:
         return False
 
     def __str__(self):
-        return "%f %f" % (self.x, self.y)
+        return "%g %g" % (self.x, self.y)
 
     def dot(self, rhs):
         return (self.x * rhs.x) + (self.y * rhs.y)
