@@ -1,5 +1,4 @@
 [![Support me on Patreon](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3Djohndoe_%26type%3Dpatrons&style=for-the-badge)](https://patreon.com/johndoe_)
-
 # Corvid (ˈkɔrvəd)
 Corvid is a tool that converts Source Engine maps and their assets to be used in Call of Duty. It is currently in the beta-testing phase. This repository is for developers who know their way around Python and Git. If you are a mapper who wants to use Corvid, go to [releases](https://github.com/KILLTUBE/corvid/releases) to download the latest version.
 
