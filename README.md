@@ -1,3 +1,5 @@
+[![Support me on Patreon](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3Djohndoe_%26type%3Dpatrons&style=for-the-badge)](https://patreon.com/johndoe_)
+
 # Corvid (ˈkɔrvəd)
 Corvid is a tool that converts Source Engine maps and their assets to be used in Call of Duty. It is currently in the beta-testing phase. This repository is for developers who know their way around Python and Git. If you are a mapper who wants to use Corvid, go to [releases](https://github.com/KILLTUBE/corvid/releases) to download the latest version.
 
@@ -103,6 +105,8 @@ To run Corvid, launch `app.py`. Choose your Steam director and the game of the m
 - [Dylancyclone](https://github.com/Dylancyclone) for [VMF2OBJ](https://github.com/Dylancyclone/VMF2OBJ) tool which helped me understand a lot of things about Source Engine maps and inspired me to work on this tool.
 - [masterex1000](https://github.com/masterex1000) for helping me understand the intricacies of map files, mesh generation and helping with calculating UV maps.
 - Geekidos, HitmanVere, OldmanCats, ThomasCat for testing the maps converted by Corvid and help me figure out the issues we had on Black Ops 3. Without their help, Corvid couldn't have Black Ops 3 support at all.
+
+If you'd like to support my work, you can [become a patron](https://patreon.com/johndoe_) and help me keep working on this tool.
 
 For further information and support, join the KILLTUBE [Discord server](https://discordapp.com/invite/mqBchQZ)
 
