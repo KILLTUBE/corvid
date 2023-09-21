@@ -261,6 +261,21 @@
 			"platform"
 		]
 	},
+	"nmrih": {
+		"gameName": "No More Room in Hell",
+		"gameRoot": "nmrih",
+		"vpkFiles": [
+			"hl2/hl2_misc_dir.vpk",
+			"hl2/hl2_textures_dir.vpk",
+			"hl2mp/hl2mp_pak_dir.vpk",
+			"nmrih/nmrih_dir.vpk"
+		],
+		"gameDirs": [
+			"hl2",
+			"hl2mp",
+			"nmrih"
+		]
+	},
 	"_s2": {
 		"gameName": "seperator"
 	},
