@@ -1,6 +1,6 @@
 [submodule "PyCoD"]
-	path = PyCoD
+	path = Libs/PyCoD
 	url = https://github.com/SE2Dev/PyCoD
 [submodule "SourceIO"]
-	path = SourceIO
+	path = Libs/SourceIO
 	url = https://github.com/REDxEYE/SourceIO
