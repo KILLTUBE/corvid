@@ -657,7 +657,7 @@ class App:
 
     def convertButton_thread(self):
         self.conversionThread = threading.Thread(target=self.convertButton_command)
-        self.conversionThread.setDaemon(True)
+        self.conversionThread.daemon = True
         self.conversionThread.start()
         self.checkThread = threading.Thread(target=self.checkThreadFinished)
         self.checkThread.start()

@@ -62,7 +62,8 @@ class Entity:
         self.geo = flatten(self.geo)
 
         for i, geo in enumerate(self.geo):
-            file.write(f"// brush {i}\n")
-            geo.Save(file)
+            if geo is not None:
+                file.write(f"// brush {i}\n")
+                geo.Save(file)
 
         file.write("}\n")

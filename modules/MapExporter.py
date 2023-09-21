@@ -246,7 +246,7 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
     
 def convertLight(entity, scale=1.0):
     if "_light" in entity:
-        _color = [int(i) for i in entity["_light"].split(" ")]
+        _color = [float(i) for i in entity["_light"].split(" ")]
         if len(_color) == 3:
             _color.append(300)
     elif len(_color) < 3:
@@ -282,11 +282,11 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
     color = (Vector3(_color[0], _color[1], _color[2]) / 255)
     origin = Vector3.FromStr(entity["origin"])
     if "_fifty_percent_distance" in entity and "_zero_percent_distance" not in entity:
-        radius = int(entity["_fifty_percent_distance"])
+        radius = float(entity["_fifty_percent_distance"])
     elif "_zero_percent_distance" in entity and "_fifty_percent_distance" not in entity:
-        radius = int(entity["_zero_percent_distance"])
+        radius = float(entity["_zero_percent_distance"])
     elif "_fifty_percent_distance" in entity and "_zero_percent_distance" in entity:
-        radius = (int(entity["_fifty_percent_distance"]) * 2 + int(entity["_zero_percent_distance"])) / 2
+        radius = (float(entity["_fifty_percent_distance"]) * 2 + float(entity["_zero_percent_distance"])) / 2
     else:
         radius = 250
     if radius == 0:
