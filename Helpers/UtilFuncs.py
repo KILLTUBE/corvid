@@ -21,3 +21,11 @@ def ProperTime(time):
         res += f"{s} seconds"
     
     return res
+
+def ParseQuotedKV(kv: str):
+        tok = kv.split('"')
+
+        if len(tok) == 5:
+            return tok[1], tok[3]
+        elif len(tok) > 5:
+            return tok[1], '"'.join(tok[3:-1])
