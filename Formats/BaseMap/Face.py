@@ -2,7 +2,7 @@ from math import cos, fabs, radians, sin, sqrt, pow
 from typing import List, Tuple, Union
 from functools import cmp_to_key
 from mathutils import Vector
-from Helpers.MathHelpers import VecUp, VecRight, VecForward
+from Helpers.MathHelpers import VecUp, VecRight, VecForward, VecZero
 from Formats.Common.StandardUV import StandardUV 
 from Formats.Common.ValveUV import ValveUV 
 from Formats.Common.CoDUV import CoDUV 
@@ -35,7 +35,7 @@ class Face:
         self.__center__, self.__normal__, self.__distance__ = None, None, None
         self.vert_idx = []
         self.uv_idx = []
-        self.texSize = Vector(512, 512)
+        self.texSize = Vector((512, 512))
 
     def AddVert(self, vert: Vector) -> None:
         """
@@ -79,7 +79,7 @@ class Face:
         
         ab: Vector = self.p2 - self.p1
         ac: Vector = self.p3 - self.p1
-        self.__normal__ = ab.Cross(ac).Normalized()
+        self.__normal__ = ab.cross(ac).normalized()
         return self.__normal__
 
     def GetCenter(self) -> Vector:
@@ -90,7 +90,7 @@ class Face:
         if self.__center__ is not None:
             return self.__center__
 
-        res = Vector.Zero()
+        res = VecZero()
 
         for vert in self.vert_idx:
             res += self.parent.verts[vert]
@@ -116,8 +116,8 @@ class Face:
             b = self.parent.verts[_b]
             ca: Vector = center - a
             cb: Vector = center - b
-            caXcb: Vector = ca.Cross(cb)
-            if normal.Dot(caXcb) > 0:
+            caXcb: Vector = ca.cross(cb)
+            if normal.dot(caXcb) > 0:
                 return 1
             return -1
         
