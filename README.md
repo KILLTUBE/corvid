@@ -2,6 +2,8 @@
 # Corvid (ˈkɔrvəd)
 Corvid is a tool that converts Source Engine maps and their assets to be used in Call of Duty. It is currently in the beta-testing phase. This repository is for developers who know their way around Python and Git. If you are a mapper who wants to use Corvid, go to [releases](https://github.com/KILLTUBE/corvid/releases) to download the latest version.
 
+# !!! This branch is a work-in-progress and under heavy construction. It will get merged into the main branch once it's complete!!!
+
 ## Supported games
 - Call of Duty 2
 - Call of Duty 4: Modern Warfare
