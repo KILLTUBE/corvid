@@ -1,12 +1,11 @@
-from math import atan2, cos, fabs, radians, sin, sqrt, pow
+from math import cos, fabs, radians, sin, sqrt, pow
 from typing import List, Tuple, Union
 from functools import cmp_to_key
-from numpy.linalg import solve
 from mathutils import Vector
-
-class BaseUV:
-    def __init__(self) -> None:
-        pass
+from Helpers.MathHelpers import VecUp, VecRight, VecForward
+from Formats.Common.StandardUV import StandardUV 
+from Formats.Common.ValveUV import ValveUV 
+from Formats.Common.CoDUV import CoDUV 
 
 class Face:
     """
@@ -22,7 +21,7 @@ class Face:
     p2: Vector
     p3: Vector
     material: str
-    uvData: BaseUV
+    uvData: StandardUV | ValveUV | CoDUV
     texSize: Vector
     vert_idx: List[int]
     uv_idx: List[int]
