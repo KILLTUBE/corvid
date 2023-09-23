@@ -31,3 +31,6 @@ def VecRight() -> Vector:
 
 def VecForward() -> Vector:
     return Vector((1.0, 0.0, 0.0))
+
+def VecZero(size: int=3) -> Vector:
+    return Vector([0] * size)
