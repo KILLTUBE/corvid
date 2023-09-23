@@ -1,4 +1,4 @@
-from typing import Dict, List, Union
+from typing import Dict, List
 from Formats.BaseMap.Brush import Brush
 
 class Solid(Brush):
@@ -16,13 +16,14 @@ class Solid(Brush):
         self.isToolBrush = True
 
         if data is not None and "side" in data:
-            for side in data["side"]:
-                self.AddFace(Side(side))
+            for sideData in data["side"]:
+                side = Side(sideData)
+                self.AddFace(side)
 
-                if not side["material"].strip().lower().startswith("tools/"):
+                if not side.material.startswith("tools/"):
                     self.isToolBrush = False
 
-                if "dispinfo" in side:
+                if side.dispInfo is not None:
                     self.hasDisp = True
 
     def ToDict(self, id: int=None) -> dict:
@@ -30,7 +31,7 @@ class Solid(Brush):
 
         if id is not None:
             res["id"] = id
-        
+
         res["side"] = [side.ToDict() for side in self.faces]
 
         return res
