@@ -14,12 +14,12 @@ class PatchVert(BaseVert):
     lm: Vector
     noLightmap: bool
 
-    def __init__(self, pos, uv, lm, color=None) -> None:
+    def __init__(self, pos, uv, lm=None, color=None) -> None:
         self.pos = pos
         self.color = color
         self.uv = uv
         self.lm = lm
-        self.noLightmap = False
+        self.noLightmap = lm is None
 
     def __str__(self) -> str:
         if self.noLightmap:
