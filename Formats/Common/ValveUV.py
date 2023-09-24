@@ -19,9 +19,9 @@ class ValveUV:
         if texSize is None:
             texSize = Vector(512, 512)
 
-        return Vector(
+        return Vector((
             vertex.dot(self.uAxis) / (texSize.x * self.uScale) +
             (self.uOffset / texSize.x),
             vertex.dot(self.vAxis) / (texSize.y * self.vScale) +
             (self.vOffset / texSize.y)
-        )
+        ))

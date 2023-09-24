@@ -11,7 +11,7 @@ class Entity(BaseEntity):
     layer: str
 
     def __init__(self, properties={}) -> None:
-        self.properties = properties
+        self.__properties__ = properties
         self.geo = []
         self.layer = None
 
@@ -44,7 +44,7 @@ class Entity(BaseEntity):
         if self.layer is not None:
             file.write(f"layer {self.layer}\n")
 
-        for key, value in self.properties.items():
+        for key, value in self.__properties__.items():
             file.write(f'"{key}" "{value}"\n')
 
         self.geo = Flatten(self.geo)

@@ -12,7 +12,7 @@ class Side(Face):
     uvData: ValveUV
     parent: 'Solid'
     id: int
-    lightmapScale: float
+    lightmapScale: int
     dispInfo: Union[Displacement, None]
 
     def __init__(self, data: Dict[str, Union[str, dict]]=None, plane: Tuple[Vector, Vector, Vector]=None, material: str=None, uvData: ValveUV=None) -> None:
@@ -48,7 +48,7 @@ class Side(Face):
             self.uvData.vOffset = float(v[3][:-1])
             self.uvData.vScale = float(v[4])
 
-            self.lightmapScale = float(data["lightmapscale"])
+            self.lightmapScale = int(float(data["lightmapscale"]))
             self.dispInfo = Displacement(data["dispinfo"]) if "dispinfo" in data else None
 
     def SliceDispVerts(self, v1: Vector, v2: Vector, uv1: Vector, uv2) -> List[Tuple[Vector, Vector]]:

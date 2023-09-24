@@ -1,10 +1,10 @@
 from mathutils import Vector
 
 def Vec2Str(vec: Vector) -> str:
-    return " ".join([f"{v:5g}" for v in vec])
+    return " ".join([f"{v:.5g}" for v in vec])
 
 def VecFromStr(vec: str) -> Vector:
-    return Vector([float(v) for v in str.split()])
+    return Vector([float(v) for v in vec.split()])
 
 def VecFromList(vec: list):
     return Vector([float(v) for v in vec])
@@ -34,3 +34,6 @@ def VecForward() -> Vector:
 
 def VecZero(size: int=3) -> Vector:
     return Vector([0] * size)
+
+def Vec2Hex(vec: Vector) -> str:
+    return "".join(["%02x" % i for i in vec])

@@ -8,7 +8,7 @@ from Formats.Source.Material import Material
 from Formats.Source.SourceModel import SourceModel
 from Helpers.ListHelpers import AddUnique, Flatten
 from Helpers.FileHelpers import GetTempDir, NewPath
-from Helpers.MathHelpers import VecFromStr, Vec2Str
+from Helpers.MathHelpers import Vec2Hex, VecFromStr, Vec2Str
 from Libs.SourceIO.source1.vtf.VTFWrapper.VTFLib import VTFLib
 from .Entity import Entity
 from .Solid import Solid
@@ -61,22 +61,22 @@ class Map(BaseMap):
         self.modelMaterialData = {}
         self.modelTextureData = ([], [], [], [], [])
         if options is not None:
-            for i in options["Resources"]:
-                self.assetDir.Add(i)
+            for resource in options["Resources"]:
+                self.assetDir.Add(resource)
 
     def AddModelTint(self, model: str, tint: str) -> None:
         if model not in self.modelTints:
             self.modelTints[model] = []
-        
-        tint = tuple([int(i) for i in tint.split()])
+
+        tint = Vec2Hex(VecFromStr(tint))
 
         if tint not in self.modelTints[model]:
             self.modelTints[model].append(tint)
-    
+
     def AddModelSkin(self, model: str, skin: str) -> None:
         if model not in self.modelSkins:
             self.modelSkins[model] = []
-        
+
         skin = int(skin)
 
         if skin not in self.modelSkins[model]:
@@ -117,28 +117,28 @@ class Map(BaseMap):
                     AddUnique(colorMapsAlpha, NewPath(FixPath(material["$basetexture"])))      
                 else:
                     AddUnique(colorMaps, NewPath(FixPath(material["$basetexture"])))
-            
+
             if "$bumpmap" in material:
                 AddUnique(normalMaps, NewPath(FixPath(material["$bumpmap"])))
-            
+
             if "$envmapmask" in material:
                 AddUnique(envMaps, NewPath(FixPath(material["$envmapmask"])))
-            
+
             if "$blendmodulatetexture" in material:
                 blendMaps.append(NewPath(FixPath(material["$blendmodulatetexture"])))
-            
+
             if "$basetexture2" in material:
                 AddUnique(colorMaps, NewPath(FixPath(material["$basetexture2"])))
-            
+
             if "$bumpmap2" in material:
                 AddUnique(normalMaps, NewPath(FixPath(material["$bumpmap2"])))
-            
+
             if "$envmapmask2" in material:
                 AddUnique(envMaps, NewPath(FixPath(material["$envmapmask2"])))
-            
+
             if "basealphaenvmapmask" in material:
                 AddUnique(envMapsInAlpha, NewPath(FixPath(material["$basetexture"])))
-            
+
             if "normalmapalphaenvmapmask" in material:
                 AddUnique(envMapsInAlpha, NewPath(FixPath(material["$bumpmap"])))
 
@@ -183,7 +183,7 @@ class Map(BaseMap):
             for material in modelData.materials:
                 if material not in self.modelMaterials:
                     self.modelMaterials.append(material)
-            
+
             self.modelData[model] = modelData
 
     def LoadModelMaterials(self):
@@ -325,7 +325,7 @@ class Map(BaseMap):
                 for side in solid["side"]:
                     res.AddMaterial(side["material"])
 
-            entities: Dict[str, str] = vmf["entity"] if isinstance(vmf["entity"], list) else [vmf["entity"]]
+            entities: List[Dict[str, str]] = (vmf["entity"] if isinstance(vmf["entity"], list) else [vmf["entity"]]) if "entity" in vmf else []
             for i, entity in enumerate(entities):
                 res.entities.append(Entity(entity))
                 
