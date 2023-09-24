@@ -108,6 +108,9 @@ class Face:
         Sorts vertices clockwise.
         """
 
+        if len(self.vert_idx) == 0:
+            return
+
         center: Vector = self.GetCenter()
         normal: Vector = self.GetNormal()
 
@@ -164,7 +167,7 @@ class Face:
 
         Apart from the plane points, all the other properties are set to `None`. 
         """
-        
+
         res = Face()
         res.p1, res.p2, res.p3 = p1, p2, p3
         res.material = res.uvData = None

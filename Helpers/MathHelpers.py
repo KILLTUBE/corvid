@@ -36,4 +36,4 @@ def VecZero(size: int=3) -> Vector:
     return Vector([0] * size)
 
 def Vec2Hex(vec: Vector) -> str:
-    return "".join(["%02x" % i for i in vec])
+    return "".join(["%02x" % int(i) for i in vec])

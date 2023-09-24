@@ -47,8 +47,8 @@ def ConvertModel(model: SourceModel) -> str:
             mat_idx, v1, v2, v3 = face
             faces += f"TRI {g} {mat_idx} 0 0\n"
 
-            for v in [v1, v3, v2]:
-                vert_idx, uv, normal = v[0], group.uvs[v[1]], group.normals[v[2]]
+            for pv in [v1, v3, v2]:
+                vert_idx, uv, normal = pv[0], group.uvs[pv[1]], group.normals[pv[2]]
                 faces += (
                     f"VERT {vert_idx}\n"
                     f"NORMAL {Vec2Str(normal)}\n"
@@ -141,6 +141,7 @@ def CreateModelGdt(models: Dict[str, SourceModel], tints: Dict[str, List[Tuple[i
                 })
 
         if name in tints:
+            skinOverride = []
             for tint in tints[name]:
                 for i, mat in enumerate(model.materials):
                     skinOverride.append((mat, f"{mat}_{tint}"))

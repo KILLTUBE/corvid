@@ -69,18 +69,19 @@ class Side(Face):
         # shift the start position of the displacement to the start of the vert list
         s: int = None
         for i, v in enumerate(verts):
-            if v == self.dispInfo.startPosition:
+            if (v - self.dispInfo.startPosition).length <= 0.1:
                 s = i
                 break
 
         if s is None:
-            print(f"Can't find the start position of brush side {self.id}.")
-            exit()
+            return None
 
-        a, UVa = verts[s], uvs[s]
-        b, UVb = verts[(s + 1) % 4], uvs[(s + 1) % 4]
-        c, UVc = verts[(s + 2) % 4], uvs[(s + 2) % 4]
-        d, UVd = verts[(s + 3) % 4], uvs[(s + 3) % 4]
+        verts = verts[s:] + verts[:s]
+
+        a, UVa = verts[0], uvs[0]
+        b, UVb = verts[1], uvs[1]
+        c, UVc = verts[2], uvs[2]
+        d, UVd = verts[3], uvs[3]
 
         # calculate the disp vert between each side
         ab = self.SliceDispVerts(a, b, UVa, UVb)
@@ -102,6 +103,9 @@ class Side(Face):
 
     def TriangulateDisp(self) -> List[Tuple[Vector, Vector, Vector, float, int]]:
         verts = self.GetDispVerts()
+        if verts is None:
+            return None
+
         tris: List[Tuple[Vector, Vector, Vector, float, int]] = []
 
         for i in range(self.dispInfo.numRows - 1):

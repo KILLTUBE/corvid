@@ -1,6 +1,6 @@
 from typing import List
 from math import isnan
-from mathutils import Vector, geometry
+from mathutils import Vector
 
 def GetPlaneIntersectionPoint(face1: 'Face', face2: 'Face', face3: 'Face') -> Vector | None:
     """
@@ -10,11 +10,20 @@ def GetPlaneIntersectionPoint(face1: 'Face', face2: 'Face', face3: 'Face') -> Ve
 
     It will will return `None` if the planes don't intersect (if two of the planes are parallel to each other for example)
     """
+    normal1 = face1.GetNormal()
+    normal2 = face2.GetNormal()
+    normal3 = face3.GetNormal()
 
-    line = geometry.intersect_plane_plane(face1.p1, face1.GetNormal(), face2.p1, face2.GetNormal())
+    determinant = normal1.dot(normal2.cross(normal3))
 
-    if line is not None and line[0] is not None:
-        return geometry.intersect_line_plane(line[0], line[0] + line[1], face3.p1, face3.GetNormal())
+    if abs(determinant) <= 1e-5 or (isnan(determinant)):
+        return None
+    else:
+        return (
+            normal2.cross(normal3) * face1.GetDistance() +
+            normal3.cross(normal1) * face2.GetDistance() +
+            normal1.cross(normal2) * face3.GetDistance()
+        ) / determinant
 
 class Brush:
     """ Base class that holds all the necessary properties and methods used by a brush. """
@@ -53,14 +62,13 @@ class Brush:
         """
 
         for face in self.faces:
-            center: Vector = (face.p1 + face.p2 + face.p3) / 3
-            facing: Vector = (vert - center).normalized()
+            center = (face.p1 + face.p2 + face.p3) / 3
+            facing = (vert - center).normalized()
 
-            if facing.dot(face.GetNormal()) < -0.001:
+            if facing.dot(face.GetNormal().normalized()) < -0.001:
                 return False
 
         return True
-
 
     def CalculateVerts(self) -> None:
         """
@@ -74,7 +82,7 @@ class Brush:
         for i, face1 in enumerate(self.faces[:-2]):
             for k, face2 in enumerate(self.faces[:-1]):
                 for j, face3 in enumerate(self.faces):
-                    if i is k or i is j or k is j: # skip comparing faces to themselves
+                    if i == k or i == j or k == j: # skip comparing faces to themselves
                         continue
                         
                     intersection: Vector = GetPlaneIntersectionPoint(face1, face2, face3)

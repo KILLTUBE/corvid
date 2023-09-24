@@ -134,6 +134,11 @@ def ConvertDisplacements(solid: Solid, options: dict) -> List[Patch]:
         size = (side.dispInfo.numRows, side.dispInfo.numRows)
         elevation = Vector((0, 0, side.dispInfo.elevation))
         rows = side.GetDispVerts()
+
+        if rows is None:
+            print(f"Could not calculate the vertices of displacement {side.id}. Skipping...")
+            continue
+
         verts: List[List[PatchVert]] = []
 
         for i, row in enumerate(rows):
@@ -286,7 +291,7 @@ def ConvertRopeAsCurve(start: Vector, end: Vector, slack: float, width: float, o
     # calculate the direction and the forward vectors from start and end points
     dif = (end - start)
 
-    if dif.Length() == 0:
+    if dif.length == 0:
         forward = VecZero()
     else:
         forward = dif.normalized()
