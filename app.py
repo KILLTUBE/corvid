@@ -13,7 +13,7 @@ import tkinter.font as tkFont
 from tkinter import filedialog, simpledialog
 from tkinter.ttk import Progressbar
 from sys import stderr, stdout, exit
-from os import makedirs, listdir
+from os import makedirs, listdir, getenv
 from os.path import exists
 from tempfile import gettempdir
 from datetime import datetime
@@ -727,7 +727,7 @@ if __name__ == "__main__":
     # Find where Steam is installed from registry
     if settings["steamDir"] == "":
         try:
-            hkey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\WOW6432Node\Valve\Steam")
+            hkey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Valve\\Steam")
             steamDir = winreg.QueryValueEx(hkey, "InstallPath")[0]
             steamDir = Path(steamDir).as_posix()
             app.setSteamDir(steamDir)
@@ -751,5 +751,10 @@ if __name__ == "__main__":
                 steamAppsDirs.append(libraryDir)
     else:
         print("Cannot detect Steam libraries. Make sure your Steam directory is correct.")
+
+    # If temp folder already exists, delete it before we proceed as it causes issues
+    temp_path = f'{getenv("LOCALAPPDATA")}/Temp/corvid'
+    if exists(temp_path):
+        shutil.rmtree(temp_path)
     
     root.mainloop()

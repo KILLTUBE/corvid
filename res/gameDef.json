@@ -55,6 +55,24 @@
 			"hl2"
 		]
 	},
+	"doi": {
+		"gameName": "Day of Infamy",
+		"gameRoot": "dayofinfamy",
+		"vpkFiles": [
+			"doi/content/doi_csgo_imported_dir.vpk",
+			"doi/content/doi_dod_imported_dir.vpk",
+			"doi/content/doi_l4d2_imported_dir.vpk",
+			"doi/content/doi_portal2_imported_dir.vpk",
+			"doi/doi_materials_dir.vpk",
+			"doi/doi_misc_dir.vpk",
+			"doi/doi_models_dir.vpk",
+			"doi/doi_particles_dir.vpk",
+			"doi/doi_sound_dir.vpk"
+		],
+		"gameDirs": [
+			"doi"
+		]
+	},
 	"gmod": {
 		"gameName": "Garry's Mod",
 		"gameRoot": "GarrysMod",
