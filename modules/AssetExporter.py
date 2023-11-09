@@ -859,7 +859,8 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "semantic": "HDR",
             "compressionMethod": "uncompressed",
             "coreSemantic": "HDR",
-            "streamable": "1"
+            "streamable": "1",
+            "noMipMaps": "1"
         })
         gdt.add(f"{mapName}_sky_mtl", "material", {
             "materialCategory": "Geometry",
