@@ -283,7 +283,7 @@ def surfaceType(surface: str, game=""):
         "flesh": ["flesh", "skin"],
         "foliage": ["foliage", "foliage"],
         "watermelon": ["fruit", "foliage"],
-        "zombieflesh": ["flesh", "flesh"],
+        "zombieflesh": ["flesh", "skin"],
         "asphalt": ["asphalt", "asphalt"],
         "glass": ["glass", "glass"],
         "glassbottle": ["glass", "glass"],

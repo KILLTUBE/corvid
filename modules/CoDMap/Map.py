@@ -124,6 +124,9 @@ class Map:
         self.entities = flatten(self.entities)
 
         for i, entity in enumerate(self.entities):
+            if entity is None:
+                continue
+
             file.write(f"// entity {i}\n")
             entity.Save(file)
     
