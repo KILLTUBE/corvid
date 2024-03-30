@@ -924,47 +924,52 @@ def exportMap(
             AABBmax.set(AABBmax.max(origin))
             AABBmin.set(AABBmin.min(origin))
 
-        print(f"{i}|{total}|done", end="")
+        try:
+            print(f"{i}|{total}|done", end="")
 
-        if entity["classname"].startswith("prop_"):
-            res.entities.append(convertProp(entity, game, scale=scale))
-        elif entity["classname"] == "light":
-            res.entities.append(convertLight(entity, scale=scale))
-        elif entity["classname"] == "light_spot":
-            res.entities.append(convertSpotLight(entity, game, scale=scale))
-        elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
-            if game == "CoD4" or game == "CoD2":
-                convertRope(entity, curve=True, ropeDict=ropeDict, scale=scale)
-            else:
-                res.entities.append(convertRope(entity))
-        elif entity["classname"] == "env_cubemap":
-            if game == "CoD2" or game == "BO3":
-                continue
-            res.entities.append(convertCubemap(entity, scale=scale))
-        elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
-            res.entities.append(convertSpawner(entity, scale=scale))
-        # elif entity["classname"] == "info_overlay":
-        #     if entity["sides"] != "":
-        #         overlays.append(entity)
-        # elif entity["classname"] == "infodecal":
-        #     decals.append(entity)
-        elif entity["classname"] == "func_bomb_target":
-            res.entities.append(convertBombsite(entity, scale=scale, game=game, site=bombsites[currentBombsite]))
-            currentBombsite += 1
-        elif entity["classname"] == "light_environment":
-            sundirection = Vector3.FromStr(entity["angles"])
-            sundirection.x = float(entity["pitch"])
-            sundirection.y = sundirection.y - 180 if sundirection.y >= 180 else sundirection.y + 180
-            worldSpawnSettings["sundirection"] = sundirection
-            worldSpawnSettings["sunlight"] = "1"
-            worldSpawnSettings["sundiffusecolor"] = "0.75 0.82 0.85"
-            worldSpawnSettings["diffusefraction"] = ".2"
-            worldSpawnSettings["ambient"] = ".116"
-            worldSpawnSettings["reflection_ignore_portals"] = "1"
-            if "ambient" in entity:
-                worldSpawnSettings["_color"] = Vector3.FromStr(entity["_ambient"] if "_ambient" in entity else entity["ambient"]) / 255
-            if "_light" in entity:
-                worldSpawnSettings["suncolor"] = Vector3.FromStr(entity["_light"]) / 255
+            if entity["classname"].startswith("prop_"):
+                res.entities.append(convertProp(entity, game, scale=scale))
+            elif entity["classname"] == "light":
+                res.entities.append(convertLight(entity, scale=scale))
+            elif entity["classname"] == "light_spot":
+                res.entities.append(convertSpotLight(entity, game, scale=scale))
+            elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
+                if game == "CoD4" or game == "CoD2":
+                    convertRope(entity, curve=True, ropeDict=ropeDict, scale=scale)
+                else:
+                    res.entities.append(convertRope(entity))
+            elif entity["classname"] == "env_cubemap":
+                if game == "CoD2" or game == "BO3":
+                    continue
+                res.entities.append(convertCubemap(entity, scale=scale))
+            elif entity["classname"].startswith("info_player") or entity["classname"].endswith("_spawn"):
+                res.entities.append(convertSpawner(entity, scale=scale))
+            # elif entity["classname"] == "info_overlay":
+            #     if entity["sides"] != "":
+            #         overlays.append(entity)
+            # elif entity["classname"] == "infodecal":
+            #     decals.append(entity)
+            elif entity["classname"] == "func_bomb_target":
+                res.entities.append(convertBombsite(entity, scale=scale, game=game, site=bombsites[currentBombsite]))
+                currentBombsite += 1
+            elif entity["classname"] == "light_environment":
+                sundirection = Vector3.FromStr(entity["angles"])
+                sundirection.x = float(entity["pitch"])
+                sundirection.y = sundirection.y - 180 if sundirection.y >= 180 else sundirection.y + 180
+                worldSpawnSettings["sundirection"] = sundirection
+                worldSpawnSettings["sunlight"] = "1"
+                worldSpawnSettings["sundiffusecolor"] = "0.75 0.82 0.85"
+                worldSpawnSettings["diffusefraction"] = ".2"
+                worldSpawnSettings["ambient"] = ".116"
+                worldSpawnSettings["reflection_ignore_portals"] = "1"
+                if "ambient" in entity:
+                    worldSpawnSettings["_color"] = Vector3.FromStr(entity["_ambient"] if "_ambient" in entity else entity["ambient"]) / 255
+                if "_light" in entity:
+                    worldSpawnSettings["suncolor"] = Vector3.FromStr(entity["_light"]) / 255
+        except Exception as e:
+            print(f"Could not convert the entity '{entity["classname"]}' with the ID {entity["id"]}. Skipping...")
+            print("Exception message:\n{e}")
+            pass
             
     # convert 3d skybox geo & entities
     for i, brush in enumerate(mapData["skyBrushes"], lenWorld + lenEntBrushes + lenEnts):
