@@ -967,8 +967,8 @@ def exportMap(
                 if "_light" in entity:
                     worldSpawnSettings["suncolor"] = Vector3.FromStr(entity["_light"]) / 255
         except Exception as e:
-            print(f"Could not convert the entity '{entity["classname"]}' with the ID {entity["id"]}. Skipping...")
-            print("Exception message:\n{e}")
+            print(f"Could not convert the entity '{entity['classname']}' with the ID {entity['id']}. Skipping...")
+            print(f"Exception message:\n{e}")
             pass
             
     # convert 3d skybox geo & entities
