@@ -30,8 +30,7 @@ jobs:
 
       - name: Create ZIP archive
         run: |
-          timestamp=$(date +"%d%m%Y-%H%M")
-          Compress-Archive -Path dist -DestinationPath Corvid-pre-release-${ timestamp }-${{ github.run_number }}.zip
+          Compress-Archive -Path dist -DestinationPath Corvid-pre-release-${{ github.run_number }}.zip
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v3
@@ -45,4 +44,4 @@ jobs:
           tag: pre-release
           body: "Built from commit ${{ github.sha }}"
           draft: false 
-          artifacts: "Corvid-pre-release-${ timestamp }-${{ github.run_number }}.zip"
+          artifacts: "Corvid-pre-release-${{ github.run_number }}.zip"
