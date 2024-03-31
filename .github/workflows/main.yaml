@@ -31,7 +31,7 @@ jobs:
 
     - name: Create Pre-release
       id: create_release
-      - uses: actions/create-release@v1
+      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -39,11 +39,14 @@ jobs:
         release_name: Pre-release ${{ github.run_number }}  # Set release name using run number
         draft: false
         prerelease: true  # Mark the release as a pre-release
+    
+    # Add a separate step for checking out code within the release job
+    - name: Checkout code for release
+      uses: actions/checkout@v2
 
     - name: Upload Release Asset
       id: upload-release-asset
-      - uses: actions/upload-release-asset@v1
-      - uses: actions/checkout@v2
+      uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
