@@ -31,7 +31,7 @@ jobs:
 
     - name: Create Pre-release
       id: create_release
-      uses: actions/create-release@v1
+      - uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -42,11 +42,12 @@ jobs:
 
     - name: Upload Release Asset
       id: upload-release-asset
-      uses: actions/upload-release-asset@v1
+      - uses: actions/upload-release-asset@v1
+      - uses: actions/checkout@v2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./dist/*  # Specify the path to your compiled files
-        asset_name: corvid-1.0.0-nightly-${{ github.run_number }}.zip  # Specify the name of the release asset
+        asset_name: Corvid-pre-release-${{ github.run_number }}.zip  # Specify the name of the release asset
         asset_content_type: application/zip
