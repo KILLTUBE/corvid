@@ -1,4 +1,4 @@
-name: Build Windows App
+name: Build Windows App and Create Pre-release
 
 on:
   push:
@@ -12,6 +12,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
+      with:
+        submodules: recursive  # Clones submodules recursively
 
     - name: Set up Python
       uses: actions/setup-python@v2
@@ -26,3 +28,25 @@ jobs:
     - name: Run BAT commands
       run: |
         ./build.bat
+
+    - name: Create Pre-release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: prerelease-${{ github.run_number }}  # Increment version with run number
+        release_name: Pre-release ${{ github.run_number }}  # Set release name using run number
+        draft: false
+        prerelease: true  # Mark the release as a pre-release
+
+    - name: Upload Release Asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/*  # Specify the path to your compiled files
+        asset_name: corvid-1.0.0-nightly-${{ github.run_number }}.zip  # Specify the name of the release asset
+        asset_content_type: application/zip
