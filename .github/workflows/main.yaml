@@ -25,4 +25,4 @@ jobs:
 
     - name: Run BAT commands
       run: |
-        build.bat
+        ./build.bat
