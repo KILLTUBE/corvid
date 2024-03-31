@@ -36,7 +36,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: dist
-          path: dist.zip
+          path: Corvid-pre-release-${{ github.run_number }}.zip
 
       - name: Create Release
         uses: ncipollo/release-action@v1.14.0
