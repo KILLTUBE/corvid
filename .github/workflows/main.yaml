@@ -28,18 +28,20 @@ jobs:
         run: |
           .\build.bat  # Assuming your bat file is named build.bat
 
-      - name: Upload build artifacts
+      - name: Create ZIP archive
+        run: |
+          Compress-Archive -Path dist -DestinationPath Corvid-pre-release-${{ github.sha }}.zip
+
+      - name: Upload build artifact
         uses: actions/upload-artifact@v3
         with:
           name: dist
-          path: dist
+          path: dist.zip
 
       - name: Create Release
         uses: ncipollo/release-action@v1.14.0
         with:
-          tag: pre-release
-          tag_name: ${{ github.sha }}-pre-release  # Use commit SHA as tag name
-          release_name: "Pre-Release ${{ github.sha }}"
+          tag: ${{ github.sha }}-pre-release  # Use commit SHA as tag name
           body: "Built from commit ${{ github.sha }}"
           draft: false  # Set to true for draft releases
-          artifacts: "dist/*"
+          artifacts: "Corvid-pre-release-${{ github.sha }}.zip"
