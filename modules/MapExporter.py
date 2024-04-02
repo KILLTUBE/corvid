@@ -228,7 +228,7 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=Vector
                 material = "clip_water"
         
         elif brushConversion:
-            mat = newPath(side.material)
+            material = newPath(side.material)
             # side.texSize = matSizes.get(mat, Vector2(512, 512))
             # tex = side.getTexCoords()
             # resBrush += f"{mat} {tex}\n"
