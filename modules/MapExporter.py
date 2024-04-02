@@ -918,7 +918,8 @@ def exportMap(
         if not brush.isToolBrush and not brush.hasDisp:
             brushDict[brush.id] = brush
 
-    for i, entity in enumerate(mapData["entities"], lenWorld + lenEntBrushes):
+    entities: Dict[str, str] = mapData["entities"]
+    for i, entity in enumerate(entities, lenWorld + lenEntBrushes):
         if "origin" in entity:
             origin = Vector3.FromStr(entity["origin"]) * scale
             AABBmax.set(AABBmax.max(origin))
