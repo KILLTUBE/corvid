@@ -150,7 +150,12 @@ class Vector3:
     @staticmethod
     def FromStr(string: str):
         string = string.replace("[","").replace("]","").replace("{","").replace("}","").replace("  ", " ").strip()
-        tok = [i for i in string.split(" ") if i != ""]
+        tok = [float(i) for i in string.split()]
+
+        if len(tok) < 3:
+            for _ in range(0, 3 - len(tok)):
+                tok.append(0)
+
         return Vector3(tok[0], tok[1], tok[2])
     
     @staticmethod
