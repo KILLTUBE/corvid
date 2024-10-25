@@ -1,9 +1,10 @@
 from io import TextIOWrapper
 from typing import Dict, List, Union
-
+from glm import vec3, vec2
 from modules.Static import flatten
 from .Brush import Brush
 from .Patch import Patch
+from ..Static import Vec2Str
 
 class Entity:
     properties: Dict[str, str]
@@ -34,6 +35,8 @@ class Entity:
             res += f"layer {self.layer}\n"
 
         for key, value in self.properties.items():
+            if isinstance(value, vec3) or isinstance(value, vec2):
+                value = Vec2Str(value)
             res += f'"{key}" "{value}"\n'
 
         self.geo = flatten(self.geo)
@@ -57,6 +60,8 @@ class Entity:
             file.write(f"layer {self.layer}\n")
 
         for key, value in self.properties.items():
+            if isinstance(value, vec3) or isinstance(value, vec2):
+                value = Vec2Str(value)
             file.write(f'"{key}" "{value}"\n')
 
         self.geo = flatten(self.geo)

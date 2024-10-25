@@ -1,6 +1,8 @@
 from io import TextIOWrapper
-from ..Vector3 import Vector3
-from ..Vector2 import Vector2
+# from ..Vector3 import Vector3
+# from ..Vector2 import Vector2
+from glm import vec2, vec3
+from ..Static import Vec2Str
 import numpy as np
 from math import ceil
 from typing import List, Tuple, Union
@@ -9,10 +11,10 @@ def Color2Str(c: Tuple[int, int, int, int]):
     return "%i %i %i %i" % c
 
 class PatchVert:
-    pos: Vector3
+    pos: vec3
     color: Tuple[int, int, int, int]
-    uv: Vector2
-    lm: Vector2
+    uv: vec2
+    lm: vec2
     nolightmap: bool
 
     def __init__(self, pos, uv, lm, color=None) -> None:
@@ -25,11 +27,11 @@ class PatchVert:
     def __str__(self) -> str:
         if self.nolightmap:
             if self.color == None:
-                return f"v {self.pos} t {self.uv}"
-            return f"v {self.pos} c {self.color} t {self.uv}"
+                return f"v {Vec2Str(self.pos)} t {Vec2Str(self.uv)}"
+            return f"v {Vec2Str(self.pos)} c {self.color} t {Vec2Str(self.uv)}"
         elif self.color == None:
-            return f"v {self.pos} t {self.uv} {self.lm}"
-        return f"v {self.pos} c {Color2Str(self.color)} t {self.uv} {self.lm}"
+            return f"v {Vec2Str(self.pos)} t {Vec2Str(self.uv)} {Vec2Str(self.lm)}"
+        return f"v {Vec2Str(self.pos)} c {Color2Str(self.color)} t {Vec2Str(self.uv)} {Vec2Str(self.lm)}"
     
     def Save(self, file: TextIOWrapper):
         file.write(str(self) + "\n")

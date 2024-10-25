@@ -8,12 +8,13 @@ from os.path import exists
 from posixpath import basename
 from tempfile import gettempdir
 from typing import Dict, List
+from glm import vec2, vec3
 from SourceIO.source1.mdl.mdl_file import Mdl
 from SourceIO.source1.vtx.vtx import Vtx
 from SourceIO.source1.vvd.vvd import Vvd
-from .Static import newPath
-from .Vector3 import Vector3
-from .Vector2 import Vector2
+from .Static import newPath, Vec2Str
+# from .Vector3 import Vector3
+# from .Vector2 import Vector2
 
 def merge_strip_groups(vtx_mesh):
     indices_accumulator = []
@@ -104,10 +105,10 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0):
     if tint != "":
         materials = [mat + f"_{tint}" for mat in materials]
 
-    verts: List[Vector3] = []
+    verts: List[vec3] = []
     vertDict: Dict[str, int] = {}
-    normals: List[Vector3] = []
-    uvs: List[Vector2] = []
+    normals: List[vec3] = []
+    uvs: List[vec2] = []
     groups = []
     faces = []
     
@@ -130,9 +131,9 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0):
             numVerts = len(verts)
             numNormals = len(normals)
             numUVs = len(uvs)
-            [verts.append((Vector3.FromArray(v) * scale).round(6)) for v in vertices["vertex"]]
-            [normals.append(Vector3.FromArray(n).round(6)) for n in vertices["normal"]]
-            [uvs.append(Vector2.FromArray(t).round(6)) for t in vertices["uv"]]
+            [verts.append(vec3([round(i, 6) for i in (vec3(v) * 6)])) for v in vertices["vertex"]]
+            [normals.append(vec3([round(i, 6) for i in vec3(n)])) for n in vertices["normal"]]
+            [uvs.append(vec2([round(i, 6) for i in vec2(t)])) for t in vertices["uv"]]
 
             for i in range(0, len(indices_array), 3):
                 if i % 1000 == 0 and i != 0:
@@ -203,7 +204,7 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0):
         for i in range(len(faces)):
             file.write(f'TRI {faces[i]["group"]} {faces[i]["material"]} 0 0\n')
             for point in faces[i]["points"]:
-                if point["normal"].x + point["normal"].y + point["normal"].z == 0.0:
+                if point["normal"].x == 0 and point["normal"].y == 0 and point["normal"].z == 0.0:
                     point["normal"].y = 1.000000
                 file.write(
                     f'VERT {point["vert"]}\n'

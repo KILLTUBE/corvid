@@ -3,10 +3,11 @@ from os.path import splitext, exists
 os.environ["NO_BPY"] = "1"
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from SourceIO.source1.vtf.VTFWrapper import VTFLib
-from .Vector2 import Vector2
-from .Vector3 import Vector3
+# from .Vector2 import Vector2
+# from .Vector3 import Vector3
+from glm import vec2, vec2
 from tempfile import gettempdir
-from .Static import newPath
+from .Static import newPath, VecFromStr, Vec2Str, Vec2Hex
 from PyCoD import Model
 from .ModelConverter import convertModel
 
@@ -103,7 +104,7 @@ def convertImages(images, src, dest, ext="tga"):
 def getTexSize(src):
     image = VTFLib.VTFLib()
     image.image_load(src)
-    return Vector2(image.width(), image.height())
+    return vec2(image.width(), image.height())
 
 def convertModels(models, modelTints, modelSkins, skinTints, game="WaW", scale=1.0):
     codModel = Model()
@@ -117,7 +118,7 @@ def convertModels(models, modelTints, modelSkins, skinTints, game="WaW", scale=1
         # convert models with tints
         if game == "BO3" and model in modelTints:
             for tint in modelTints[model]:
-                hex = Vector3.FromStr(tint).toHex()
+                hex = Vec2Hex(VecFromStr(tint, 3))
                 convertModel(f"{mdlDir}/{model}", convertDir, tint=hex, scale=scale)
                 try:
                     codModel.LoadFile_Raw(f"{convertDir}/{model}_{hex}.xmodel_export")
@@ -144,7 +145,7 @@ def convertModels(models, modelTints, modelSkins, skinTints, game="WaW", scale=1
         if game == "BO3" and  model in skinTints:
             for skin, tints in skinTints[model].items():
                 for tint in tints:
-                    hex = Vector3.FromStr(tint).toHex()
+                    hex = Vec2Hex(VecFromStr(tint, 3))
                     convertModel(f"{mdlDir}/{model}", convertDir, hex, skin, scale)
                     try:
                         codModel.LoadFile_Raw(f"{convertDir}/{model}_skin{skin}_{hex}.xmodel_export")

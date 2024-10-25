@@ -1,6 +1,8 @@
 from pathlib import Path
 from os.path import basename, splitext, dirname
 from hashlib import shake_256
+from glm import vec2, vec3
+from typing import Union
 
 # cod 4 and waw don't like images when their names contain more than 42 charcters including the extension
 # so we need to make sure they won't cause any problems while being converted
@@ -86,3 +88,14 @@ def flatten(lst: list):
         else:
             res.append(i)
     return res
+
+def VecFromStr(vec: str, size: int) -> Union[vec2, vec3]:
+    table = str.maketrans("", "", "[]{}")
+    tok = vec.translate(table).strip().split()
+    return vec3([float(i) for i in tok[:size]])
+
+def Vec2Str(vec: Union[vec2, vec3]) -> str:
+    return " ".join([f"{i:.5g}" for i in vec])
+
+def Vec2Hex(vec: vec3) -> str:
+    return "%02x%02x%02x" % (int(vec.x), int(vec.y), int(vec.z))

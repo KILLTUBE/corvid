@@ -4,7 +4,6 @@ from typing import List, Union
 from modules.Brush import Brush
 from modules.Static import flatten
 from .Entity import Entity
-from .Face import Face
 from .Patch import Patch
 
 class Map:

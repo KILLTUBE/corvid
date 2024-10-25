@@ -20,7 +20,8 @@ from datetime import datetime
 from time import gmtime, strftime
 from pathlib import Path
 from modules.MapExporter import exportMap
-from modules.Vector3 import Vector3
+# from modules.Vector3 import Vector3
+from glm import vec3
 from modules.vdfutils import parse_vdf
 
 # global settings
@@ -626,7 +627,7 @@ class App:
             exportMap(
                 vmfFile, vpkFiles, gameDirs, game,
                 self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"],
-                scale=Vector3(settings["scale"][0], settings["scale"][0], settings["scale"][1]), file=file
+            scale=vec3(settings["scale"][0], settings["scale"][0], settings["scale"][1]), file=file
             )
 
         convertedDir = gettempdir() + "/corvid/converted"

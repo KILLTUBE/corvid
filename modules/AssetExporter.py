@@ -2,13 +2,14 @@ import os
 os.environ["NO_BPY"] = "1"
 from PIL import Image
 from SourceIO.source1.vtf.VTFWrapper import VTFLib
-from modules.Vector3 import Vector3
-from modules.Vector2 import Vector2
+from glm import vec2, vec3
+#from modules.Vector3 import Vector3
+#from modules.Vector2 import Vector2
 from modules.cube2equi import find_corresponding_pixel
 from modules.vdfutils import parse_vdf
 from os.path import basename, splitext, dirname, exists
 from os import listdir
-from .Static import fixVmt, newPath
+from .Static import fixVmt, newPath, VecFromStr, Vec2Hex
 from .Gdt import Gdt
 from tempfile import gettempdir
 from .AssetConverter import getTexSize, convertImage
@@ -51,7 +52,7 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
         if not exists(vmtPath):
             print(f"Could not find material {fileName}. Creating an empty material for it...")
             res["vmts"][fileName] = parse_vdf('lightmappedgeneric\n{\n"$basetexture" "404"\n}')
-            res["sizes"][file.strip()] = Vector2(512, 512)
+            res["sizes"][file.strip()] = vec2(512, 512)
             return res
 
         try:
@@ -94,7 +95,7 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
             if "$basetexture" in mat:
                 res["sizes"][file.strip()] = getTexSize(f"{tempDir}/{vtfDir}/{name}.vtf")
             else:
-                res["sizes"][file.strip()] = Vector2(512, 512)
+                res["sizes"][file.strip()] = vec2(512, 512)
         if "$basetexture" in mat:
             if "$translucent" in mat or "$alpha" in mat or "$alphatest" in mat:
                 res["colorMapsAlpha"].append(name)
@@ -203,8 +204,9 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, skinTints, game="WaW"
             # create new a material for each tint value used for the model
             if game == "BO3" and len(tints) > 0:
                 for tint in tints:
-                    hex = Vector3.FromStr(tint).toHex()
-                    tint = (Vector3.FromStr(tint) / 255).round(3)
+                    _tint = VecFromStr(tint, 3)
+                    hex = Vec2Hex(_tint)
+                    tint = vec3(round(_tint.x, 3), round(_tint.y, 3), round(_tint.z, 3))
                     try:
                         file = open(f"{tempDir}/mdlMats/{name}.vmt")
                         new = file.read().replace("{\n", f'{{\n"$colortint" "{tint} 1"\n', 1)
@@ -566,18 +568,18 @@ def createMaterialGdtBo3(vmts: dict):
 
         if "$color" in mat:
             if mat["$color"].startswith("{"):
-                data["colorTint"] = (Vector3.FromStr(mat["$color"]) / 255).round(3)
+                data["colorTint"] = vec3([round(i, 3) for i in (VecFromStr(mat["$color"], 3) / 255)])
             else:
-                data["colorTint"] = Vector3.FromStr(mat["$color"])
+                data["colorTint"] = VecFromStr(mat["$color"], 3)
 
         if "$colortint" in mat:
             data["colorTint"] = mat["$colortint"]
 
         if "$layertint1" in mat:
             if mat["$layertint1"].startswith("{"):
-                data["colorTint"] = (Vector3.FromStr(mat["$layertint1"]) / 255).round(3)
+                data["colorTint"] = vec3([round(i, 3) for i in (VecFromStr(mat["$layertint1"], 3) / 255)])
             else:
-                data["colorTint"] = Vector3.FromStr(mat["$layertint1"])
+                data["colorTint"] = VecFromStr(mat["$layertint1"], 3)
 
         if "$basetexture2" in mat:
             data2 = {}
@@ -629,9 +631,9 @@ def createMaterialGdtBo3(vmts: dict):
 
             if "$layertint2" in mat:
                 if mat["$layertint2"].startswith("{"):
-                    data2["colorTint"] = (Vector3.FromStr(mat["$layertint2"]) / 255).round(3)
+                    data2["colorTint"] = vec3([round(i, 3) for i in (VecFromStr(mat["$layertint2"], 3) / 255)])
                 else:
-                    data2["colorTint"] = Vector3.FromStr(mat["$layertint2"])            
+                    data2["colorTint"] = VecFromStr(mat["$layertint2"], 3)           
 
             gdt.add(assetName + "_blend", "material", data2)
         
@@ -655,7 +657,7 @@ def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}, skinTints={
 
         if game == "BO3" and name in modelTints:
             for tint in modelTints[name]:
-                hex = Vector3.FromStr(tint).toHex()
+                hex = Vec2Hex(VecFromStr(tint))
                 gdt.add(f"m_{name}_{hex}", "xmodel", {
                     "collisionLOD" if game != "BO3" else "BulletCollisionLOD": "High",
                     "filename": f"corvid\\\\{name}_{hex}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
@@ -673,7 +675,7 @@ def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}, skinTints={
         if name in skinTints:
             for skin, tints in skinTints[name].items():
                 for tint in tints:
-                    hex = Vector3.FromStr(tint).toHex()
+                    hex = Vec2Hex(VecFromStr(tint))
                     gdt.add(f"m_{name}_skin{skin}_{hex}", "xmodel", {
                         "collisionLOD" if game != "BO3" else "BulletCollisionLOD": "High",
                         "filename": f"corvid\\\\{name}_skin{skin}_{hex}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
@@ -887,7 +889,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         })
 
         suncolor = worldSpawnSettings["suncolor"] if "suncolor" in worldSpawnSettings else "1 1 1 1"
-        sundirection = worldSpawnSettings["sundirection"] if "sundirection" in worldSpawnSettings else Vector3(0, 0, 0)
+        sundirection = worldSpawnSettings["sundirection"] if "sundirection" in worldSpawnSettings else vec3(0, 0, 0)
 
         gdt.add(f"{mapName}_ssi", "ssi", {
             "bounceCount": "4",
@@ -1014,5 +1016,4 @@ def exportMinimap(mapName: str, dir: SourceDir, game="WaW"):
             "nopicmipColor": "1"
         })
 
-    return gdt, data["pos_x"], data["pos_y"]
-        
+    return gdt, float(data["pos_x"]), float(data["pos_y"])

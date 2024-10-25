@@ -1,39 +1,42 @@
-from copy import copy
-from ctypes import Union
-from re import A
-from typing import Iterable, List
-from .Vector3 import Vector3
-import weakref
+from typing import List
+# from .Vector3 import Vector3
+from glm import vec3, min, max
 
 class AABB:
-    min: Vector3
-    max: Vector3
-    top: Vector3
-    forward: Vector3
-    right: Vector3
-    center: Vector3
+    min: vec3
+    max: vec3
+    top: vec3
+    forward: vec3
+    right: vec3
+    center: vec3
 
-    def __init__(self, _min: Vector3 = Vector3.Zero(), _max: Vector3 = Vector3.Zero(), generateTree=False) -> 'AABB':
+    def __init__(self, _min: vec3 = vec3(0, 0, 0), _max: vec3 = vec3(0, 0, 0), generateTree=False) -> 'AABB':
         self.min = _min
         self.max = _max
         self.center = (_min + _max) * 0.5
         self.extents = _max - self.center
         
-        self.children: list[AABB] = []
+        self.children: List[AABB] = []
         self.brushes = []
 
         if generateTree:
             self.GenerateOctree()
     
     def update(self, new):
-        self.min = self.min.min(new)
-        self.max = self.max.max(new)
+        self.min = min(self.min, new)
+        self.max = max(self.min, new)
+    
+    def setMin(self, min: vec3):
+        self.min = min
+
+    def setMax(self, max: vec3):
+        self.max = max
 
     @staticmethod
-    def FromPoint(point: Vector3, size: int = 8) -> 'AABB':
+    def FromPoint(point: vec3, size: int = 8) -> 'AABB':
         hs = size / 2 # half size
-        _min = point + Vector3(hs, -hs, -hs)
-        _max = point + Vector3(-hs, hs, hs)
+        _min = point + vec3(hs, -hs, -hs)
+        _max = point + vec3(-hs, hs, hs)
         return AABB(_min, _max)
     
     # check if it collides with another AABB
@@ -55,14 +58,14 @@ class AABB:
         
         # top 4
         self.children.append(AABB(c, a, True))
-        self.children.append(AABB(c + Vector3(e.x, 0, 0), a + Vector3(e.x, 0, 0), True))
-        self.children.append(AABB(c + Vector3(0, e.y, 0), a + Vector3(0, e.y, 0), True))
-        self.children.append(AABB(c + Vector3(e.x, e.y, 0), a + Vector3(e.x, e.y, 0), True))
+        self.children.append(AABB(c + vec3(e.x, 0, 0), a + vec3(e.x, 0, 0), True))
+        self.children.append(AABB(c + vec3(0, e.y, 0), a + vec3(0, e.y, 0), True))
+        self.children.append(AABB(c + vec3(e.x, e.y, 0), a + vec3(e.x, e.y, 0), True))
         # bottom 4
-        self.children.append(AABB(c + Vector3(0, 0, -e.z), a + Vector3(0, 0, -e.z), True))
-        self.children.append(AABB(c + Vector3(e.x, 0, -e.z), a + Vector3(e.x, 0, -e.z), True))
-        self.children.append(AABB(c + Vector3(0, e.y, -e.z), a + Vector3(0, e.y, -e.z), True))
-        self.children.append(AABB(c + Vector3(e.x, e.y, -e.z), a + Vector3(e.x, e.y, -e.z), True))
+        self.children.append(AABB(c + vec3(0, 0, -e.z), a + vec3(0, 0, -e.z), True))
+        self.children.append(AABB(c + vec3(e.x, 0, -e.z), a + vec3(e.x, 0, -e.z), True))
+        self.children.append(AABB(c + vec3(0, e.y, -e.z), a + vec3(0, e.y, -e.z), True))
+        self.children.append(AABB(c + vec3(e.x, e.y, -e.z), a + vec3(e.x, e.y, -e.z), True))
     
     def GetTouchingFaces(self, box: 'AABB'):
         res = []

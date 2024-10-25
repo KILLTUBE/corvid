@@ -1,12 +1,13 @@
 from pprint import pprint
 from typing import Dict, List
 
-from modules.Static import newPath
+from modules.Static import newPath, VecFromStr
 from .Side import Side
 from .Brush import Brush
 from vmf_tool.parser import parse
 from os.path import basename, splitext
-from .Vector3 import Vector3
+# from .Vector3 import Vector3
+from glm import vec3
 
 def readMap(vmf):
     mapData = parse(vmf)
@@ -20,7 +21,7 @@ def readMap(vmf):
 
     skyBoxId = -1
     skyBoxScale = 16
-    skyBoxOrigin = Vector3.FromStr("0 0 0")
+    skyBoxOrigin = vec3(0, 0, 0)
 
     materials = []
     models = []
@@ -128,7 +129,7 @@ def readMap(vmf):
                 else:
                     entityBrushes.append(Brush(sides, entity.classname, solid.id, entity))
         elif entity.classname == "sky_camera":
-            skyBoxOrigin = Vector3.FromStr(entity.origin)
+            skyBoxOrigin = VecFromStr(entity.origin, 3)
             skyBoxScale = float(entity.scale)
         elif entity.classname == "info_overlay":
             matName = entity.material.lower()
