@@ -131,7 +131,7 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0):
             numVerts = len(verts)
             numNormals = len(normals)
             numUVs = len(uvs)
-            [verts.append(vec3([round(i, 6) for i in (vec3(v) * 6)])) for v in vertices["vertex"]]
+            [verts.append(vec3([round(i, 6) for i in (vec3(v) * scale)])) for v in vertices["vertex"]]
             [normals.append(vec3([round(i, 6) for i in vec3(n)])) for n in vertices["normal"]]
             [uvs.append(vec2([round(i, 6) for i in vec2(t)])) for t in vertices["uv"]]
 

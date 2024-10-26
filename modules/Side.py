@@ -111,7 +111,7 @@ class Side:
                 temp.append(point)
         self.points = temp
         center: vec3 = self.pointCenter()
-        normal: vec3 = self.normal()
+        normal: vec3 = normalize(self.normal())
 
         def compare(a: vec3, b: vec3):
             ca = center - a

@@ -35,7 +35,7 @@ class Brush:
     def isPointLegal(self, point: vec3)-> bool:
         for side in self.sides:
             facing = normalize((point - side.center()))
-            if dot(facing, normalize(side.normal())) < -0.001:
+            if dot(facing, normalize(side.normal())) < -0.1:
                 return False
         return True
 
