@@ -2,23 +2,7 @@
 from .Side import Side
 from .AABB import AABB
 from math import isnan
-from glm import vec3, normalize, cross, dot, min, max
-from itertools import combinations
-
-def getPlaneIntersection(side1: Side, side2: Side, side3: Side) -> vec3:
-    normal1: vec3 = normalize(side1.normal())
-    normal2: vec3 = normalize(side2.normal())
-    normal3: vec3 = normalize(side3.normal())
-    determinant = dot(normal1, cross(normal2, normal3))
-    # can't intersect parallel planes
-    if abs(determinant) <= 1e-5 or (isnan(determinant)):
-        return None
-    else:
-        return (
-            cross(normal2, normal3) * side1.distance() +
-            cross(normal3, normal1) * side2.distance() +
-            cross(normal1, normal2) * side3.distance()
-        ) / determinant
+from glm import vec3, normalize, cross, dot, min, max, length
 
 class Brush:
     def __init__(self, sides: list, entity: str = "world", id="0", entData={}):
@@ -26,34 +10,46 @@ class Brush:
         self.sides: list[Side] = sides
         self.hasDisp: bool = False
         # only after all the sides are defined can the intersection points be calculated
-        self.getIntersectionPoints()
+        self.rebuildGeometry()
         self.entity = entity
         self.entData = entData
         self.isToolBrush = False
         self._box: AABB = None
 
-    def isPointLegal(self, point: vec3)-> bool:
+    def isPointInside(self, point: vec3, epsilon: float = 1e-4) -> bool:
         for side in self.sides:
-            facing = normalize((point - side.center()))
-            if dot(facing, normalize(side.normal())) < -0.1:
+            normal, dist = side.getPlane()
+            if dot(point, normal) - dist < -epsilon:
                 return False
         return True
 
-    def getIntersectionPoints(self):
-        n = len(self.sides)
-        for side1, side2, side3 in combinations(self.sides, 3):
-            intersectionPoint: vec3 = getPlaneIntersection(side1, side2, side3)
-            if intersectionPoint is not None and self.isPointLegal(intersectionPoint):
-                side1.points.append(intersectionPoint)
-                side2.points.append(intersectionPoint)
-                side3.points.append(intersectionPoint)
-
-        for i in range(n):
-            if len(self.sides[i].points) != 0:
-                self.sides[i].sortVertices()
-            if self.sides[i].hasDisp:
+    def rebuildGeometry(self):
+        for side in self.sides:
+            # Start with a large winding on this side's plane
+            winding = side.getBaseWinding()
+            
+            # Clip it against every other side
+            for other in self.sides:
+                if side == other:
+                    continue
+                
+                normal, dist = other.getPlane()
+                winding = Side.clipWinding(winding, normal, dist)
+                
+                if len(winding) == 0:
+                    break
+            
+            # Ensure unique points
+            unique_points = []
+            for p in winding:
+                if not any(length(p - up) < 1e-3 for up in unique_points):
+                    unique_points.append(p)
+            side.points = unique_points
+            unique_points.reverse()
+            
+            if side.hasDisp:
                 self.hasDisp = True
-            if not self.sides[i].material.startswith("tools"):
+            if not side.material.startswith("tools"):
                 self.isToolBrush = True
 
     # get the bounding box of a brush
@@ -90,7 +86,7 @@ class Brush:
                 points.append(side.getClosestPoint(box.center))
         
         for point in points:
-            if self.isPointLegal(point):
+            if self.isPointInside(point):
                 res.append(point)
         
         return res

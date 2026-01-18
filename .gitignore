@@ -8,3 +8,4 @@ test.py
 .vscode/settings.json
 *.tmp
 Corvid.spec
+corvid_venv

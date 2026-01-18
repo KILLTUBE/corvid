@@ -178,6 +178,65 @@ class Side:
         distance = dot(normal, box.center) - self.distance()
         return abs(distance) <= radius
 
+    def getPlane(self):
+        return normalize(self.normal()), self.distance()
+
+    def getBaseWinding(self):
+        normal, dist = self.getPlane()
+        
+        # Find a non-parallel vector
+        if abs(normal.x) < 0.577:
+            up = vec3(1, 0, 0)
+        else:
+            up = vec3(0, 1, 0)
+        
+        v_right = normalize(cross(up, normal))
+        v_up = cross(normal, v_right)
+        
+        # Create a large quad
+        org = normal * dist
+        MAX_COORD = 16384 * 4
+        
+        points = [
+            org + (v_right * -MAX_COORD) + (v_up * -MAX_COORD),
+            org + (v_right *  MAX_COORD) + (v_up * -MAX_COORD),
+            org + (v_right *  MAX_COORD) + (v_up *  MAX_COORD),
+            org + (v_right * -MAX_COORD) + (v_up *  MAX_COORD)
+        ]
+        return points
+
+    @staticmethod
+    def clipWinding(points, plane_normal, plane_dist):
+        new_points = []
+        n = len(points)
+        if n == 0:
+            return []
+
+        for i in range(n):
+            p1 = points[i]
+            p2 = points[(i + 1) % n]
+            
+            d1 = dot(p1, plane_normal) - plane_dist
+            d2 = dot(p2, plane_normal) - plane_dist
+            
+            # If p1 is inside or on the plane (d >= 0)
+            if d1 >= -1e-4:
+                # If p2 is outside (d < 0), add intersection point
+                if d2 < -1e-4:
+                    fraction = d1 / (d1 - d2)
+                    new_points.append(p1 + fraction * (p2 - p1))
+            else:
+                # p1 is outside. If p2 is inside, add intersection
+                if d2 >= -1e-4:
+                    fraction = d1 / (d1 - d2)
+                    new_points.append(p1 + fraction * (p2 - p1))
+            
+            # If p2 is inside, add it
+            if d2 >= -1e-4:
+                new_points.append(p2)
+                
+        return new_points
+
     # returns basic x/y scale/shift values from the VMF 
     # TODO: make it work again with the code based on https://github.com/c-d-a/io_export_qmap with GLM later
     def getTexCoords(self):

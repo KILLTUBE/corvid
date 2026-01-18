@@ -229,13 +229,20 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=vec3(0
         
         elif brushConversion:
             material = newPath(side.material)
-            # side.texSize = matSizes.get(mat, Vector2(512, 512))
-            # tex = side.getTexCoords()
-            # resBrush += f"{mat} {tex}\n"
         
         else:
-            material = "caulk"
-            resPatch.append(convertSide(side, matSizes, origin, scale))
+            material = newPath(side.material)
+            if material not in matSizes:
+                matSizes[material] = vec2(512, 512)
+            
+            # Fit UVs to get proper CoD brush UV parameters
+            verts = side.points
+            uvs = [side.getUV(p, matSizes[material]) for p in verts]
+            
+            face = cod.Face(p1, p2, p3, material)
+            face.Fit(side, verts, uvs)
+            faces.append(face)
+            continue
 
         faces.append(cod.Face(p1, p2, p3, material))
 

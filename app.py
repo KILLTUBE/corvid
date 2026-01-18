@@ -1,5 +1,12 @@
+import os
 import sys
-import winreg
+from typing import List
+
+if os.name == "nt":
+    import winreg
+else:
+    pass
+
 import os.path
 import time 
 import threading
@@ -19,6 +26,7 @@ from tempfile import gettempdir
 from datetime import datetime
 from time import gmtime, strftime
 from pathlib import Path
+from PIL import Image, ImageTk
 from modules.MapExporter import exportMap
 # from modules.Vector3 import Vector3
 from glm import vec3
@@ -52,6 +60,56 @@ def ProperTime(time):
         res += f"{s} seconds"
     
     return res
+
+def get_steam_dir() -> str | None:
+    if os.name == "nt":
+        try:
+            hkey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Valve\\Steam")
+            steamDir = winreg.QueryValueEx(hkey, "InstallPath")[0]
+            steamDir = Path(steamDir).as_posix()
+            return steamDir
+        except:
+            return None
+    else:
+        home = Path.home()
+        paths = [
+            f"{home}/.steam/steam",
+            f"{home}/.local/share/Steam",
+            f"{home}/.var/app/com.valvesoftware.Steam/data/Steam"
+        ]
+        for p in paths:
+            if exists(p):
+                return p
+        return f"{home}/.steam/steam"
+
+def load_library_folders_data(steam_dir: str | None) -> List[str] | None:
+    if steam_dir is None or steam_dir == "":
+        steam_dir = get_steam_dir()
+    
+    if steam_dir is None:
+        return None
+
+    library_folders_path = f"{steam_dir}/steamapps/libraryfolders.vdf"
+    if not exists(library_folders_path):
+        return None
+
+    try:
+        with open(library_folders_path, "r") as file:
+            data = parse_vdf(file.read(), allowRepeats=True)
+        
+        if data is None or "libraryfolders" not in data:
+            return None
+
+        folders: dict = data["libraryfolders"]
+        paths = []
+        for folder in folders.values():
+            if isinstance(folder, dict) and "path" in folder:
+                 paths.append(Path(folder["path"]).as_posix())
+        
+        return list(set(paths))
+    except Exception as e:
+        print(f"Error loading library folders: {e}")
+        return None
 
 class popupWindow:
     def __init__(self, app: 'App'):
@@ -108,7 +166,20 @@ class popupWindow:
 class App:
     def __init__(self, root: tk.Tk):
         root.title(f"Corvid - v{version}")
-        root.iconbitmap(default="res/icon.ico")
+        
+        icon_path = "res/icon.ico"
+        if os.name == "nt":  # Windows
+            try:
+                root.iconbitmap(default=icon_path)
+            except Exception:
+                pass
+        else:  # Linux/macOS
+            try:
+                icon_img = ImageTk.PhotoImage(Image.open(icon_path))
+                root.iconphoto(True, icon_img)
+            except Exception as e:
+                print(f"Warning: Could not set icon: {e}")
+        
         self.root = root
         width=800
         height=620
@@ -725,15 +796,11 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = App(root)
 
-    # Find where Steam is installed from registry
+    # Find where Steam is installed
     if settings["steamDir"] == "":
-        try:
-            hkey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Valve\\Steam")
-            steamDir = winreg.QueryValueEx(hkey, "InstallPath")[0]
-            steamDir = Path(steamDir).as_posix()
+        steamDir = get_steam_dir()
+        if steamDir:
             app.setSteamDir(steamDir)
-        except:
-            pass
 
     # If we can't find where Steam is installed, ask the user to locate it
     while settings["steamDir"] == "":
@@ -744,17 +811,16 @@ if __name__ == "__main__":
         )
         app.setSteamDir()
     
-    if exists(f"{settings['steamDir']}/steamapps/libraryfolders.vdf"):
-        libraryFolders = parse_vdf(open(f'{settings["steamDir"]}/steamapps/libraryfolders.vdf').read())["libraryfolders"]
-        for key, value in libraryFolders.items():
-            libraryDir = Path(value["path"]).as_posix()
-            if libraryDir not in steamAppsDirs:
-                steamAppsDirs.append(libraryDir)
+    library_paths = load_library_folders_data(settings["steamDir"])
+    if library_paths:
+        for path in library_paths:
+            if path not in steamAppsDirs:
+                steamAppsDirs.append(path)
     else:
         print("Cannot detect Steam libraries. Make sure your Steam directory is correct.")
 
     # If temp folder already exists, delete it before we proceed as it causes issues
-    temp_path = f'{getenv("LOCALAPPDATA")}/Temp/corvid'
+    temp_path = os.path.join(gettempdir(), 'corvid')
     if exists(temp_path):
         shutil.rmtree(temp_path)
     

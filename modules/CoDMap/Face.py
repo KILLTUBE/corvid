@@ -1,5 +1,5 @@
 from io import TextIOWrapper
-from glm import vec3
+from glm import vec3, vec2
 # from ..Vector3 import Vector3
 from ..Static import Vec2Str
 
@@ -46,3 +46,13 @@ class Face:
     
     def Save(self, file: TextIOWrapper):
         file.write(str(self) + "\n")
+
+    def Fit(self, side, vertices: list[vec3], uvs: list[vec2]):
+        """ Fits the UV parameters using CoDUV logic. """
+        from ..UV import CoDUV
+        fit = CoDUV.fit(side, vertices, uvs)
+        self.hScale = fit.x_scale
+        self.vScale = fit.y_scale
+        self.hShift = fit.x_offset
+        self.vShift = fit.y_offset
+        self.rotation = fit.rotation
