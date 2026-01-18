@@ -1,7 +1,7 @@
 {
-    "steamDir": "",
+    "steamDir": "/home/mehmet/.steam/steam",
     "currentGame": "",
-    "game": "",
+    "game": "BO3",
     "convertBrush": false,
     "terrainOffset": 0.0,
     "scale": [

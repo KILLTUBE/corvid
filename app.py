@@ -407,7 +407,7 @@ class App:
         self.currentGameLabel["justify"] = "right"
         self.currentGameLabel["anchor"] = "e"
         self.currentGameLabel["fg"] = "#333333"
-        self.currentGameLabel["text"] = gameDef[settings["currentGame"]]["gameName"]
+        self.currentGameLabel["text"] = gameDef[settings["currentGame"]]["gameName"] if settings["currentGame"] in gameDef else "<none>"
         self.currentGameLabel.place(x=390,y=570,width=390,height=30)
 
         self.steamDirLabel=tk.Label(root)
