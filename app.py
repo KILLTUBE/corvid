@@ -168,17 +168,9 @@ class App:
         root.title(f"Corvid - v{version}")
         
         icon_path = "res/icon.ico"
-        if os.name == "nt":  # Windows
-            try:
-                root.iconbitmap(default=icon_path)
-            except Exception:
-                pass
-        else:  # Linux/macOS
-            try:
-                icon_img = ImageTk.PhotoImage(Image.open(icon_path))
-                root.iconphoto(True, icon_img)
-            except Exception as e:
-                print(f"Warning: Could not set icon: {e}")
+
+        icon_img = ImageTk.PhotoImage(Image.open(icon_path))
+        root.iconphoto(True, icon_img)
         
         self.root = root
         width=800
@@ -225,6 +217,7 @@ class App:
         settingsMenu.add_command(label="Change export scale", command=self.popup)
         settingsMenu.add_separator()
         settingsMenu.add_command(label="Set Steam directory", command=self.setSteamDir)
+        settingsMenu.add_command(label="Detect Steam directory", command=self.detectSteamDir)
 
         helpMenu = tk.Menu(self.menuBar, tearoff=0)
         helpMenu.add_command(label="Corvid on Github", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid"))
@@ -516,6 +509,11 @@ class App:
         if dir is not None or dir != "":
             self.changeSetting("steamDir", dir)
             self.steamDirLabel["text"] = dir
+
+    def detectSteamDir(self):
+        steamDir = get_steam_dir()
+        self.changeSetting("steamDir", steamDir)
+        self.steamDirLabel["text"] = steamDir
 
     def setCurrentGame(self):
         self.changeSetting("currentGame", self.currentGame.get())
