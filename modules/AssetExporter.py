@@ -567,19 +567,23 @@ def createMaterialGdtBo3(vmts: dict):
         #         data["materialType"] = "lit_emissive"
 
         if "$color" in mat:
-            if mat["$color"].startswith("{"):
-                data["colorTint"] = vec3([round(i, 3) for i in (VecFromStr(mat["$color"], 3) / 255)])
-            else:
-                data["colorTint"] = VecFromStr(mat["$color"], 3)
+            tint = VecFromStr(mat["$color"], 3)
+
+            if tint.x >= 1.0 or tint.y >= 1.0 or tint.z >= 1.0:
+                tint = vec3([round(i, 3) for i in tint / 255])
+
+            data["colorTint"] = tint
 
         if "$colortint" in mat:
             data["colorTint"] = mat["$colortint"]
 
         if "$layertint1" in mat:
-            if mat["$layertint1"].startswith("{"):
-                data["colorTint"] = vec3([round(i, 3) for i in (VecFromStr(mat["$layertint1"], 3) / 255)])
-            else:
-                data["colorTint"] = VecFromStr(mat["$layertint1"], 3)
+            tint = VecFromStr(mat["$layertint1"], 3)
+
+            if tint.x >= 1.0 or tint.y >= 1.0 or tint.z >= 1.0:
+                tint = vec3([round(i, 3) for i in tint / 255])
+
+            data["colorTint"] = tint
 
         if "$basetexture2" in mat:
             data2 = {}
@@ -630,10 +634,12 @@ def createMaterialGdtBo3(vmts: dict):
                 data2["glossRangeMax"] = "0.4"
 
             if "$layertint2" in mat:
-                if mat["$layertint2"].startswith("{"):
-                    data2["colorTint"] = vec3([round(i, 3) for i in (VecFromStr(mat["$layertint2"], 3) / 255)])
-                else:
-                    data2["colorTint"] = VecFromStr(mat["$layertint2"], 3)           
+                tint = VecFromStr(mat["$layertint2"], 3)
+
+                if tint.x >= 1.0 or tint.y >= 1.0 or tint.z >= 1.0:
+                    tint = vec3([round(i, 3) for i in tint / 255])
+
+                data2["colorTint"] = tint           
 
             gdt.add(assetName + "_blend", "material", data2)
         
@@ -657,7 +663,7 @@ def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}, skinTints={
 
         if game == "BO3" and name in modelTints:
             for tint in modelTints[name]:
-                hex = Vec2Hex(VecFromStr(tint))
+                hex = Vec2Hex(VecFromStr(tint, 3))
                 gdt.add(f"m_{name}_{hex}", "xmodel", {
                     "collisionLOD" if game != "BO3" else "BulletCollisionLOD": "High",
                     "filename": f"corvid\\\\{name}_{hex}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
@@ -675,7 +681,7 @@ def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}, skinTints={
         if name in skinTints:
             for skin, tints in skinTints[name].items():
                 for tint in tints:
-                    hex = Vec2Hex(VecFromStr(tint))
+                    hex = Vec2Hex(VecFromStr(tint, 3))
                     gdt.add(f"m_{name}_skin{skin}_{hex}", "xmodel", {
                         "collisionLOD" if game != "BO3" else "BulletCollisionLOD": "High",
                         "filename": f"corvid\\\\{name}_skin{skin}_{hex}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
