@@ -353,7 +353,7 @@ def surfaceType(surface: str, game=""):
             "glossrange": (0, 4)
         }
     
-def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set()):
+def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=None):
     if game == "BO3":
         return createMaterialGdtBo3(vmts, loadedTextures)
     gdt = Gdt()
@@ -430,6 +430,8 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set()):
             data["sort"] = "decal - static decal"
             data["polygonOffset"] = "Static Decal"
             data["locale_decal"] = "1"
+        elif overlayMats is not None and name in overlayMats:
+            data["sort"] = "decal - top 1"
 
         if "$basetexture2" in mat:
             data2 = {}
