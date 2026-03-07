@@ -47,12 +47,12 @@ class Face:
     def Save(self, file: TextIOWrapper):
         file.write(str(self) + "\n")
 
-    def Fit(self, side, vertices: list[vec3], uvs: list[vec2]):
-        """ Fits the UV parameters using CoDUV logic. """
-        from ..UV import CoDUV
-        fit = CoDUV.fit(side, vertices, uvs)
-        self.hScale = fit.x_scale
-        self.vScale = fit.y_scale
-        self.hShift = fit.x_offset
-        self.vShift = fit.y_offset
-        self.rotation = fit.rotation
+    def Fit(self, normal, vertices: list[vec3], uvs: list[vec2]):
+        """ Fits the UV parameters from vertices, UVs, and face normal. """
+        from ..UV import fit_uvs
+        h, v, ho, vo, r = fit_uvs(vertices, uvs, normal)
+        self.hScale = h
+        self.vScale = v
+        self.hShift = ho
+        self.vShift = vo
+        self.rotation = r

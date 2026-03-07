@@ -242,7 +242,7 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=vec3(0
             uvs = [side.getUV(p, matSizes[material]) for p in verts]
             
             face = cod.Face(p1, p2, p3, material)
-            face.Fit(side, verts, uvs)
+            face.Fit(side.normal(), verts, uvs)
             faces.append(face)
             continue
 
