@@ -1,6 +1,5 @@
-
-del dist /S /F /Q
-pyinstaller app.py -F -i res/icon.ico -n "Corvid" --windowed --add-data "SourceIO/source1/vtf/VTFWrapper/VTFLib.x64.dll;."
-@mkdir "./dist/res"
-xcopy /s "./res" "./dist/res"
-copy .\SourceIO\source1\vtf\VTFWrapper\VTFLib.x64.dll .\dist\res\
+@echo off
+if exist dist rd /S /Q dist
+pyinstaller app.py -F -i res/icon.ico -n "Corvid" --windowed --hidden-import=glm --add-binary "SourceIO/library/utils/pylib/windows/pylib.pyd;SourceIO/library/utils/pylib/windows"
+mkdir "dist\res"
+xcopy /s /e "res" "dist\res\"
