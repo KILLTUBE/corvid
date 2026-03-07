@@ -157,25 +157,34 @@ def copyModels(models, dir: SourceDir):
         for ext in ["dx90.vtx", "vtx", "vvd"]:
             dir.copy(f"{path}/{modelName}.{ext}", f"{tempDir}/mdl/{newName}.{ext}", True)
 
-def copyModelMaterials(models, dir: SourceDir, modelTints, skinTints, game="WaW"):
+def copyModelMaterials(models, dir: SourceDir, modelTints, modelSkins, skinTints, game="WaW"):
     materials = []
     res = []
     total = len(models)
-    
+
     for i, model in enumerate(models):
         print(f"{i}|{total}|done", end="")
         mdlName = splitext(newPath(model))[0]
         tints = modelTints[mdlName] if mdlName in modelTints else []
-        
+
         if mdlName in skinTints:
             for _, _tints in skinTints[mdlName].items():
                 tints += _tints
-        
+
         if not exists(f"{tempDir}/mdl/{mdlName}.mdl"):
             continue
         mdl = MdlV49.from_buffer(FileBuffer(f"{tempDir}/mdl/{mdlName}.mdl"))
 
-        for material in mdl.materials:
+        # collect all materials: base skin + alternate skins
+        all_materials = list(mdl.materials)
+        if mdlName in modelSkins:
+            for skin in modelSkins[mdlName]:
+                if skin < len(mdl.skin_groups):
+                    for mat in mdl.skin_groups[skin]:
+                        if mat not in all_materials:
+                            all_materials.append(mat)
+
+        for material in all_materials:
             for path in mdl.materials_paths:
                 path = Path(path.replace("\\", "/")).as_posix()
                 name = basename(material.name.replace("\\", "/"))
@@ -679,7 +688,7 @@ def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}, skinTints={
                     "type": "rigid"
                 })
 
-        if name in skinTints:
+        if game == "BO3" and name in skinTints:
             for skin, tints in skinTints[name].items():
                 for tint in tints:
                     hex = Vec2Hex(VecFromStr(tint, 3))

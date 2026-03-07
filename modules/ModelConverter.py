@@ -97,7 +97,7 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0, game="WaW"):
                 materials.append(name)
                 continue
 
-    if tint != "":
+    if tint != "" and game == "BO3":
         materials = [mat + f"_{tint}" for mat in materials]
 
     verts: List[vec3] = []
@@ -156,9 +156,9 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0, game="WaW"):
                     "material": material_indices_array[int(i / 3)]
                 })
 
-    if skin != 0 and tint != "":
+    if skin != 0 and tint != "" and game == "BO3":
         fileName = basename(filePath) + f"_skin{skin}_{tint}"
-    elif tint != "":
+    elif tint != "" and game == "BO3":
         fileName = basename(filePath) + f"_{tint}"
     elif skin != 0:
         fileName = basename(filePath) + f"_skin{skin}"

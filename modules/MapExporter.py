@@ -829,7 +829,7 @@ def exportMap(
         print("Extracting models...")
         copyModels(mapData["models"], gamePath)
         print("Loading model materials...")
-        mdlMaterials = copyModelMaterials(mapData["models"], gamePath, mapData["modelTints"], mapData["skinTints"], game)
+        mdlMaterials = copyModelMaterials(mapData["models"], gamePath, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], game)
         mdlMatData = copyTextures(mdlMaterials, gamePath, True)
 
     # create GDT files
