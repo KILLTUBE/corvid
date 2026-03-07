@@ -144,5 +144,3 @@ class CoDUV:
             instance.y_offset = 0.0
 
         return instance
-
-        return instance

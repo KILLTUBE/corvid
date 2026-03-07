@@ -1,19 +1,7 @@
 # taken from https://github.com/adamb70/Python-Spherical-Projection/blob/master/cube2equi.py
+# rewritten with numpy for vectorized operations
 
-import math
-
-def spherical_coordinates(i, j, w, h):
-    """ Returns spherical coordinates of the pixel from the output image. """
-    theta = 2*float(i)/float(w)-1
-    phi = 2*float(j)/float(h)-1
-    # phi = lat, theta = long
-    return phi*(math.pi/2), theta*math.pi
-
-def vector_coordinates(phi, theta):
-    """ Returns 3D vector which points to the pixel location inside a sphere. """
-    return (math.cos(phi) * math.cos(theta),  # X
-            math.sin(phi),                    # Y
-            math.cos(phi) * math.sin(theta))  # Z
+import numpy as np
 
 # Assign identifiers to the faces of the cube
 FACE_Z_POS = 1  # Left
@@ -22,90 +10,6 @@ FACE_Y_POS = 3  # Top
 FACE_Y_NEG = 4  # Bottom
 FACE_X_NEG = 5  # Front
 FACE_X_POS = 6  # Back
-
-def get_face(x, y, z):
-    """ Uses 3D vector to find which cube face the pixel lies on. """
-    largest_magnitude = max(abs(x), abs(y), abs(z))
-    if largest_magnitude - abs(x) < 0.00001:
-        return FACE_X_POS if x < 0 else FACE_X_NEG
-    elif largest_magnitude - abs(y) < 0.00001:
-        return FACE_Y_POS if y < 0 else FACE_Y_NEG
-    elif largest_magnitude - abs(z) < 0.00001:
-        return FACE_Z_POS if z < 0 else FACE_Z_NEG
-
-def raw_face_coordinates(face, x, y, z):
-    """
-    Return coordinates with necessary sign (- or +) depending on which face they lie on.
-
-    From Open-GL specification (chapter 3.8.10) https://www.opengl.org/registry/doc/glspec41.core.20100725.pdf
-    """
-    if face == FACE_X_NEG:
-        xc = z
-        yc = y
-        ma = x
-        return xc, yc, ma
-    elif face == FACE_X_POS:
-        xc = -z
-        yc = y
-        ma = x
-        return xc, yc, ma
-    elif face == FACE_Y_NEG:
-        xc = z
-        yc = -x
-        ma = y
-        return xc, yc, ma
-    elif face == FACE_Y_POS:
-        xc = z
-        yc = x
-        ma = y
-        return xc, yc, ma
-    elif face == FACE_Z_POS:
-        xc = x
-        yc = y
-        ma = z
-        return xc, yc, ma
-    elif face == FACE_Z_NEG:
-        xc = -x
-        yc = y
-        ma = z
-        return xc, yc, ma
-
-def raw_coordinates(xc, yc, ma):
-    """ Return 2D coordinates on the specified face relative to the bottom-left corner of the face. Also from Open-GL spec."""
-    return (float(xc)/abs(float(ma)) + 1) / 2, (float(yc)/abs(float(ma)) + 1) / 2
-
-def face_origin_coordinates(face, n):
-    """ Return bottom-left coordinate of specified face in the input image. """
-    if face == FACE_X_NEG:
-        return n, n
-    elif face == FACE_X_POS:
-        return 3*n, n
-    elif face == FACE_Z_NEG:
-        return 2*n, n
-    elif face == FACE_Z_POS:
-        return 0, n
-    elif face == FACE_Y_POS:
-        return n, 0
-    elif face == FACE_Y_NEG:
-        return n, 2*n
-
-def normalized_coordinates(face, x, y, n):
-    """ Return pixel coordinates in the input image where the specified pixel lies. """
-    face_coords = face_origin_coordinates(face, n)
-    normalized_x = math.floor(x*n)
-    normalized_y = math.floor(y*n)
-
-    # Stop out of bound behaviour
-    if normalized_x < 0:
-        normalized_x = 0
-    elif normalized_x >= n:
-        normalized_x = n-1
-    if normalized_y < 0:
-        normalized_x = 0
-    elif normalized_y >= n:
-        normalized_y = n-1
-
-    return face_coords[0] + normalized_x, face_coords[1] + normalized_y
 
 def find_corresponding_pixel(i, j, w, h, n):
     """
@@ -116,12 +20,76 @@ def find_corresponding_pixel(i, j, w, h, n):
     :param n: Height/Width of each square face
     :return: Pixel coordinates for the input image that a specified pixel in the output image maps to.
     """
+    theta = 2.0 * i / w - 1.0
+    phi = 2.0 * j / h - 1.0
 
-    spherical = spherical_coordinates(i, j, w, h)
-    vector_coords = vector_coordinates(spherical[0], spherical[1])
-    face = get_face(vector_coords[0], vector_coords[1], vector_coords[2])
-    raw_face_coords = raw_face_coordinates(face, vector_coords[0], vector_coords[1], vector_coords[2])
+    phi_rad = phi * (np.pi / 2)
+    theta_rad = theta * np.pi
 
-    cube_coords = raw_coordinates(raw_face_coords[0], raw_face_coords[1], raw_face_coords[2])
+    # vector coordinates
+    cos_phi = np.cos(phi_rad)
+    x = cos_phi * np.cos(theta_rad)
+    y = np.sin(phi_rad)
+    z = cos_phi * np.sin(theta_rad)
 
-    return normalized_coordinates(face, cube_coords[0], cube_coords[1], n)
+    ax, ay, az = np.abs(x), np.abs(y), np.abs(z)
+    largest = np.maximum(np.maximum(ax, ay), az)
+
+    eps = 0.00001
+    is_x = (largest - ax) < eps
+    is_y = ~is_x & ((largest - ay) < eps)
+    is_z = ~is_x & ~is_y
+
+    face = np.where(is_x, np.where(x < 0, FACE_X_POS, FACE_X_NEG),
+           np.where(is_y, np.where(y < 0, FACE_Y_POS, FACE_Y_NEG),
+                          np.where(z < 0, FACE_Z_POS, FACE_Z_NEG)))
+
+    # raw face coordinates (xc, yc, ma) per face
+    xc = np.zeros_like(x)
+    yc = np.zeros_like(x)
+    ma = np.zeros_like(x)
+
+    m = face == FACE_X_NEG
+    xc = np.where(m, z, xc); yc = np.where(m, y, yc); ma = np.where(m, x, ma)
+    m = face == FACE_X_POS
+    xc = np.where(m, -z, xc); yc = np.where(m, y, yc); ma = np.where(m, x, ma)
+    m = face == FACE_Y_NEG
+    xc = np.where(m, z, xc); yc = np.where(m, -x, yc); ma = np.where(m, y, ma)
+    m = face == FACE_Y_POS
+    xc = np.where(m, z, xc); yc = np.where(m, x, yc); ma = np.where(m, y, ma)
+    m = face == FACE_Z_POS
+    xc = np.where(m, x, xc); yc = np.where(m, y, yc); ma = np.where(m, z, ma)
+    m = face == FACE_Z_NEG
+    xc = np.where(m, -x, xc); yc = np.where(m, y, yc); ma = np.where(m, z, ma)
+
+    # raw coordinates on the face
+    abs_ma = np.abs(ma)
+    cube_x = (xc / abs_ma + 1.0) / 2.0
+    cube_y = (yc / abs_ma + 1.0) / 2.0
+
+    # face origin coordinates
+    n_int = int(n)
+    face_ox = np.zeros_like(face, dtype=np.int32)
+    face_oy = np.zeros_like(face, dtype=np.int32)
+
+    face_ox = np.where(face == FACE_X_NEG, n_int, face_ox)
+    face_oy = np.where(face == FACE_X_NEG, n_int, face_oy)
+    face_ox = np.where(face == FACE_X_POS, 3 * n_int, face_ox)
+    face_oy = np.where(face == FACE_X_POS, n_int, face_oy)
+    face_ox = np.where(face == FACE_Z_NEG, 2 * n_int, face_ox)
+    face_oy = np.where(face == FACE_Z_NEG, n_int, face_oy)
+    face_ox = np.where(face == FACE_Z_POS, 0, face_ox)
+    face_oy = np.where(face == FACE_Z_POS, n_int, face_oy)
+    face_ox = np.where(face == FACE_Y_POS, n_int, face_ox)
+    face_oy = np.where(face == FACE_Y_POS, 0, face_oy)
+    face_ox = np.where(face == FACE_Y_NEG, n_int, face_ox)
+    face_oy = np.where(face == FACE_Y_NEG, 2 * n_int, face_oy)
+
+    # normalized coordinates
+    norm_x = np.floor(cube_x * n).astype(np.int32)
+    norm_y = np.floor(cube_y * n).astype(np.int32)
+
+    norm_x = np.clip(norm_x, 0, n_int - 1)
+    norm_y = np.clip(norm_y, 0, n_int - 1)
+
+    return face_ox + norm_x, face_oy + norm_y

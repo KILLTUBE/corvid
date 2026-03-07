@@ -51,12 +51,12 @@ class Patch:
     nolightmap: bool
 
     def __init__(self,
-        type="mesh", toolflags=[], contents=[], texture="case", lightmap="lightmap_gray", size=None, samplesize=16,
+        type="mesh", toolflags=None, contents=None, texture="case", lightmap="lightmap_gray", size=None, samplesize=16,
         smoothing=None, layer=None
     ) -> None:
         self.type = type
-        self.toolflags = toolflags
-        self.contents = contents
+        self.toolflags = toolflags if toolflags is not None else []
+        self.contents = contents if contents is not None else []
         self.texture = texture
         self.lightmap = lightmap
         self.samplesize = samplesize if samplesize != 0 else 16

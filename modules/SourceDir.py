@@ -3,6 +3,7 @@ from typing import List
 from os.path import isdir, isfile
 from shutil import copyfile
 from pathlib import Path
+from tempfile import gettempdir
 from sys import exit
 from .Gma import Addon, load as loadGma
 
@@ -28,7 +29,7 @@ class SourceDir:
             print(f"\"{path}\" is an invalid path.")
     
     def copy(self, src, dest, silent=False):
-        src = Path(src).as_posix()
+        src = Path(src.replace("\\", "/")).as_posix()
         for pak in self.paks:
             try:
                 pak.get_file(src).save(dest)
@@ -55,7 +56,7 @@ class SourceDir:
         return False
 
     def open(self, src):
-        src = Path(src).as_posix()
+        src = Path(src.replace("\\", "/")).as_posix()
         for pak in self.paks:
             try:
                 return pak.get_file(src).read()
@@ -64,8 +65,11 @@ class SourceDir:
         
         for addon in self.addons:
             if src in addon.entries:
-                addon.entries[src].save()
-        
+                tmpPath = f"{gettempdir()}/corvid_addon_tmp"
+                addon.entries[src].save(tmpPath)
+                with open(tmpPath, "r") as f:
+                    return f.read()
+
         for dir in self.dirs:
             try:
                 return open(f"{dir}/{src}").read()

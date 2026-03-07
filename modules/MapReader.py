@@ -121,13 +121,13 @@ def readMap(vmf):
                     matName = side.material.lower()
                     if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
                         materials.append(matName)
-                if "editor" in solid:
-                    if "visgroupid" in solid.editor and solid.editor.visgroupid == skyBoxId:
-                        skyEntityBrushes.append(Brush(sides, entity.classname, solid.id))
+                if "editor" in entity.solid:
+                    if "visgroupid" in entity.solid.editor and entity.solid.editor.visgroupid == skyBoxId:
+                        skyEntityBrushes.append(Brush(sides, entity.classname, entity.solid.id))
                     else:
-                        entityBrushes.append(Brush(sides, entity.classname, solid.id, entity))
+                        entityBrushes.append(Brush(sides, entity.classname, entity.solid.id, entity))
                 else:
-                    entityBrushes.append(Brush(sides, entity.classname, solid.id, entity))
+                    entityBrushes.append(Brush(sides, entity.classname, entity.solid.id, entity))
         elif entity.classname == "sky_camera":
             skyBoxOrigin = VecFromStr(entity.origin, 3)
             skyBoxScale = float(entity.scale)

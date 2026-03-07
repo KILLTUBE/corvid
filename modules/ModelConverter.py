@@ -66,7 +66,7 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0):
         vtx = Vtx(f"{filePath}.dx90.vtx")
         vtx.read()
     elif os.path.exists(f"{filePath}.vtx"):
-        vtx = Vtx(f"{filePath}.dx90.vtx")
+        vtx = Vtx(f"{filePath}.vtx")
         vtx.read()
     else:
         print(f"Can't find vtx file for the model {basename(filePath)}.mdl. Skipping...")
@@ -97,7 +97,7 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0):
                 continue
 
             # sometimes a material might contain both. we don't really need this but it won't hurt to have extra measures.
-            name = newPath(f"{path}/{basename(mat.name)}")
+            name = newPath(f"{path}/{basename(mat.name.replace(chr(92), '/'))}")
             if exists(f"{tempDir}/{name}.vmt"):
                 materials.append(name)
                 continue

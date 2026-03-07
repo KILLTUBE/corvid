@@ -44,8 +44,8 @@ class Brush:
             for p in winding:
                 if not any(length(p - up) < 1e-3 for up in unique_points):
                     unique_points.append(p)
-            side.points = unique_points
             unique_points.reverse()
+            side.points = unique_points
             
             if side.hasDisp:
                 self.hasDisp = True

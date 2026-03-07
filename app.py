@@ -33,10 +33,14 @@ from glm import vec3
 from modules.vdfutils import parse_vdf
 
 # global settings
-settings = json.loads(open("res/settings.json").read())
-gameDef = json.loads(open("res/gameDef.json").read())
-gameDefCustom = json.loads(open("res/gameDef.json").read())
-version = open("res/version.txt").read().split("\n")[0]
+with open("res/settings.json") as f:
+    settings = json.loads(f.read())
+with open("res/gameDef.json") as f:
+    gameDef = json.loads(f.read())
+with open("res/gameDef.json") as f:
+    gameDefCustom = json.loads(f.read())
+with open("res/version.txt") as f:
+    version = f.read().split("\n")[0]
 steamAppsDirs = []
 
 def ProperTime(time):
@@ -113,6 +117,7 @@ def load_library_folders_data(steam_dir: str | None) -> List[str] | None:
 
 class popupWindow:
     def __init__(self, app: 'App'):
+        self.app = app
         top = self.top = tk.Toplevel(app.root)
         top.title("Set export scale")
         top.resizable(0, 0)
@@ -160,7 +165,7 @@ class popupWindow:
             return
         else:
             if xy is not None and z is not None:
-                app.changeSetting("scale", [xy, z])
+                self.app.changeSetting("scale", [xy, z])
                 self.top.destroy()
 
 class App:
@@ -506,7 +511,7 @@ class App:
         else:
             dir = _dir
         
-        if dir is not None or dir != "":
+        if dir is not None and dir != "":
             self.changeSetting("steamDir", dir)
             self.steamDirLabel["text"] = dir
 
@@ -539,11 +544,11 @@ class App:
             self.gameDirList.insert(tk.END, dir)
 
     def deleteVpkButton_command(self):
-        for file in self.vpkList.curselection():
+        for file in reversed(self.vpkList.curselection()):
             self.vpkList.delete(file)
 
     def deleteDirButton_command(self):
-        for dir in self.gameDirList.curselection():
+        for dir in reversed(self.gameDirList.curselection()):
             self.gameDirList.delete(dir)
 
     def clearConsoleButton_command(self):
@@ -636,7 +641,7 @@ class App:
 
         vmfPath = self.vmfPath.get()
         # check if the selected file is a valid VMF file
-        if len(vmfPath) == "0":
+        if len(vmfPath) == 0:
             alert.showerror("Please select a VMF file!")
             exit()
         if not os.path.isfile(vmfPath):

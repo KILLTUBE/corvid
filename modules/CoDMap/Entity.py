@@ -11,8 +11,8 @@ class Entity:
     geo: List[Union[Brush, Patch]]
     layer: str
 
-    def __init__(self, properties={}) -> None:
-        self.properties = properties
+    def __init__(self, properties=None) -> None:
+        self.properties = properties if properties is not None else {}
         self.geo = []
         self.layer = None
 

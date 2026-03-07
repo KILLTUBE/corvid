@@ -19,7 +19,7 @@ def shortenPath(path: str, dig=4):
 
 # we can use the two functions above to avoid name classes in assets
 def newPath(path: str, shorten=False, prefix=""):
-    path = f"{prefix}/" + Path(path).as_posix().strip().lower().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
+    path = f"{prefix}/" + Path(path.replace("\\", "/")).as_posix().strip().lower().replace("{", "_").replace("}", "_").replace("(", "_").replace(")", "_").replace(" ", "_")
     fileName = basename(path)
     if shorten:
         fileName = shortenName(fileName)

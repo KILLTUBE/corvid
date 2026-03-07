@@ -1,6 +1,6 @@
 class Gdt:
-    def __init__(self, entries={}):
-        self.entries = entries
+    def __init__(self, entries=None):
+        self.entries = entries if entries is not None else {}
         self.CoD2 = False
         self.name = ""
     

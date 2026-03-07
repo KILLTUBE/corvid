@@ -5,6 +5,7 @@ from SourceIO.source1.vtf.VTFWrapper import VTFLib
 from glm import vec2, vec3
 #from modules.Vector3 import Vector3
 #from modules.Vector2 import Vector2
+import numpy as np
 from modules.cube2equi import find_corresponding_pixel
 from modules.vdfutils import parse_vdf
 from os.path import basename, splitext, dirname, exists
@@ -70,7 +71,7 @@ def copyTextures(mats, dir: SourceDir, mdl=False):
                 includeFile = "materials/" + includeFile
             if not includeFile.endswith(".vmt"):
                 includeFile += ".vmt"
-            includeFile = Path(includeFile).as_posix().lower().strip()
+            includeFile = Path(includeFile.replace("\\", "/")).as_posix().lower().strip()
             if dir.copy(includeFile, f"{tempDir}/{vmtDir}/{newPath(includeFile)}"):
                 try:
                     includeVmt = parse_vdf(fixVmt(open(f"{tempDir}/{vmtDir}/{newPath(includeFile)}").read()))
@@ -176,13 +177,13 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, skinTints, game="WaW"
 
         for material in mdl.materials:
             for path in mdl.materials_paths:
-                path = Path(path).as_posix()
-                name = basename(material.name)
+                path = Path(path.replace("\\", "/")).as_posix()
+                name = basename(material.name.replace("\\", "/"))
                 name = f"{path}/{name}".lower()
                 if name not in materials:
                     materials.append((name, mdl.header.surface_prop, tints))
 
-                name = Path(material.name).as_posix().lower()
+                name = Path(material.name.replace("\\", "/")).as_posix().lower()
                 if name not in materials:
                     materials.append((name, mdl.header.surface_prop, tints))
 
@@ -850,12 +851,12 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         w = int(2 * h)
         n = ho / 3
 
-        res = Image.new(mode="RGB", size=(w, h), color=(0, 255, 239))
+        xcoords, ycoords = np.meshgrid(np.arange(w), np.arange(h))
+        corrx, corry = find_corresponding_pixel(xcoords, ycoords, w, h, n)
 
-        for ycoord in range(0, h):
-            for xcoord in range(0, w):
-                corrx, corry = find_corresponding_pixel(xcoord, ycoord, w, h, n)
-                res.putpixel((xcoord, ycoord), cubemap.getpixel((corrx, corry)))
+        cubemap_arr = np.array(cubemap)
+        res_arr = cubemap_arr[corry, corrx, :3]
+        res = Image.fromarray(res_arr.astype(np.uint8), mode="RGB")
 
         res.save(f"{convertDir}/i_{mapName}_sky.tif")
 

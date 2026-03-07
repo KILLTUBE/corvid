@@ -24,7 +24,7 @@ class AABB:
     
     def update(self, new):
         self.min = min(self.min, new)
-        self.max = max(self.min, new)
+        self.max = max(self.max, new)
     
     def setMin(self, min: vec3):
         self.min = min
@@ -43,8 +43,8 @@ class AABB:
     def IsTouching(self, box: 'AABB') -> bool:
         return (
             (self.min.x <= box.max.x and self.max.x >= box.min.x) and
-            (self.min.x <= box.max.y and self.max.y >= box.min.y) and
-            (self.min.x <= box.max.z and self.max.z >= box.min.z)
+            (self.min.y <= box.max.y and self.max.y >= box.min.y) and
+            (self.min.z <= box.max.z and self.max.z >= box.min.z)
         )
     
     def GenerateOctree(self):

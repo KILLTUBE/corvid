@@ -132,7 +132,7 @@ def convertDisplacement(side: Side, matSize, origin=vec3(0, 0, 0), scale=1, game
                 )
             )
     
-    if res.size[0] == (game == "CoD4" or game == "CoD2") and numVerts == 17:
+    if (game == "CoD4" or game == "CoD2") and numVerts == 17:
         res = res.Slice(9)
 
     if not alpha or material + "_blend" not in matSize:
@@ -160,13 +160,17 @@ def convertDisplacement(side: Side, matSize, origin=vec3(0, 0, 0), scale=1, game
                 )
             )
     
-    if res2.size[0] == (game == "CoD4" or game == "CoD2") and numVerts == 17:
+    if (game == "CoD4" or game == "CoD2") and numVerts == 17:
         res2 = res2.Slice(9)
     
     return [res, res2]
 
 
-def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=vec3(0, 0, 0), scale=1, matSizes: dict={}, brushConversion=False, sideDict: dict={}, AABBmin: vec3=vec3(0, 0, 0), AABBmax: vec3=vec3(0, 0, 0)):
+def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=vec3(0, 0, 0), scale=1, matSizes: dict=None, brushConversion=False, sideDict: dict=None, AABBmin: vec3=vec3(0, 0, 0), AABBmax: vec3=vec3(0, 0, 0)):
+    if matSizes is None:
+        matSizes = {}
+    if sideDict is None:
+        sideDict = {}
     tools = {
         "toolsnodraw": "caulk",
         "toolsclip": "clip", "toolsplayerclip": "clip", "toolsinvisible": "clip", "toolsnpcclip": "clip", "toolsgrenadeclip": "clip_missile",
@@ -218,7 +222,7 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=vec3(0
         p3 = (side.p3 - origin) * scale
 
         if side.material.startswith("tools"):
-            mat = basename(side.material)
+            mat = basename(side.material.replace("\\", "/"))
             if mat in tools:
                 material = tools[mat]
             else:
@@ -256,8 +260,8 @@ def convertLight(entity, scale=1.0):
         _color = [float(i) for i in entity["_light"].split(" ")]
         if len(_color) == 3:
             _color.append(300)
-    elif len(_color) < 3:
-        _color = [255, 255, 255, 300]
+        elif len(_color) < 3:
+            _color = [255, 255, 255, 300]
     else:
         _color = [255, 255, 255, 300]
 
@@ -344,7 +348,9 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
 
     return res
 
-def convertRope(entity, skyOrigin=vec3(0, 0, 0), scale=1, curve=False, ropeDict: dict={}):
+def convertRope(entity, skyOrigin=vec3(0, 0, 0), scale=1, curve=False, ropeDict: dict=None):
+    if ropeDict is None:
+        ropeDict = {}
     # sadly, cod 4 does not support rope entities, so we have to create curve patches for them instead
     if curve:
         if entity["classname"] == "move_rope":
@@ -596,7 +602,9 @@ def convertBombsite(entity, scale=1, game="WaW", site=""):
     lowest = None
     for brush in brushes:
         for side in brush.sides:
-            if lowest is not None:
+            if lowest is None:
+                lowest = side.center().z
+            else:
                 lowest = min(lowest, side.center().z)
             center = center + side.center()
     

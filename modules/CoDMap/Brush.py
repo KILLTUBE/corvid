@@ -9,9 +9,9 @@ class Brush:
     layer: str
     filters: dict
 
-    def __init__(self, faces=[], contents=[]) -> None:
-        self.faces = faces
-        self.contents = []
+    def __init__(self, faces=None, contents=None) -> None:
+        self.faces = faces if faces is not None else []
+        self.contents = contents if contents is not None else []
         self.toolflags = []
         self.layer = None
 

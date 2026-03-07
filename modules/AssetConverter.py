@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from SourceIO.source1.vtf.VTFWrapper import VTFLib
 # from .Vector2 import Vector2
 # from .Vector3 import Vector3
-from glm import vec2, vec2
+from glm import vec2
 from tempfile import gettempdir
 from .Static import newPath, VecFromStr, Vec2Str, Vec2Hex
 from PyCoD import Model
