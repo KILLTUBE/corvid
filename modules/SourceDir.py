@@ -27,53 +27,35 @@ class SourceDir:
             self.dirs.append(path)
         else:
             print(f"\"{path}\" is an invalid path.")
-    
-    def copy(self, src, dest, silent=False):
-        src = Path(src.replace("\\", "/")).as_posix()
-        for pak in self.paks:
-            try:
-                pak.get_file(src).save(dest)
-            except:
-                continue
-            else:
-                return True
-            
-        for addon in self.addons:
-            if src in addon.entries:
-                addon.entries[src].save(dest)
-                return True
 
-        for dir in self.dirs:
-            try:
-                copyfile(f"{dir}/{src}", dest)
-            except:
-                continue
-            else:
-                return True
-        
-        if not silent:
-            print(f"Could not find file {src}")
-        return False
-
-    def open(self, src):
+    def read_bytes(self, src, silent=False):
         src = Path(src.replace("\\", "/")).as_posix()
         for pak in self.paks:
             try:
                 return pak.get_file(src).read()
             except:
                 continue
-        
+
         for addon in self.addons:
             if src in addon.entries:
                 tmpPath = f"{gettempdir()}/corvid_addon_tmp"
                 addon.entries[src].save(tmpPath)
-                with open(tmpPath, "r") as f:
+                with open(tmpPath, "rb") as f:
                     return f.read()
 
         for dir in self.dirs:
             try:
-                return open(f"{dir}/{src}").read()
+                with open(f"{dir}/{src}", "rb") as f:
+                    return f.read()
             except:
                 continue
-            
+
+        if not silent:
+            print(f"Could not find file {src}")
+        return None
+
+    def read_text(self, src, silent=False):
+        data = self.read_bytes(src, silent)
+        if data is not None:
+            return data.decode("utf-8", errors="replace")
         return None

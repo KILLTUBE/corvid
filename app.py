@@ -701,25 +701,9 @@ class App:
             exportMap(
                 vmfFile, vpkFiles, gameDirs, game,
                 self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"],
-            scale=vec3(settings["scale"][0], settings["scale"][0], settings["scale"][1]), file=file
+            scale=vec3(settings["scale"][0], settings["scale"][0], settings["scale"][1]), file=file,
+            outputDir=outputDir
             )
-
-        convertedDir = gettempdir() + "/corvid/converted"
-
-        dirs = [
-            "model_export/corvid",
-            "source_data",
-            "texture_assets/corvid"
-        ]
-
-        if game != "BO3":
-            dirs.append("bin")
-
-        print(f"Moving all converted assets to \"{outputDir}\"...")
-        for folder in dirs:
-            files = listdir(f"{convertedDir}/{folder}/.")
-            for f in files:
-                shutil.move(f"{convertedDir}/{folder}/{f}", f"{outputDir}/{folder}/{f}")
 
         end = time.time()
         total = ProperTime(round(end - start))

@@ -3,15 +3,13 @@ import numpy as np
 
 os.environ["NO_BPY"] = "1"
 
-from os.path import exists
 from posixpath import basename
-from tempfile import gettempdir
 from typing import Dict, List
 from glm import vec2, vec3
 from SourceIO.library.models.mdl.v49.mdl_file import MdlV49
 from SourceIO.library.models.vtx import open_vtx
 from SourceIO.library.models.vvd import Vvd
-from SourceIO.library.utils import FileBuffer
+from SourceIO.library.utils import MemoryBuffer
 from PyCoD import Model as CoDModel
 from PyCoD.xmodel import Bone, Vertex, FaceVertex, Face, Mesh, Material
 from .Static import newPath, Vec2Str
@@ -52,23 +50,17 @@ def merge_meshes(model, vtx_model):
 
     return vtx_vertices, np.hstack(indices_array), np.hstack(mat_arrays)
 
-def convertModel(filePath, writePath, tint="", skin=0, scale=1.0, game="WaW"):
-    tempDir = f"{gettempdir()}/corvid/mdlMats"
-    # read mdl, vtx and vvd files
-    if not os.path.exists(f"{filePath}.mdl"):
-        print(f"Can't find {basename(filePath)}.mdl. Skipping...")
-        return
-    mdl = MdlV49.from_buffer(FileBuffer(f"{filePath}.mdl"))
+def convertModel(modelData, writePath, materialNames, tint="", skin=0, scale=1.0, game="WaW"):
+    modelName = modelData["name"]
+    mdl = MdlV49.from_buffer(MemoryBuffer(modelData["mdl"]))
 
-    if os.path.exists(f"{filePath}.dx90.vtx"):
-        vtx = open_vtx(FileBuffer(f"{filePath}.dx90.vtx"))
-    elif os.path.exists(f"{filePath}.vtx"):
-        vtx = open_vtx(FileBuffer(f"{filePath}.vtx"))
-    else:
-        print(f"Can't find vtx file for the model {basename(filePath)}.mdl. Skipping...")
+    vtx_data = modelData.get("dx90.vtx") or modelData.get("vtx")
+    if vtx_data is None:
+        print(f"Can't find vtx data for the model {modelName}.mdl. Skipping...")
         return
 
-    vvd = Vvd.from_buffer(FileBuffer(f"{filePath}.vvd"))
+    vtx = open_vtx(MemoryBuffer(vtx_data))
+    vvd = Vvd.from_buffer(MemoryBuffer(modelData["vvd"]))
 
     # replace the material names when they have different skins
     if skin != 0 and skin < len(mdl.skin_groups):
@@ -80,20 +72,20 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0, game="WaW"):
     for mat in mdl.materials:
         # if the model contains the full path
         name = newPath(mat.name)
-        if exists(f"{tempDir}/{name}.vmt"):
+        if name in materialNames:
             materials.append(name)
             continue
-        
+
         for path in mdl.materials_paths:
             # if path/materialname exists
             name = newPath(f"{path}/{mat.name}")
-            if exists(f"{tempDir}/{name}.vmt"):
+            if name in materialNames:
                 materials.append(name)
                 continue
 
             # sometimes a material might contain both. we don't really need this but it won't hurt to have extra measures.
             name = newPath(f"{path}/{basename(mat.name.replace(chr(92), '/'))}")
-            if exists(f"{tempDir}/{name}.vmt"):
+            if name in materialNames:
                 materials.append(name)
                 continue
 
@@ -106,7 +98,7 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0, game="WaW"):
     uvs: List[vec2] = []
     groups = []
     faces = []
-    
+
     desired_lod = 0
     all_vertices = vvd.lod_data[desired_lod]
 
@@ -133,7 +125,7 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0, game="WaW"):
             for i in range(0, len(indices_array), 3):
                 if i % 1000 == 0 and i != 0:
                     groups.append(f"corvid_{len(groups)}")
-                    
+
                 faces.append({
                     "points":[
                         {
@@ -157,13 +149,13 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0, game="WaW"):
                 })
 
     if skin != 0 and tint != "" and game == "BO3":
-        fileName = basename(filePath) + f"_skin{skin}_{tint}"
+        fileName = modelName + f"_skin{skin}_{tint}"
     elif tint != "" and game == "BO3":
-        fileName = basename(filePath) + f"_{tint}"
+        fileName = modelName + f"_{tint}"
     elif skin != 0:
-        fileName = basename(filePath) + f"_skin{skin}"
+        fileName = modelName + f"_skin{skin}"
     else:
-        fileName = basename(filePath)
+        fileName = modelName
 
     # Build PyCoD Model
     model = CoDModel()

@@ -12,8 +12,6 @@ from .Static import VecFromStr, Vec2Str, Vec2Hex
 # from .Vector3 import Vector3
 from .Gdt import Gdt
 from os.path import basename, splitext
-from os import makedirs
-from tempfile import gettempdir
 from .AssetExporter import *
 from .AssetConverter import convertImages, convertModels
 import modules.CoDMap.CoDMap as cod
@@ -785,25 +783,10 @@ def createSkyBrushes(AABBmin: vec3, AABBmax: vec3, mapName="", game="WaW"):
 def exportMap(
         vmfString, vpkFiles=[], gameDirs=[], game="WaW",
         skipMats=False, skipModels=False, mapName="",
-        brushConversion=False, scale=1.0, file: TextIOWrapper=None
+        brushConversion=False, scale=1.0, file: TextIOWrapper=None,
+        outputDir=""
     ):
-    # create temporary directories to extract assets
-    copyDir = gettempdir() + "/corvid"
-
-    if not exists(f"{copyDir}"):
-        try:
-            makedirs(f"{copyDir}/mdl")
-            makedirs(f"{copyDir}/mat")
-            makedirs(f"{copyDir}/mdlMats")
-            makedirs(f"{copyDir}/matTex")
-            makedirs(f"{copyDir}/mdlTex")
-            if game != "BO3":
-                makedirs(f"{copyDir}/converted/bin")
-            makedirs(f"{copyDir}/converted/model_export/corvid")
-            makedirs(f"{copyDir}/converted/source_data")
-            makedirs(f"{copyDir}/converted/texture_assets/corvid")
-        except:
-            pass
+    outDir = outputDir
 
     mapData = readMap(vmfString)
 
@@ -816,21 +799,21 @@ def exportMap(
         print(f"Mounting {dir}...")
         gamePath.add(dir)
 
-    # extract world materials and textures
-    # can't skip exporting these becasue the textures (or the base textures of those materaials) are needed to get the UV of brush faces
+    # load world materials and textures into memory
     print("Loading materials...")
-    materials = copyMaterials(mapData["materials"], gamePath)
+    materials, vmtCache = loadMaterials(mapData["materials"], gamePath)
     print("Loading texture data...")
-    matData = copyTextures(materials, gamePath)
+    matData = loadTextures(materials, vmtCache, gamePath)
     matSizes = matData["sizes"]
 
-    # extract models, model materials and textures
+    # load models, model materials and textures into memory
+    modelData = {}
     if not skipModels:
-        print("Extracting models...")
-        copyModels(mapData["models"], gamePath)
+        print("Loading models...")
+        modelData = loadModels(mapData["models"], gamePath)
         print("Loading model materials...")
-        mdlMaterials = copyModelMaterials(mapData["models"], gamePath, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], game)
-        mdlMatData = copyTextures(mdlMaterials, gamePath, True)
+        mdlMaterials, mdlVmtCache = loadModelMaterials(mapData["models"], modelData, gamePath, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], game)
+        mdlMatData = loadTextures(mdlMaterials, mdlVmtCache, gamePath, True)
 
     # create GDT files
     gdtFile = Gdt()
@@ -844,12 +827,12 @@ def exportMap(
     if not skipMats or not skipModels:
         print("Generating GDT file...")
     if not skipMats:
-        worldMats = createMaterialGdt(matData["vmts"], game)
+        worldMats = createMaterialGdt(matData["vmts"], game, set(matData["vtfData"].keys()))
         gdtFile += worldMats
     if game != "BO3" and not skipMats:
         batFile += worldMats.toBat()
     if not skipModels:
-        modelMats = createMaterialGdt(mdlMatData["vmts"], game)
+        modelMats = createMaterialGdt(mdlMatData["vmts"], game, set(mdlMatData["vtfData"].keys()))
         gdtFile += modelMats
     if game != "BO3" and not skipModels:
         batFile += modelMats.toBat()
@@ -868,14 +851,15 @@ def exportMap(
     # convert the textures
     if not skipMats:
         print("Converting textures...")
-        convertImages(matData, "matTex", "texture_assets/corvid", "tif" if game == "BO3" else "tga")
+        convertImages(matData, f"{outDir}/texture_assets/corvid", "tif" if game == "BO3" else "tga")
         if not skipModels:
-            convertImages(mdlMatData, "mdlTex", "texture_assets/corvid", "tif" if game == "BO3" else "tga")
+            convertImages(mdlMatData, f"{outDir}/texture_assets/corvid", "tif" if game == "BO3" else "tga")
 
     # convert the models
     if not skipModels:
         print("Converting models...")
-        convertModels(mapData["models"], mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], game, scale)
+        materialNames = set(mdlMaterials)
+        convertModels(mapData["models"], modelData, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], materialNames, game, scale, outDir)
 
     # generate map geometry
     print("Generating .map file...")
@@ -1058,7 +1042,7 @@ def exportMap(
 
     # add corners for minimap and create a minimap material in gdt
     if game != "CoD2":
-        minimapData, x, y = exportMinimap(mapName, gamePath, game)
+        minimapData, x, y = exportMinimap(mapName, gamePath, game, outDir)
         if minimapData is not None:
             if not skipMats:
                 gdtFile += minimapData
@@ -1086,16 +1070,16 @@ def exportMap(
 
     # convert the skybox textures
     if not skipMats and mapData["sky"] != "sky":
-        skyData = exportSkybox(mapData["sky"], mapName, worldSpawnSettings, gamePath, game)
+        skyData = exportSkybox(mapData["sky"], mapName, worldSpawnSettings, gamePath, game, outDir)
         gdtFile += skyData
         if game != "BO3":
             batFile += skyData.toBat()
 
 
     # write the gdt & bat files
-    open(f"{copyDir}/converted/source_data/_{mapName}.gdt", "w").write(gdtFile.toStr())
+    open(f"{outDir}/source_data/_{mapName}.gdt", "w").write(gdtFile.toStr())
     if game != "BO3":
-        open(f"{copyDir}/converted/bin/_convert_{mapName}_assets.bat", "w").write(gdtFile.toBat())
+        open(f"{outDir}/bin/_convert_{mapName}_assets.bat", "w").write(gdtFile.toBat())
 
     if game == "BO3":
         res.flags.append('"script_startingnumber" 0\n')
