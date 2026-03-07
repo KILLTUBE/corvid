@@ -2,6 +2,12 @@ import os
 import sys
 from typing import List
 
+# When running as a windowed PyInstaller app, stdout/stderr are None
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
+
 if os.name == "nt":
     import winreg
 else:
