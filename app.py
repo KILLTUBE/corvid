@@ -180,7 +180,7 @@ class App:
         
         icon_path = "res/icon.ico"
 
-        icon_img = ImageTk.PhotoImage(Image.open(icon_path))
+        icon_img = ImageTk.PhotoImage(Image.open(icon_path).convert("RGBA"))
         root.iconphoto(True, icon_img)
         
         self.root = root
