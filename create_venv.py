@@ -5,18 +5,18 @@ import venv
 from pathlib import Path
 
 def main():
-    venv_dir = Path("corvid_venv")
+    if os.name == "nt":  # Windows
+        venv_dir = Path("corvid_venv_win")
+        python_bin = venv_dir / "Scripts" / "python.exe"
+    else:  # Linux/macOS
+        venv_dir = Path("corvid_venv_linux")
+        python_bin = venv_dir / "bin" / "python"
 
     if not venv_dir.exists():
         print("Creating virtual environment...")
         venv.create(venv_dir, with_pip=True)
 
-    if os.name == "nt":  # Windows
-        python_bin = Path(f"{venv_dir}/Scripts/python.exe")
-    else:  # Linux/macOS
-        python_bin = Path(f"{venv_dir}/bin/python"
-)
-    if not os.path.exists(python_bin):
+    if not python_bin.exists():
         print("Error: could not find Python inside venv.")
         sys.exit(1)
 
