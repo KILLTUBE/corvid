@@ -1,7 +1,7 @@
 import os
 os.environ["NO_BPY"] = "1"
 from PIL import Image
-from SourceIO.source1.vtf.VTFWrapper import VTFLib
+from SourceIO.library.utils.pylib.vtf import VTFFile, load_vtf_texture
 from glm import vec2, vec3
 #from modules.Vector3 import Vector3
 #from modules.Vector2 import Vector2
@@ -14,7 +14,8 @@ from .Static import fixVmt, newPath, VecFromStr, Vec2Hex
 from .Gdt import Gdt
 from tempfile import gettempdir
 from .AssetConverter import getTexSize, convertImage
-from SourceIO.source1.mdl.mdl_file import Mdl
+from SourceIO.library.models.mdl.v49.mdl_file import MdlV49
+from SourceIO.library.utils import FileBuffer
 from pathlib import Path
 from .SourceDir import SourceDir
 
@@ -172,8 +173,7 @@ def copyModelMaterials(models, dir: SourceDir, modelTints, skinTints, game="WaW"
         
         if not exists(f"{tempDir}/mdl/{mdlName}.mdl"):
             continue
-        mdl = Mdl(f"{tempDir}/mdl/{mdlName}.mdl")
-        mdl.read()
+        mdl = MdlV49.from_buffer(FileBuffer(f"{tempDir}/mdl/{mdlName}.mdl"))
 
         for material in mdl.materials:
             for path in mdl.materials_paths:

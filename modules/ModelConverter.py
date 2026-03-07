@@ -8,9 +8,10 @@ from posixpath import basename
 from tempfile import gettempdir
 from typing import Dict, List
 from glm import vec2, vec3
-from SourceIO.source1.mdl.mdl_file import Mdl
-from SourceIO.source1.vtx.vtx import Vtx
-from SourceIO.source1.vvd.vvd import Vvd
+from SourceIO.library.models.mdl.v49.mdl_file import MdlV49
+from SourceIO.library.models.vtx import open_vtx
+from SourceIO.library.models.vvd import Vvd
+from SourceIO.library.utils import FileBuffer
 from PyCoD import Model as CoDModel
 from PyCoD.xmodel import Bone, Vertex, FaceVertex, Face, Mesh, Material
 from .Static import newPath, Vec2Str
@@ -20,7 +21,7 @@ def merge_strip_groups(vtx_mesh):
     vertex_accumulator = []
     vertex_offset = 0
     for strip_group in vtx_mesh.strip_groups:
-        indices_accumulator.append(np.add(strip_group.indexes, vertex_offset))
+        indices_accumulator.append(np.add(strip_group.indices, vertex_offset))
         vertex_accumulator.append(strip_group.vertexes['original_mesh_vertex_index'].reshape(-1))
         vertex_offset += sum(strip.vertex_count for strip in strip_group.strips)
     return np.hstack(indices_accumulator), np.hstack(vertex_accumulator), vertex_offset
@@ -57,27 +58,22 @@ def convertModel(filePath, writePath, tint="", skin=0, scale=1.0, game="WaW"):
     if not os.path.exists(f"{filePath}.mdl"):
         print(f"Can't find {basename(filePath)}.mdl. Skipping...")
         return
-    mdl = Mdl(f"{filePath}.mdl")
-    mdl.read()
+    mdl = MdlV49.from_buffer(FileBuffer(f"{filePath}.mdl"))
 
-    vtx: Vtx
     if os.path.exists(f"{filePath}.dx90.vtx"):
-        vtx = Vtx(f"{filePath}.dx90.vtx")
-        vtx.read()
+        vtx = open_vtx(FileBuffer(f"{filePath}.dx90.vtx"))
     elif os.path.exists(f"{filePath}.vtx"):
-        vtx = Vtx(f"{filePath}.vtx")
-        vtx.read()
+        vtx = open_vtx(FileBuffer(f"{filePath}.vtx"))
     else:
         print(f"Can't find vtx file for the model {basename(filePath)}.mdl. Skipping...")
         return
 
-    vvd = Vvd(f"{filePath}.vvd")
-    vvd.read()
+    vvd = Vvd.from_buffer(FileBuffer(f"{filePath}.vvd"))
 
     # replace the material names when they have different skins
     if skin != 0 and skin < len(mdl.skin_groups):
         for i in range(len(mdl.skin_groups[skin])):
-            mdl.materials[i].name = mdl.skin_groups[skin][i]
+            mdl.materials[i].name = mdl.skin_groups[skin][i].name
 
     materials = []
     # check for the following and add if a material file exists with that name

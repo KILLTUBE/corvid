@@ -1,10 +1,9 @@
 import os
 from os.path import splitext, exists
 os.environ["NO_BPY"] = "1"
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageOps
-from SourceIO.source1.vtf.VTFWrapper import VTFLib
-# from .Vector2 import Vector2
-# from .Vector3 import Vector3
+from SourceIO.library.utils.pylib.vtf import VTFFile, load_vtf_texture
 from glm import vec2
 from tempfile import gettempdir
 from .Static import newPath, VecFromStr, Vec2Str, Vec2Hex
@@ -17,11 +16,14 @@ def convertImage(src, dest, format="rgba", invert=False, resize=False):
         print(f"{src} could not be found")
         return False
     format = format.upper()
-    image = VTFLib.VTFLib()
-    image.image_load(src)
-    width = image.width()
-    height = image.height()
-    rgba = Image.frombuffer("RGBA", (width, height), image.convert_to_rgba8888().contents)
+    with open(src, 'rb') as f:
+        pixel_data, width, height, is_float = load_vtf_texture(f.read())
+    if is_float:
+        rgba_arr = np.frombuffer(pixel_data, dtype=np.float32).reshape(height, width, 4)
+        rgba_arr = (np.clip(rgba_arr, 0, 1) * 255).astype(np.uint8)
+    else:
+        rgba_arr = np.frombuffer(pixel_data, dtype=np.uint8).reshape(height, width, 4)
+    rgba = Image.fromarray(rgba_arr, "RGBA")
     if rgba.size[0] < 4 or rgba.size[1] < 4:
         x = max(rgba.size[0], 4)
         y = max(rgba.size[1], 4)
@@ -101,9 +103,9 @@ def convertImages(images, src, dest, ext="tga"):
     img.save(f"{tempDir}/converted/{dest}/404.{ext}")
 
 def getTexSize(src):
-    image = VTFLib.VTFLib()
-    image.image_load(src)
-    return vec2(image.width(), image.height())
+    vtf = VTFFile()
+    vtf.load(src, True)
+    return vec2(vtf.width, vtf.height)
 
 def convertModels(models, modelTints, modelSkins, skinTints, game="WaW", scale=1.0):
     mdlDir = f"{tempDir}/mdl"
