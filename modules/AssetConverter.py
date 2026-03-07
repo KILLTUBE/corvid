@@ -8,7 +8,6 @@ from SourceIO.source1.vtf.VTFWrapper import VTFLib
 from glm import vec2
 from tempfile import gettempdir
 from .Static import newPath, VecFromStr, Vec2Str, Vec2Hex
-from PyCoD import Model
 from .ModelConverter import convertModel
 
 tempDir = gettempdir() + "/corvid"
@@ -107,7 +106,6 @@ def getTexSize(src):
     return vec2(image.width(), image.height())
 
 def convertModels(models, modelTints, modelSkins, skinTints, game="WaW", scale=1.0):
-    codModel = Model()
     mdlDir = f"{tempDir}/mdl"
     convertDir = f"{tempDir}/converted/model_export/corvid"
     total = len(models)
@@ -119,49 +117,16 @@ def convertModels(models, modelTints, modelSkins, skinTints, game="WaW", scale=1
         if game == "BO3" and model in modelTints:
             for tint in modelTints[model]:
                 hex = Vec2Hex(VecFromStr(tint, 3))
-                convertModel(f"{mdlDir}/{model}", convertDir, tint=hex, scale=scale)
-                try:
-                    codModel.LoadFile_Raw(f"{convertDir}/{model}_{hex}.xmodel_export")
-                    codModel.WriteFile_Bin(f"{convertDir}/{model}_{hex}.xmodel_bin")
-                except:
-                    print(f"Could not convert {model}_{hex} to xmodel_bin...")
-                else:
-                    os.remove(f"{convertDir}/{model}_{hex}.xmodel_export")
-        convertModel(f"{mdlDir}/{model}", convertDir, scale=scale)
+                convertModel(f"{mdlDir}/{model}", convertDir, tint=hex, scale=scale, game=game)
+        convertModel(f"{mdlDir}/{model}", convertDir, scale=scale, game=game)
 
         # convert models with skins
         if model in modelSkins:
             for skin in modelSkins[model]:
-                convertModel(f"{mdlDir}/{model}", convertDir, skin=skin, scale=scale)
-                if game == "BO3":
-                    try:
-                        codModel.LoadFile_Raw(f"{convertDir}/{model}_skin{skin}.xmodel_export")
-                        codModel.WriteFile_Bin(f"{convertDir}/{model}_skin{skin}.xmodel_bin")
-                    except:
-                        print(f"Could not convert {model} to xmodel_bin...")
-                    else:
-                        os.remove(f"{convertDir}/{model}_skin{skin}.xmodel_export")
-        
-        if game == "BO3" and  model in skinTints:
+                convertModel(f"{mdlDir}/{model}", convertDir, skin=skin, scale=scale, game=game)
+
+        if game == "BO3" and model in skinTints:
             for skin, tints in skinTints[model].items():
                 for tint in tints:
                     hex = Vec2Hex(VecFromStr(tint, 3))
-                    convertModel(f"{mdlDir}/{model}", convertDir, hex, skin, scale)
-                    try:
-                        codModel.LoadFile_Raw(f"{convertDir}/{model}_skin{skin}_{hex}.xmodel_export")
-                        codModel.WriteFile_Bin(f"{convertDir}/{model}_skin{skin}_{hex}.xmodel_bin")
-                    except:
-                        print(f"Could not convert {model} to xmodel_bin...")
-                    else:
-                        os.remove(f"{convertDir}/{model}_skin{skin}_{hex}.xmodel_export")
-
-
-
-        if game == "BO3":
-            try:
-                codModel.LoadFile_Raw(f"{convertDir}/{model}.xmodel_export")
-                codModel.WriteFile_Bin(f"{convertDir}/{model}.xmodel_bin")
-            except:
-                print(f"Could not convert {model} to xmodel_bin...")
-            else:
-                os.remove(f"{convertDir}/{model}.xmodel_export")
+                    convertModel(f"{mdlDir}/{model}", convertDir, hex, skin, scale, game=game)
