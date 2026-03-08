@@ -587,13 +587,16 @@ def convertSpawner(entity, scale=1.0):
     return res
 
 def convertBombsite(entity, scale=1, game="WaW", site=""):
-    solids = entity["solids"] if "solids" in entity else [entity["solid"]]
+    solidVal = entity["solid"]
+    solids = solidVal if isinstance(solidVal, list) else [solidVal]
     brushes: List[Brush] = []
 
     # calculate the geo of the trigger(s)
     for solid in solids:
+        sideVal = solid["side"]
+        sideList = sideVal if isinstance(sideVal, list) else [sideVal]
         sides: List[Side] = []
-        for side in solid["sides"]:
+        for side in sideList:
             sides.append(Side(side))
         brushes.append(Brush(sides))
     

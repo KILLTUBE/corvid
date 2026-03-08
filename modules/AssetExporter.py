@@ -59,7 +59,7 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False):
             print(f"Could not find material {fileName}. Creating an empty material for it...")
             res["vmts"][fileName] = parse_vdf('lightmappedgeneric\n{\n"$basetexture" "404"\n}')
             res["sizes"][file.strip()] = vec2(512, 512)
-            return res
+            continue
 
         try:
             vmt = parse_vdf(fixVmt(vmtText))
