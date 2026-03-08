@@ -353,9 +353,8 @@ class Overlay:
         if len(vertices) == 0:
             self.empty = True
             return
-        center = _vertices_center(vertices)
 
-        self.verts = [v - center + self.BasisOrigin for v in vertices]
+        self.verts = list(vertices)
         self.face_vertices = face_vertices
         self.face_loop_uvs = face_loop_uvs
 
