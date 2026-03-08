@@ -426,13 +426,6 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
         if "$translucent" in mat:
             data["blendFunc"] = "Blend"
 
-        if "$decal" in mat:
-            data["sort"] = "decal - static decal"
-            data["polygonOffset"] = "Static Decal"
-            data["locale_decal"] = "1"
-        elif overlayMats is not None and name in overlayMats:
-            data["sort"] = "decal - top 1"
-
         if "$basetexture2" in mat:
             data2 = {}
             data2["materialType"] = "world phong"
