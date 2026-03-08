@@ -33,7 +33,7 @@ class Face:
         self.smoothing = smoothing
 
     def __str__(self) -> str:
-        res = f"( {Vec2Str(self.p1)} ) ( {Vec2Str(self.p2)} ) ( {Vec2Str(self.p3)} ) {self.texture} {int(self.hScale)} {int(self.vScale)} {self.hShift:.5g} {self.vShift:.5g} {int(self.rotation)} 0 {self.lightmap} {self.lhScale} {self.lhScale} 0 0 0 0"
+        res = f"( {Vec2Str(self.p1)} ) ( {Vec2Str(self.p2)} ) ( {Vec2Str(self.p3)} ) {self.texture} {round(self.hScale)} {round(self.vScale)} {self.hShift:.5g} {self.vShift:.5g} {round(self.rotation)} 0 {self.lightmap} {self.lhScale} {self.lhScale} 0 0 0 0"
         
         if self.smoothing is not None:
             res += " smoothing " + self.smoothing

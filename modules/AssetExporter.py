@@ -426,6 +426,11 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
         if "$translucent" in mat:
             data["blendFunc"] = "Blend"
 
+        if overlayMats and assetName.strip() in overlayMats:
+            data["sort"] = "static decal"
+            data["locale"] = "decal"
+            data["polygonOffset"] = "Static Decal"
+
         if "$basetexture2" in mat:
             data2 = {}
             data2["materialType"] = "world phong"
@@ -462,6 +467,9 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
 
             if "$alphatest" in mat or "$alpha" in mat:
                 data2["alphaTest"] = "GE128"
+
+            data2["sort"] = "decal - bottom 1"
+            data2["locale"] = "decal"
 
             gdt.add(assetName.strip() + "_blend", "material", data2)
 
