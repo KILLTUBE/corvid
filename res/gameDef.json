@@ -44,7 +44,7 @@
 	},
 	"dod": {
 		"gameName": "Day of Defeat: Source",
-		"gameRoot": "day of defeat source",
+		"gameRoot": "Day of Defeat Source",
 		"vpkFiles": [
 			"dod/dod_pak_dir.vpk",
 			"hl2/hl2_textures_dir.vpk",
