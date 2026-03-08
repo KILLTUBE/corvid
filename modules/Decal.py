@@ -1,69 +1,213 @@
-from typing import Dict
+from typing import Dict, List, Tuple
+from math import fabs
 
-from modules.Vector2 import Vector2
-from modules.Vector3 import Vector3
-from .AABB import AABB
+from glm import vec2, vec3, normalize, cross, dot, length
+
+from os.path import basename
+from modules.Static import newPath
 from .Brush import Brush
 from .Side import Side
-from mathutils import Vector, Matrix
+from .AABB import AABB
+from .CoDMap.Patch import Patch, PatchVert
 
-# loop through bounding boxes and add touching brushes
-def AddBrusesToOctree(box: AABB, brush: Brush):
-    if not brush.AABB().IsTouching(box):
-        return
-    
-    if box.children is None:
-        if brush["id"] not in box.brushes:
-            box.brushes.append(brush["id"])
-    else:
-        for child in box.children:
-            AddBrusesToOctree(child, brush)
 
-def GetBrushes(arr: 'AABB', brushes: list):
-    if arr.children is not None:
-        for child in arr.children:
-            GetBrushes(child, brushes)
-    else:
-        for brush in arr.brushes:
-            brushes.append(brush)
+def _clip_polygon_by_edge(verts: List[vec3], uvs: List[vec2], plane_point: vec3, plane_normal: vec3) -> Tuple[List[vec3], List[vec2]]:
+    """Clip a polygon (with associated UVs) against a plane using Sutherland-Hodgman."""
+    if len(verts) == 0:
+        return [], []
 
-def GetCollidingBrushes(decal: AABB, octree: AABB, brushes: Dict[str, Brush]):
-    res = []
+    out_verts = []
+    out_uvs = []
+    n = len(verts)
 
-    if octree.children is not None:
-        for child in octree.children:
-            GetCollidingBrushes(decal, child, brushes)
-    else:
-        for _brush in octree.brushes:
-            brush = brushes[_brush]
+    for i in range(n):
+        curr = verts[i]
+        curr_uv = uvs[i]
+        nxt = verts[(i + 1) % n]
+        nxt_uv = uvs[(i + 1) % n]
 
-            if not decal.IsTouching(brush.AABB()):
+        d_curr = dot(plane_normal, curr - plane_point)
+        d_nxt = dot(plane_normal, nxt - plane_point)
+
+        if d_curr >= 0:
+            out_verts.append(curr)
+            out_uvs.append(curr_uv)
+            if d_nxt < 0:
+                t = d_curr / (d_curr - d_nxt)
+                out_verts.append(curr + (nxt - curr) * t)
+                out_uvs.append(curr_uv + (nxt_uv - curr_uv) * t)
+        elif d_nxt >= 0:
+            t = d_curr / (d_curr - d_nxt)
+            out_verts.append(curr + (nxt - curr) * t)
+            out_uvs.append(curr_uv + (nxt_uv - curr_uv) * t)
+
+    return out_verts, out_uvs
+
+
+def _clip_quad_to_face(quad_verts: List[vec3], quad_uvs: List[vec2], face_points: List[vec3], face_normal: vec3) -> Tuple[List[vec3], List[vec2]]:
+    """Clip a quad against a convex face polygon by clipping against each edge plane."""
+    clipped_verts = list(quad_verts)
+    clipped_uvs = list(quad_uvs)
+
+    n = len(face_points)
+    for i in range(n):
+        if len(clipped_verts) < 3:
+            return [], []
+        a = face_points[i]
+        b = face_points[(i + 1) % n]
+        # edge plane normal points inward (into the face)
+        edge_normal = normalize(cross(b - a, face_normal))
+        clipped_verts, clipped_uvs = _clip_polygon_by_edge(clipped_verts, clipped_uvs, a, edge_normal)
+
+    return clipped_verts, clipped_uvs
+
+
+class Decal:
+    def __init__(self, entity: dict, brushDict: Dict[str, Brush], matSizes: dict, vmts: dict, scale: float = 1.0):
+        origin = entity["origin"].split()
+        self.origin = vec3(float(origin[0]), float(origin[1]), float(origin[2]))
+        self.texture = entity["texture"]
+        self.scale = scale
+        self.id = entity["id"] if "id" in entity else "?"
+
+        mat_key = newPath(self.texture)
+        if mat_key in matSizes:
+            self.texSize = matSizes[mat_key]
+        else:
+            self.texSize = vec2(512, 512)
+
+        # read $decalscale from VMT — units per texel (typically 0.25 or lower)
+        self.decalScale = 0.25
+        mat_basename = basename(self.texture.lower().replace("\\", "/"))
+        if mat_basename in vmts:
+            vmt = vmts[mat_basename]
+            shader = list(vmt)[0]
+            mat = vmt[shader]
+            if "$decalscale" in mat:
+                self.decalScale = float(mat["$decalscale"])
+
+        self.faces: List[Tuple[Side, vec3]] = []
+        self._find_colliding_faces(brushDict)
+
+    def _find_colliding_faces(self, brushDict: Dict[str, Brush]):
+        box = AABB.FromPoint(self.origin, size=8)
+
+        for brush in brushDict.values():
+            if not brush.AABB().IsTouching(box):
                 continue
-            
+
             for side in brush.sides:
-                if not side.IsTouching(decal):
+                if side.material.startswith("tools"):
+                    continue
+                if len(side.points) < 3:
+                    continue
+                if not side.IsTouching(box):
                     continue
 
-                point = side.getClosestPoint(decal.center)
+                closest = side.getClosestPoint(self.origin)
+                self.faces.append((side, closest))
 
-                if point.isLegal(brush.sides):
-                    res.append(side.id)
+    def _get_closest_face(self) -> Tuple[Side, vec3]:
+        """Return the face whose closest point is nearest to the decal origin."""
+        best = None
+        best_dist = float("inf")
+        for side, closest in self.faces:
+            d = length(closest - self.origin)
+            if d < best_dist:
+                best_dist = d
+                best = (side, closest)
+        return best
 
-    return res
+    def to_patches(self) -> List[Patch]:
+        if len(self.faces) == 0:
+            return []
 
-def ProjectDecal(decal: AABB, side: Side, material: str, size: Vector2):
-    center = decal.center.ToBpy()
+        closest_face = self._get_closest_face()
+        if closest_face is None:
+            return []
 
-    points = [
-        center + Vector((-size.x / 2, -size.y / 2, 0)),
-        center + Vector((-size.x / 2, size.y / 2, 0)),
-        center + Vector((size.x / 2, -size.y / 2, 0)),
-        center + Vector((size.x / 2, size.y / 2, 0)),
-    ]
+        primary_side, center = closest_face
+        normal = normalize(primary_side.normal())
 
-    normal = side.normal().normalize().ToBpy()
-    quat = normal.to_track_quat('Z', 'Y')
-    mat = quat.to_matrix().to_4x4()
-    mat.translation = side.center().ToBpy()
+        # build tangent/bitangent from face normal
+        if fabs(dot(normal, vec3(0, 0, 1))) < 0.9:
+            up = vec3(0, 0, 1)
+        else:
+            up = vec3(0, 1, 0)
 
-    return [mat @ point for point in points]
+        tangent = normalize(cross(up, normal))
+        bitangent = normalize(cross(normal, tangent))
+
+        # decal geometry size = texture dimensions * decalscale
+        half_w = (self.texSize.x * self.decalScale) / 2.0
+        half_h = (self.texSize.y * self.decalScale) / 2.0
+
+        # full decal quad corners and UVs
+        quad_verts = [
+            center + tangent * (-half_w) + bitangent * ( half_h),
+            center + tangent * ( half_w) + bitangent * ( half_h),
+            center + tangent * ( half_w) + bitangent * (-half_h),
+            center + tangent * (-half_w) + bitangent * (-half_h),
+        ]
+        quad_uvs = [
+            vec2(0, 1),
+            vec2(1, 1),
+            vec2(1, 0),
+            vec2(0, 0),
+        ]
+
+        patches = []
+        tex_scale = vec2(1024, -1024)
+        mat = newPath(self.texture)
+
+        for side, _ in self.faces:
+            face_normal = normalize(side.normal())
+
+            # skip faces that face away from the decal projection direction
+            if dot(face_normal, normal) < 0.1:
+                continue
+
+            # project quad verts onto this face's plane
+            projected = []
+            for v in quad_verts:
+                projected.append(side.getClosestPoint(v))
+
+            # clip the projected quad to the face polygon
+            clipped_verts, clipped_uvs = _clip_quad_to_face(projected, list(quad_uvs), side.points, face_normal)
+
+            if len(clipped_verts) < 3:
+                continue
+
+            # offset slightly along face normal to avoid z-fighting
+            offset = face_normal * -0.5
+            clipped_verts = [v + offset for v in clipped_verts]
+
+            # build patch: pair vertices across the polygon
+            verts = clipped_verts
+            uvs = clipped_uvs
+
+            if len(verts) % 2 == 1:
+                verts.append(verts[-1])
+                uvs.append(uvs[-1])
+
+            count = len(verts)
+            rows = count // 2
+
+            patch = Patch(type="mesh", texture=mat, lightmap="lightmap_gray", size=(rows, 2), samplesize=16)
+            patch.nolightmap = True
+
+            for i in range(rows):
+                p1 = verts[i]
+                uv1 = uvs[i]
+                p2 = verts[count - i - 1]
+                uv2 = uvs[count - i - 1]
+
+                row = [
+                    PatchVert(p1 * self.scale, uv1 * tex_scale, vec2(0, 0)),
+                    PatchVert(p2 * self.scale, uv2 * tex_scale, vec2(0, 0)),
+                ]
+                patch.verts.append(row)
+
+            patches.append(patch)
+
+        return patches

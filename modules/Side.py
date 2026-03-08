@@ -167,7 +167,7 @@ class Side:
     # based on https://github.com/GregLukosek/3DMath/blob/master/Math3D.cs#L242
     def getClosestPoint(self, point: vec3):
         normal = normalize(self.normal())
-        distance = normal.dot(point - self.p1) * -1
+        distance = dot(normal, point - self.p1) * -1
         translationVector = normal * distance
         return point + translationVector
     

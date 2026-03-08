@@ -15,6 +15,7 @@ from os.path import basename, splitext
 from .AssetExporter import *
 from .AssetConverter import convertImages, convertModels
 from .Overlay import Overlay
+from .Decal import Decal
 import modules.CoDMap.CoDMap as cod
 
 UP, RIGHT, FORWARD = vec3(0.0, 0.0, 1.0), vec3(0.0, 1.0, 0.0), vec3(1.0, 0.0, 0.0)
@@ -816,11 +817,13 @@ def exportMap(
         mdlMaterials, mdlVmtCache = loadModelMaterials(mapData["models"], modelData, gamePath, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], game)
         mdlMatData = loadTextures(mdlMaterials, mdlVmtCache, gamePath, True)
 
-    # collect overlay material names for GDT tagging
+    # collect overlay/decal material names for GDT tagging
     overlayMats = set()
     for entity in mapData["entities"]:
         if entity["classname"] == "info_overlay" and "material" in entity:
             overlayMats.add(newPath(entity["material"].lower()))
+        elif entity["classname"] == "infodecal" and "texture" in entity:
+            overlayMats.add(newPath(entity["texture"].lower()))
 
     # create GDT files
     gdtFile = Gdt()
@@ -887,6 +890,9 @@ def exportMap(
     
     # store overlay entities to convert after all brush sides are collected
     overlays: List[dict] = []
+
+    # store decal entities to convert after all brushes are collected
+    decals: List[dict] = []
 
     # keep track of plain brushes that will be checked for decal collision later
     brushDict: Dict[str, Brush] = {}
@@ -957,8 +963,8 @@ def exportMap(
             elif entity["classname"] == "info_overlay":
                 if entity["sides"] != "":
                     overlays.append(entity)
-            # elif entity["classname"] == "infodecal":
-            #     decals.append(entity)
+            elif entity["classname"] == "infodecal":
+                decals.append(entity)
             elif entity["classname"] == "func_bomb_target":
                 res.entities.append(convertBombsite(entity, scale=scale, game=game, site=bombsites[currentBombsite]))
                 currentBombsite += 1
@@ -1042,12 +1048,19 @@ def exportMap(
         except Exception as e:
             print(f"Failed to convert overlay {overlay.get('id', '?')}: {e}")
 
-    # create an octree to check for brushes colliding with infodecal entities
-    # octree = AABB(AABBmin, AABBmax, True)
-        
-    # iterate over brushes, add them to the octree
-    # for brush in brushDict.values():
-    #     AddBrusesToOctree(octree, brush)
+    # convert decals
+    total = len(decals)
+    if total > 0:
+        print("Converting decals...")
+    for i, entity in enumerate(decals):
+        print(f"{i + 1}|{total}|done", end="")
+        try:
+            decal = Decal(entity, brushDict, matSizes, matData["vmts"], scale=scale)
+            patches = decal.to_patches()
+            for patch in patches:
+                world.geo.append(patch)
+        except Exception as e:
+            print(f"Failed to convert decal {entity['id'] if 'id' in entity else '?'}: {e}")
 
     # add corners for minimap and create a minimap material in gdt
     if game != "CoD2":

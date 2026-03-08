@@ -35,8 +35,8 @@ class AABB:
     @staticmethod
     def FromPoint(point: vec3, size: int = 8) -> 'AABB':
         hs = size / 2 # half size
-        _min = point + vec3(hs, -hs, -hs)
-        _max = point + vec3(-hs, hs, hs)
+        _min = point + vec3(-hs, -hs, -hs)
+        _max = point + vec3(hs, hs, hs)
         return AABB(_min, _max)
     
     # check if it collides with another AABB
