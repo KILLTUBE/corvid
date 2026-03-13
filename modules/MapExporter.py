@@ -599,7 +599,13 @@ def convertBombsite(entity, scale=1, game="WaW", site=""):
         for side in sideList:
             sides.append(Side(side))
         brushes.append(Brush(sides))
-    
+
+    # build CoD trigger brushes directly
+    triggerBrushes = []
+    for brush in brushes:
+        faces = [cod.Face(side.p1 * scale, side.p2 * scale, side.p3 * scale, "trigger") for side in brush.sides]
+        triggerBrushes.append(cod.Brush(faces))
+
     # get the center of the trigger(s) to decide where to place the bomb model
     center = vec3(0, 0, 0)
     lowest = None
@@ -610,7 +616,7 @@ def convertBombsite(entity, scale=1, game="WaW", site=""):
             else:
                 lowest = min(lowest, side.center().z)
             center = center + side.center()
-    
+
     center = center / sum([len(brush.sides) for brush in brushes])
     if lowest is not None:
         center.z = lowest # make sure the model is always at the bottom of the trigger
@@ -626,14 +632,14 @@ def convertBombsite(entity, scale=1, game="WaW", site=""):
         "targetname": "bombzone",
         "script_label": bombsite
     }))
-    res[-1].geo.append([convertBrush(brush, scale=scale) for brush in brushes])
+    res[-1].geo.append(triggerBrushes)
 
     res.append(cod.Entity({
         "targetname": "targetname" + bombsite,
         "classname": "trigger_use_touch",
         "script_gameobjectname": "bombzone"
     }))
-    res[-1].geo.append([convertBrush(brush, scale=scale) for brush in brushes])
+    res[-1].geo.append(triggerBrushes)
 
     res.append(cod.Entity({
         "target": "targetname" + bombsite,
