@@ -29,7 +29,7 @@ class SourceDir:
             print(f"\"{path}\" is an invalid path.")
 
     def read_bytes(self, src, silent=False):
-        src = Path(src.replace("\\", "/")).as_posix()
+        src = Path(src.replace("\\", "/")).as_posix().lower()
         for pak in self.paks:
             try:
                 return pak.get_file(src).read()

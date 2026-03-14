@@ -43,6 +43,8 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False):
     vtfData = res["vtfData"]
 
     def loadVtf(texturePath):
+        # strip any leading materials/ prefix some VMTs include
+        texturePath = texturePath.removeprefix("materials/")
         name = newPath(splitext(texturePath)[0], True)
         if name not in vtfData:
             data = dir.read_bytes(f"materials/{texturePath}.vtf", silent=True)
@@ -92,6 +94,11 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False):
 
         if "insert" in mat:
             mat = {**mat, **mat["insert"]}
+            res["vmts"][fileName][shader] = mat
+
+        # Refract shader uses $refracttinttexture instead of $basetexture
+        if "$basetexture" not in mat and "$refracttinttexture" in mat:
+            mat["$basetexture"] = mat["$refracttinttexture"]
             res["vmts"][fileName][shader] = mat
 
         if "$basetexture" in mat:
