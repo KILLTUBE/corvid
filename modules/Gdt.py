@@ -61,6 +61,7 @@ class Gdt:
         res += "if !errors! GTR 0 (\n"
         res += '    echo Check %~n0.log for error details.\n'
         res += ")\n"
+        res += 'if exist "%~n0_tmp.log" del "%~n0_tmp.log"\n'
         res += "rundll32 user32.dll,MessageBeep\n"
         res += "pause\n"
         res += "goto :eof\n"
@@ -71,15 +72,17 @@ class Gdt:
         res += 'set "asset=%~1"\n'
         res += "set /a current+=1\n"
         if self.CoD2:
-            res += 'converter -nopause -single "%~2" %~3 >> %~n0.log 2>&1\n'
+            res += 'converter -nopause -single "%~2" %~3 > %~n0_tmp.log 2>&1\n'
         else:
-            res += 'converter -nopause -single "%~2" %~3 >> %~n0.log 2>&1\n'
+            res += 'converter -nopause -single "%~2" %~3 > %~n0_tmp.log 2>&1\n'
+        res += 'type %~n0_tmp.log >> %~n0.log\n'
+        res += 'findstr /c:"************ ERROR ************" %~n0_tmp.log >nul 2>&1\n'
         res += "if !ERRORLEVEL! EQU 0 (\n"
-        res += "    set /a success+=1\n"
-        res += '    set "mark=+"\n'
-        res += ") else (\n"
         res += "    set /a errors+=1\n"
         res += '    set "mark=X"\n'
+        res += ") else (\n"
+        res += "    set /a success+=1\n"
+        res += '    set "mark=+"\n'
         res += ")\n"
         res += 'set "r5=!r4!" & set "r4=!r3!" & set "r3=!r2!" & set "r2=!r1!" & set "r1=  [!mark!] !asset!"\n'
         res += "cls\n"
