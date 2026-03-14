@@ -1,5 +1,5 @@
 from io import TextIOWrapper
-from math import sin, cos, inf
+from math import sin, cos, radians, inf
 from typing import Dict, List, Union
 from modules.Brush import Brush
 from modules.SourceDir import SourceDir
@@ -255,63 +255,78 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=vec3(0
 
     return [cod.Brush(faces), resPatch]
     
-def convertLight(entity, scale=1.0):
+def _parse_light_color(entity):
+    """Parse Source _light value into (color vec3 0-1, brightness float)."""
     if "_light" in entity:
-        _color = [float(i) for i in entity["_light"].split(" ")]
-        if len(_color) == 3:
-            _color.append(300)
-        elif len(_color) < 3:
-            _color = [255, 255, 255, 300]
-    else:
-        _color = [255, 255, 255, 300]
+        parts = [i for i in entity["_light"].split(" ") if i != ""]
+        _color = [float(i) for i in parts]
+        if len(_color) >= 4:
+            return vec3(_color[0], _color[1], _color[2]) / 255, _color[3]
+        elif len(_color) == 3:
+            return vec3(_color[0], _color[1], _color[2]) / 255, 300
+    return vec3(1, 1, 1), 300
 
-    if _color[3] == "":
-        _color[3] = 300
-    # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
-    color = vec3(_color[0], _color[1], _color[2]) / 255
+def _parse_light_radius(entity, brightness=300):
+    """Convert Source light falloff parameters to a CoD radius."""
+    if "_fifty_percent_distance" in entity and float(entity["_fifty_percent_distance"]) > 0:
+        fifty = float(entity["_fifty_percent_distance"])
+        if "_zero_percent_distance" in entity and float(entity["_zero_percent_distance"]) > 0:
+            return float(entity["_zero_percent_distance"])
+        return fifty * 2
+    if "_zero_percent_distance" in entity and float(entity["_zero_percent_distance"]) > 0:
+        return float(entity["_zero_percent_distance"])
+    # no explicit falloff distance, estimate from brightness
+    # Source brightness roughly correlates with how far light reaches
+    return max(brightness, 100)
+
+def _parse_light_intensity(brightness):
+    """Convert Source brightness to CoD intensity (0-1 range where 1 is fullbright)."""
+    # Source brightness of 300 is a typical indoor light
+    # Scale so 300 maps to roughly 1.0
+    return min(brightness / 300, 1)
+
+def convertLight(entity, scale=1.0):
+    color, brightness = _parse_light_color(entity)
+    radius = _parse_light_radius(entity, brightness)
+    intensity = _parse_light_intensity(brightness)
+
     return cod.Entity({
         "classname": "light",
         "origin": VecFromStr(entity["origin"], 3) * scale,
         "_color": color,
-        "radius": _color[3] if _color[3] > 100 else 300,
-        "intensity": "1"
+        "radius": radius,
+        "intensity": intensity
     })
 
 def convertSpotLight(entity, game="WaW", scale=1.0):
-    if "_light" in entity:
-        _color = [float(i) for i in entity["_light"].split(" ") if i != ""]
-        if len(_color) == 3:
-            _color.append(500)
-        elif len(_color) < 3 or _color[3] == "":
-            _color = [255, 255, 255, 300]
-    else:
-        _color = [255, 255, 255, 300]
-    
+    color, brightness = _parse_light_color(entity)
+    origin = VecFromStr(entity["origin"], 3)
+    radius = _parse_light_radius(entity, brightness)
+    intensity = _parse_light_intensity(brightness)
+
+    # Source _cone and _inner_cone are half-angles from center
+    # CoD fov_outer is total angle ("90 would go +/-45 degrees")
+    # So Source half-angle needs to be doubled for CoD
+    cone = float(entity.get("_cone", "45"))
+    inner_cone = float(entity.get("_inner_cone", "30"))
+    fov_outer = cone * 2
+    fov_inner = inner_cone * 2
+
+    angles = VecFromStr(entity["angles"], 3)
+    pitch = float(entity.get("pitch", entity["angles"].split(" ")[0]))
+    yaw = angles.y
+
     res = []
 
-    # In Radiant, color value of light entities range between 0 and 1 whereas it varies between 0 and 255 in Source engine
-    color = (vec3(_color[0], _color[1], _color[2]) / 255)
-    origin = VecFromStr(entity["origin"], 3)
-    if "_fifty_percent_distance" in entity and "_zero_percent_distance" not in entity:
-        radius = float(entity["_fifty_percent_distance"])
-    elif "_zero_percent_distance" in entity and "_fifty_percent_distance" not in entity:
-        radius = float(entity["_zero_percent_distance"])
-    elif "_fifty_percent_distance" in entity and "_zero_percent_distance" in entity:
-        radius = (float(entity["_fifty_percent_distance"]) * 2 + float(entity["_zero_percent_distance"])) / 2
-    else:
-        radius = 250
-    if radius == 0:
-        radius = 250
-    
     if game != "BO3":
-        angles = VecFromStr(entity["angles"], 3)
-        pitch = float(entity["pitch"])
-        yaw = angles.y
+        # calculate spotlight target position using direction vector
+        pitch_rad = radians(pitch)
+        yaw_rad = radians(yaw)
 
-        null_origin = vec3(
-            sin(yaw),
-            -(sin(pitch) * cos(yaw)),
-            -(cos(pitch) * cos(yaw))
+        direction = vec3(
+            cos(pitch_rad) * cos(yaw_rad),
+            cos(pitch_rad) * sin(yaw_rad),
+            sin(pitch_rad)
         )
 
         res.append(cod.Entity({
@@ -319,31 +334,29 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
             "origin": origin * scale,
             "_color": color,
             "radius": radius,
-            "intensity": "1",
+            "intensity": intensity,
             "target": "spotlight_" + entity["id"],
-            "fov_outer": entity["_cone"],
-            "fov_inner": entity["_inner_cone"],
+            "fov_outer": fov_outer,
+            "fov_inner": fov_inner,
         }))
 
         res.append(cod.Entity({
             "classname": "info_null",
-            "origin": (origin + null_origin * 50) * scale,
+            "origin": (origin + direction * 50) * scale,
             "targetname": "spotlight_" + entity["id"]
         }))
 
     else:
-        angles = VecFromStr(entity["angles"], 3)
-        pitch = float(entity["pitch"])
-        
         res = cod.Entity({
             "classname": "light",
             "origin": origin * scale,
             "_color": color,
             "PRIMARY_TYPE": "PRIMARY_SPOT",
-            "angles": vec3(pitch + 90, angles.y, 0),
+            "angles": vec3(-pitch, yaw, 0),
             "radius": radius,
-            "fov_outer": entity["_cone"],
-            "fov_inner": entity["_inner_cone"],
+            "intensity": intensity,
+            "fov_outer": fov_outer,
+            "fov_inner": fov_inner,
         })
 
     return res
