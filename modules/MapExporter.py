@@ -1055,7 +1055,7 @@ def exportMap(
             for patch in patches:
                 world.geo.append(patch)
         except Exception as e:
-            print(f"Failed to convert overlay {overlay.get('id', '?')}: {e}")
+            pass
 
     # convert decals
     total = len(decals)

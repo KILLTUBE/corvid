@@ -134,7 +134,7 @@ class Overlay:
             self.sides = [sideDict[side] for side in entity["sides"].split(" ") if side in sideDict]
 
         if len(self.sides) == 0:
-            print(f"No brush sides defined for overlay {self.id}")
+            # decompiled maps often have broken overlay data, so we silently skip them
             self.empty = True
             return
 
@@ -169,7 +169,6 @@ class Overlay:
         try:
             global_to_uv_rot_matrix = np.linalg.inv(uv_rot_to_global_matrix)
         except np.linalg.LinAlgError:
-            print(f"Singular matrix for overlay {self.id}")
             self.empty = True
             return
 
@@ -329,7 +328,6 @@ class Overlay:
             uv_rot_vertices = []
 
         if len(face_vertices) == 0 and len(self._disp_patches) == 0 and len(self._disp_border_faces) == 0:
-            print(f"Overlay {self.id} has no valid faces after clipping")
             self.empty = True
             return
 
@@ -344,7 +342,6 @@ class Overlay:
         try:
             coeffs = np.linalg.solve(coeff_matrix, np.array([self.uv_points[3][0], self.uv_points[3][1], 1.0]))
         except np.linalg.LinAlgError:
-            print(f"Singular UV matrix for overlay {self.id}")
             self.empty = True
             return
 
@@ -357,7 +354,6 @@ class Overlay:
         try:
             global_to_basis = np.linalg.inv(basis_to_global)
         except np.linalg.LinAlgError:
-            print(f"Singular basis matrix for overlay {self.id}")
             self.empty = True
             return
 
@@ -371,7 +367,6 @@ class Overlay:
         try:
             coeffs = np.linalg.solve(coeff_matrix, np.array([u2, v2, 1.0]))
         except np.linalg.LinAlgError:
-            print(f"Singular UV coeff matrix for overlay {self.id}")
             self.empty = True
             return
 
@@ -619,7 +614,6 @@ class Overlay:
     def to_patches(self) -> List[Patch]:
         """Convert the overlay to a list of CoD patches."""
         if self.empty:
-            print(f"No vertices could be calculated for overlay {self.id}")
             return []
 
         patches = []
