@@ -966,19 +966,54 @@ def exportMap(
                 res.entities.append(convertBombsite(entity, scale=scale, game=game, site=bombsites[currentBombsite]))
                 currentBombsite += 1
             elif entity["classname"] == "light_environment":
-                sundirection = VecFromStr(entity["angles"], 3)
-                sundirection.x = float(entity["pitch"])
-                sundirection.y = sundirection.y - 180 if sundirection.y >= 180 else sundirection.y + 180
-                worldSpawnSettings["sundirection"] = sundirection
-                worldSpawnSettings["sunlight"] = "1"
-                worldSpawnSettings["sundiffusecolor"] = "0.75 0.82 0.85"
-                worldSpawnSettings["diffusefraction"] = ".2"
-                worldSpawnSettings["ambient"] = ".116"
-                worldSpawnSettings["reflection_ignore_portals"] = "1"
-                if "ambient" in entity:
-                    worldSpawnSettings["_color"] = VecFromStr(entity["_ambient"] if "_ambient" in entity else entity["ambient"], 3) / 255
+                # sun direction
+                # Source pitch override is counter-clockwise (-90 = down)
+                # Source angles pitch is clockwise (+90 = down)
+                # CoD sundirection pitch: negative = downward (0 to -90)
+                angles = VecFromStr(entity["angles"], 3)
+                if "pitch" in entity:
+                    # pitch key is already counter-clockwise (negative = down), same as CoD
+                    pitch = float(entity["pitch"])
+                else:
+                    # angles pitch is clockwise (positive = down), negate for CoD
+                    pitch = -angles.x
+                yaw = angles.y
+                # flip yaw by 180 to match CoD sun direction convention
+                yaw = yaw - 180 if yaw >= 180 else yaw + 180
+                worldSpawnSettings["sundirection"] = vec3(pitch, yaw, 0)
+
+                # sun color and brightness from _light (R G B brightness)
+                # Source brightness is a multiplier, typical values 200-800
+                # CoD sunlight: 1 = fullbright, 1.5 = overbright
                 if "_light" in entity:
-                    worldSpawnSettings["suncolor"] = VecFromStr(entity["_light"], 3) / 255
+                    light_parts = [float(v) for v in entity["_light"].split() if v != ""]
+                    sun_color = vec3(light_parts[0], light_parts[1], light_parts[2]) / 255
+                    # scale so typical Source brightness (200-400) maps to CoD 1.0-1.5
+                    sun_brightness = light_parts[3] / 200 if len(light_parts) > 3 else 1.5
+                    worldSpawnSettings["suncolor"] = sun_color
+                    worldSpawnSettings["sunlight"] = round(min(sun_brightness, 2.0), 3)
+                else:
+                    worldSpawnSettings["suncolor"] = vec3(1, 1, 1)
+                    worldSpawnSettings["sunlight"] = 1.5
+
+                # ambient light from _ambient (R G B brightness)
+                # Source ambient brightness is typically 50-150
+                # CoD ambient: 0.1-0.3 is a typical range
+                ambient_key = "_ambient" if "_ambient" in entity else "ambient" if "ambient" in entity else None
+                if ambient_key:
+                    ambient_parts = [float(v) for v in entity[ambient_key].split() if v != ""]
+                    ambient_color = vec3(ambient_parts[0], ambient_parts[1], ambient_parts[2]) / 255
+                    ambient_brightness = ambient_parts[3] / 500 if len(ambient_parts) > 3 else 0.2
+                    worldSpawnSettings["_color"] = ambient_color
+                    worldSpawnSettings["ambient"] = round(max(ambient_brightness, 0.1), 3)
+                else:
+                    worldSpawnSettings["ambient"] = 0.2
+
+                # diffuse settings derived from ambient
+                worldSpawnSettings["sundiffusecolor"] = worldSpawnSettings.get("_color", vec3(0.75, 0.82, 0.85))
+                worldSpawnSettings["diffusefraction"] = 0.3
+                if game == "CoD4":
+                    worldSpawnSettings["reflection_ignore_portals"] = "1"
         except Exception as e:
             print(f"Could not convert the entity '{entity['classname']}' with the ID {entity['id']}. Skipping...")
             print(f"Exception message:\n{e}")
