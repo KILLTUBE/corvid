@@ -377,8 +377,10 @@ class Overlay:
                 e1 = sub_grid[0][1] - sub_grid[0][0]
                 e2 = sub_grid[1][0] - sub_grid[0][0]
                 if np.dot(np.cross(e1, e2), face_normal) < 0:
-                    # reverse row order to flip winding
-                    sub_grid = sub_grid[::-1]
+                    # reverse columns (not rows) to fix winding without
+                    # breaking the triangulation alignment with the displacement
+                    for row in sub_grid:
+                        row.reverse()
                 self._disp_patches.append(sub_grid)
 
         # process border cells — cells that straddle the overlay boundary
