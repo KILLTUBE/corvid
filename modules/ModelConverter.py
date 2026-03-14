@@ -220,6 +220,29 @@ def convertModel(modelData, writePath, materialNames, tint="", skin=0, scale=1.0
     for mat_name in materials:
         model.materials.append(Material(mat_name, "Phong", {"color": "404.tga"}))
 
+    # check if the model is far from origin and add a small triangle
+    # at origin to prevent "rotation invariant bounds" errors
+    if len(verts) > 0:
+        vmin = vec3(verts[0])
+        vmax = vec3(verts[0])
+        for v in verts:
+            vmin = vec3(min(vmin.x, v.x), min(vmin.y, v.y), min(vmin.z, v.z))
+            vmax = vec3(max(vmax.x, v.x), max(vmax.y, v.y), max(vmax.z, v.z))
+
+        origin_inside = (vmin.x <= 0 <= vmax.x and vmin.y <= 0 <= vmax.y and vmin.z <= 0 <= vmax.z)
+        if not origin_inside:
+            origin_mesh = Mesh("corvid_origin")
+            eps = 0.01
+            origin_mesh.verts.append(Vertex(offset=(0.0, 0.0, 0.0), weights=[(0, 1.0)]))
+            origin_mesh.verts.append(Vertex(offset=(eps, 0.0, 0.0), weights=[(0, 1.0)]))
+            origin_mesh.verts.append(Vertex(offset=(0.0, eps, 0.0), weights=[(0, 1.0)]))
+            face = Face(mesh_id=len(model.meshes), material_id=0)
+            face.indices[0] = FaceVertex(vertex=0, normal=(0.0, 0.0, 1.0), color=(1.0, 1.0, 1.0, 0.0), uv=(0.0, 0.0))
+            face.indices[1] = FaceVertex(vertex=1, normal=(0.0, 0.0, 1.0), color=(1.0, 1.0, 1.0, 0.0), uv=(0.0, 0.0))
+            face.indices[2] = FaceVertex(vertex=2, normal=(0.0, 0.0, 1.0), color=(1.0, 1.0, 1.0, 0.0), uv=(0.0, 0.0))
+            origin_mesh.faces.append(face)
+            model.meshes.append(origin_mesh)
+
     if game == "BO3":
         model.WriteFile_Bin(f"{writePath}/{fileName}.xmodel_bin", version=7)
     else:
