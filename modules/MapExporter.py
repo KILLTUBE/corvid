@@ -1098,7 +1098,7 @@ def exportMap(
     # write the gdt & bat files
     open(f"{outDir}/source_data/_{mapName}.gdt", "w").write(gdtFile.toStr())
     if game != "BO3":
-        open(f"{outDir}/bin/_convert_{mapName}_assets.bat", "w").write(gdtFile.toBat())
+        open(f"{outDir}/bin/_convert_{mapName}_assets.bat", "w", encoding="utf-8").write(gdtFile.toBat())
 
     if game == "BO3":
         res.flags.append('"script_startingnumber" 0\n')
