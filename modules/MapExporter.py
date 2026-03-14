@@ -6,7 +6,7 @@ from modules.SourceDir import SourceDir
 from modules.AABB import AABB
 from .Side import Side
 from .MapReader import readMap
-from glm import vec2, vec3, lerp, distance, normalize, cross, min, max, length
+from glm import vec2, vec3, lerp, distance, normalize, cross, dot, min, max, length
 from .Static import VecFromStr, Vec2Str, Vec2Hex
 # from .Vector2 import Vector2
 # from .Vector3 import Vector3
@@ -353,86 +353,61 @@ def convertRope(entity, skyOrigin=vec3(0, 0, 0), scale=1, curve=False, ropeDict:
         ropeDict = {}
     # sadly, cod 4 does not support rope entities, so we have to create curve patches for them instead
     if curve:
-        if entity["classname"] == "move_rope":
-            ropeDict["start"][entity["NextKey"] if "NextKey" in entity else entity["id"]] = {
-                "origin": (VecFromStr(entity["origin"], 3) - skyOrigin) * scale,
-                "target": entity["NextKey"] if "NextKey" in entity else entity["id"],
-                "slack": float(entity["Slack"]),
-                "width": float(entity["Width"]),
+        origin = (VecFromStr(entity["origin"], 3) - skyOrigin) * scale
+        slack = float(entity.get("Slack", "128"))
+        width = float(entity.get("Width", "1"))
+
+        if "NextKey" in entity:
+            ropeDict["start"][entity["NextKey"]] = {
+                "origin": origin,
+                "target": entity["NextKey"],
+                "slack": slack,
+                "width": width,
                 "id": entity["id"]
             }
-            if "targetname" in entity:
-                ropeDict["end"][entity["targetname"] if "targetname" in entity else entity["id"]] = {
-                    "origin": (VecFromStr(entity["origin"], 3) - skyOrigin) * scale,
-                    "targetname": entity["targetname"] if "targetname" in entity else entity["id"],
-                    "id": entity["id"]
-                }
-        else:
-            if "targetname" in entity:
-                ropeDict["end"][entity["targetname"]] = {
-                    "origin": (VecFromStr(entity["origin"], 3) - skyOrigin) * scale,
-                    "targetname": entity["targetname"],
-                    "id": entity["id"]
-                }
-    
-            if "NextKey" in entity and "target" in entity:
-                ropeDict["start"][entity["NextKey"]] = {
-                    "origin": (VecFromStr(entity["origin"], 3) - skyOrigin) * scale,
-                    "target": entity["NextKey"],
-                    "slack": float(entity["Slack"]),
-                    "width": float(entity["Width"]),
-                    "id": entity["id"]
-                }
+        if "targetname" in entity:
+            ropeDict["end"][entity["targetname"]] = {
+                "origin": origin,
+                "targetname": entity["targetname"],
+                "id": entity["id"]
+            }
     else:
         res = []
-        if entity["classname"] == "move_rope":
-            origin = (VecFromStr(entity["origin"], 3) - skyOrigin) * scale
-            res.append(cod.Entity({
-                "classname": "rope",
-                "origin": origin,
-                "target": entity["NextKey"] if "NextKey" in entity else entity["id"],
-                "length_scale": float(entity["Slack"]) / 128,
-                "width": float(entity["Width"]) * 3
-            }))
-            if "targetname" in entity:
-                origin = (VecFromStr(entity["origin"], 3) - skyOrigin) * scale
-                res.append(cod.Entity({
-                    "classname": "info_null",
-                    "origin": origin,
-                    "targetname": entity["targetname"] if "targetname" in entity else entity["id"]
-                }))
-        else:
-            origin = (VecFromStr(entity["origin"], 3) - skyOrigin) * scale
+        origin = (VecFromStr(entity["origin"], 3) - skyOrigin) * scale
+        slack = float(entity.get("Slack", "128"))
+        width = float(entity.get("Width", "1"))
+
+        if "targetname" in entity:
             res.append(cod.Entity({
                 "classname": "info_null",
                 "origin": origin,
                 "targetname": entity["targetname"]
             }))
-            if "NextKey" in entity:
-                res.append(cod.Entity({
-                    "classname": "rope",
-                    "origin": origin,
-                    "target": entity["NextKey"],
-                    "length_scale": float(entity["Slack"]) / 125,
-                    "width": entity["width"] if "width" in entity else "1"
-                }))
+        if "NextKey" in entity:
+            res.append(cod.Entity({
+                "classname": "rope",
+                "origin": origin,
+                "target": entity["NextKey"],
+                "length_scale": slack / 128,
+                "width": width * 3
+            }))
         return res
 
 def convertRopeAsCurve(start: vec3, end: vec3, slack: float, width: float=1, game="WaW"):
     mid: vec3 = lerp(start, end, 0.5)
     mid.z -= slack * 0.75
 
-    # calculate the forward, left and right vectors so all the ropes will be consistent in size
-    up = UP
-
-    # sometimes, the length of (end - start) returns 0, which makes it impossible to normalize it
+    # calculate the forward, right and up vectors perpendicular to the rope direction
     dif = end - start
     if length(dif) == 0:
-        forward = vec3(0, 0, 0)
+        forward = vec3(1, 0, 0)
     else:
         forward = normalize(dif)
 
-    right = cross(forward, up)
+    # pick a reference vector that isn't parallel to forward
+    ref = vec3(1, 0, 0) if abs(dot(forward, UP)) > 0.9 else UP
+    right = normalize(cross(forward, ref))
+    up = normalize(cross(right, forward))
     left = right * -1
 
     # multiply each value with the half of the width value to get proper thickness
@@ -440,12 +415,12 @@ def convertRopeAsCurve(start: vec3, end: vec3, slack: float, width: float=1, gam
     up *= width
     left *= width
     right *= width
-    top = lerp(left, right, 0.5) + up
-    bottom = lerp(left, right, 0.5) - up
-    topLeft = lerp(top, left, 0.5) + up
-    bottomLeft = lerp(bottom, left, 0.5) - up
-    topRight = lerp(top, right, 0.5) + up
-    bottomRight = lerp(bottom, right, 0.5) - up
+    top = up
+    bottom = up * -1
+    topLeft = left + up
+    bottomLeft = left - up
+    topRight = right + up
+    bottomRight = right - up
 
     mats = {"WaW": "global_wires", "CoD4": "credits_black", "CoD2": "egypt_metal_pipe2"}
     mat = mats[game]
