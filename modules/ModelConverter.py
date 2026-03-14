@@ -123,25 +123,40 @@ def convertModel(modelData, writePath, materialNames, tint="", skin=0, scale=1.0
             [uvs.append(vec2([round(i, 6) for i in vec2(t)])) for t in vertices["uv"]]
 
             for i in range(0, len(indices_array), 3):
-                if i % 1000 == 0 and i != 0:
+                idx0 = indices_array[i]
+                idx1 = indices_array[i + 1]
+                idx2 = indices_array[i + 2]
+
+                # skip degenerate triangles (two or more identical vertices)
+                if idx0 == idx1 or idx1 == idx2 or idx0 == idx2:
+                    continue
+
+                # also skip zero-area triangles (vertices at the same position)
+                v0 = verts[numVerts + idx0]
+                v1 = verts[numVerts + idx1]
+                v2 = verts[numVerts + idx2]
+                if v0 == v1 or v1 == v2 or v0 == v2:
+                    continue
+
+                if len(faces) % 1000 == 0 and len(faces) != 0:
                     groups.append(f"corvid_{len(groups)}")
 
                 faces.append({
                     "points":[
                         {
-                            "vert": numVerts + indices_array[i + 1],
-                            "normal": normals[numNormals + indices_array[i + 1]],
-                            "uv": uvs[numUVs + indices_array[i + 1]]
+                            "vert": numVerts + idx1,
+                            "normal": normals[numNormals + idx1],
+                            "uv": uvs[numUVs + idx1]
                         },
                         {
-                            "vert": numVerts + indices_array[i + 2],
-                            "normal": normals[numNormals + indices_array[i + 2]],
-                            "uv": uvs[numUVs + indices_array[i + 2]]
+                            "vert": numVerts + idx2,
+                            "normal": normals[numNormals + idx2],
+                            "uv": uvs[numUVs + idx2]
                         },
                         {
-                            "vert": numVerts + indices_array[i],
-                            "normal": normals[numNormals + indices_array[i]],
-                            "uv": uvs[numUVs + indices_array[i]]
+                            "vert": numVerts + idx0,
+                            "normal": normals[numNormals + idx0],
+                            "uv": uvs[numUVs + idx0]
                         }
                     ],
                     "group": (len(groups) - 1),
