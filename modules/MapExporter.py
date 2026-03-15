@@ -661,14 +661,11 @@ def convertBombsite(entity, scale=1, game="WaW", site=""):
     return res
 
 def createVolume(AABBmin: vec3, AABBmax: vec3, texture="caulk", hollow=False, caulked=False) -> Union[cod.Brush, List[cod.Brush]]:
-    AABBmax += vec3(250, 250, 500)
-    AABBmin += vec3(-250, -250, -100)
-
-    top1 = AABBmax # top points
+    top1 = vec3(AABBmax) # top points
     top2 = vec3(AABBmax.x, AABBmin.y, AABBmax.z)
     top3 = vec3(AABBmin.x, AABBmax.y, AABBmax.z)
     top4 = vec3(AABBmin.x, AABBmin.y, AABBmax.z)
-    bot1 = AABBmin # bottom points
+    bot1 = vec3(AABBmin) # bottom points
     bot2 = vec3(AABBmin.x, AABBmax.y, AABBmin.z)
     bot3 = vec3(AABBmax.x, AABBmin.y, AABBmin.z)
     bot4 = vec3(AABBmax.x, AABBmax.y, AABBmin.z)
@@ -757,8 +754,8 @@ def createSkyBrushes(AABBmin: vec3, AABBmax: vec3, mapName="", game="WaW"):
         return None, None
     
     # move the points further to avoid collision with map geo
-    AABBmax += vec3(250, 250, 500)
-    AABBmin += vec3(-250, -250, -100)
+    AABBmax = AABBmax + vec3(250, 250, 500)
+    AABBmin = AABBmin + vec3(-250, -250, -100)
 
     sky = createVolume(AABBmin, AABBmax, "sky" if game == "BO3" else mapName + "_sky", True, True if game != "BO3" else False)
 
