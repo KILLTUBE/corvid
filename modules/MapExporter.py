@@ -834,12 +834,14 @@ def exportMap(
     if not skipMats or not skipModels:
         print("Generating GDT file...")
     if not skipMats:
-        worldMats = createMaterialGdt(matData["vmts"], game, set(matData["vtfData"].keys()), overlayMats=overlayMats)
+        allColorMaps = set(matData["colorMaps"] + matData["colorMapsAlpha"])
+        worldMats = createMaterialGdt(matData["vmts"], game, set(matData["vtfData"].keys()), overlayMats=overlayMats, colorMaps=allColorMaps)
         gdtFile += worldMats
     if game != "BO3" and not skipMats:
         batFile += worldMats.toBat()
     if not skipModels:
-        modelMats = createMaterialGdt(mdlMatData["vmts"], game, set(mdlMatData["vtfData"].keys()))
+        allMdlColorMaps = set(mdlMatData["colorMaps"] + mdlMatData["colorMapsAlpha"])
+        modelMats = createMaterialGdt(mdlMatData["vmts"], game, set(mdlMatData["vtfData"].keys()), colorMaps=allMdlColorMaps)
         gdtFile += modelMats
     if game != "BO3" and not skipModels:
         batFile += modelMats.toBat()

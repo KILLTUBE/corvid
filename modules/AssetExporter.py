@@ -360,9 +360,9 @@ def surfaceType(surface: str, game=""):
             "glossrange": (0, 4)
         }
     
-def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=None):
+def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=None, colorMaps=set()):
     if game == "BO3":
-        return createMaterialGdtBo3(vmts, loadedTextures)
+        return createMaterialGdtBo3(vmts, loadedTextures, colorMaps)
     gdt = Gdt()
     textureDir = "texture_assets\\\\corvid\\\\"
     ext, _ext = ".tga", "_.tga"
@@ -483,7 +483,7 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
         gdt.add(assetName.strip(), "material", data)
     return gdt
 
-def createMaterialGdtBo3(vmts: dict, loadedTextures=set()):
+def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set()):
     gdt = Gdt()
     total = len(vmts.items())
 
@@ -521,8 +521,7 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set()):
         if "$envmapmask" in mat:
             fileName = newPath(mat["$envmapmask"], shorten=True)
             if fileName  in loadedTextures:
-                colorFileName = newPath(mat["$basetexture"], shorten=True) if "$basetexture" in mat else None
-                assetSuffix = "_" if fileName == colorFileName else ""
+                assetSuffix = "_" if fileName in colorMaps else ""
                 data["cosinePowerMap"] = "i_" + fileName + assetSuffix
                 data["materialCategory"] = "Geometry Plus"
                 data["materialType"] = "lit_plus"
@@ -626,8 +625,7 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set()):
             if "$envmapmask2" in mat:
                 fileName = newPath(mat["$envmapmask2"], shorten=True)
                 if fileName  in loadedTextures:
-                    colorFileName = newPath(mat["$basetexture2"], shorten=True) if "$basetexture2" in mat else None
-                    assetSuffix = "_" if fileName == colorFileName else ""
+                    assetSuffix = "_" if fileName in colorMaps else ""
                     data2["cosinePowerMap"] = "i_" + fileName + assetSuffix
                     data2["materialType"] = "lit_decal_reveal_plus"
             if "$basealphaenvmapmask2" in mat and "$envmapmask2" not in mat:

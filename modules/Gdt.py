@@ -47,9 +47,9 @@ class Gdt:
         for entry in entries:
             name, type = entry["name"], entry["type"]
             if self.CoD2:
-                res += f'call :convert "{name}" "source_data\\_{self.name}.gdt" {name}\n'
+                res += f'call :convert "{name}" "source_data\\_{self.name}.gdt" "{name}"\n'
             else:
-                res += f'call :convert "{name}" "{type}" {name}\n'
+                res += f'call :convert "{name}" "{type}" "{name}"\n'
 
         res += "\n"
         res += "cls\n"
