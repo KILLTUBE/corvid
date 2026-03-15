@@ -1,5 +1,5 @@
 from io import TextIOWrapper
-from math import sin, cos, radians, inf
+from math import sin, cos, acos, atan2, log2, radians, degrees, inf
 from typing import Dict, List, Union
 from modules.Brush import Brush
 from modules.SourceDir import SourceDir
@@ -316,19 +316,19 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
     pitch = float(entity.get("pitch", entity["angles"].split(" ")[0]))
     yaw = angles.y
 
+    # calculate spotlight direction vector from Source angles
+    pitch_rad = radians(pitch)
+    yaw_rad = radians(yaw)
+
+    direction = vec3(
+        cos(pitch_rad) * cos(yaw_rad),
+        cos(pitch_rad) * sin(yaw_rad),
+        sin(pitch_rad)
+    )
+
     res = []
 
     if game != "BO3":
-        # calculate spotlight target position using direction vector
-        pitch_rad = radians(pitch)
-        yaw_rad = radians(yaw)
-
-        direction = vec3(
-            cos(pitch_rad) * cos(yaw_rad),
-            cos(pitch_rad) * sin(yaw_rad),
-            sin(pitch_rad)
-        )
-
         res.append(cod.Entity({
             "classname": "light",
             "origin": origin * scale,
@@ -347,16 +347,25 @@ def convertSpotLight(entity, game="WaW", scale=1.0):
         }))
 
     else:
+        # BO3 spot light default direction is -Z (downward)
+        # Rotation order: pitch (around Y), then yaw (around Z)
+        dz = max(-1.0, min(1.0, -direction.z))
+        bo3_pitch = degrees(acos(dz))
+        bo3_yaw = degrees(atan2(-direction.y, -direction.x))
+
+        # Source brightness to BO3 stops (logarithmic scale, 300 brightness ≈ 11 stops)
+        stops = log2(max(brightness, 1) / 300) + 11
+
         res = cod.Entity({
             "classname": "light",
             "origin": origin * scale,
             "_color": color,
             "PRIMARY_TYPE": "PRIMARY_SPOT",
-            "angles": vec3(-pitch, yaw, 0),
+            "angles": vec3(bo3_pitch, bo3_yaw, 0),
             "radius": radius,
-            "intensity": intensity,
+            "stops": round(stops, 2),
             "fov_outer": fov_outer,
-            "fov_inner": fov_inner,
+            "spawnflags": "84",
         })
 
     return res
