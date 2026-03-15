@@ -6,7 +6,8 @@ import numpy as np
 from modules.cube2equi import find_corresponding_pixel
 from modules.vdfutils import parse_vdf
 from os.path import basename, splitext, dirname, exists
-from .Static import fixVmt, newPath, VecFromStr, Vec2Hex
+from math import log2
+from .Static import fixVmt, newPath, VecFromStr, Vec2Str, Vec2Hex
 from .Gdt import Gdt
 from .AssetConverter import getTexSize
 from SourceIO.library.models.mdl.v49.mdl_file import MdlV49
@@ -917,38 +918,28 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "BulletCollisionLOD": "None"
         })
 
-        suncolor = worldSpawnSettings["suncolor"] if "suncolor" in worldSpawnSettings else "1 1 1 1"
-        sundirection = worldSpawnSettings["sundirection"] if "sundirection" in worldSpawnSettings else vec3(0, 0, 0)
+        suncolor = worldSpawnSettings.get("suncolor", vec3(1, 1, 1))
+        sundirection = worldSpawnSettings.get("sundirection", vec3(0, 0, 0))
+        sunbrightness = worldSpawnSettings.get("sunlight", 1.5)
+
+        # Source brightness to BO3 stops (logarithmic scale)
+        sunstops = round(log2(max(sunbrightness, 0.01)) + 14, 2)
 
         gdt.add(f"{mapName}_ssi", "ssi", {
             "bounceCount": "4",
-            "colorSRGB": f"{suncolor} 1",
+            "colorSRGB": f"{Vec2Str(suncolor)} 1",
             "dynamicShadow": "1",
             "enablesun": "1",
             "ev": "15",
             "evcmp": "0",
             "evmax": "16",
             "evmin": "1",
-            "lensFlare": "",
-            "lensFlarePitchOffset": "0",
-            "lensFlareYawOffset": "0",
             "penumbra_inches": "1.5",
-            "pitch": -sundirection.x,
+            "pitch": sundirection.x,
             "skyboxmodel": f"{mapName}_skybox",
-            "spec_comp": "0",
-            "stops": "14",
-            "sunCookieAngle": "0",
-            "sunCookieIntensity": "0",
-            "sunCookieLightDefName": "",
-            "sunCookieOffsetX": "0",
-            "sunCookieOffsetY": "0",
-            "sunCookieRotation": "0",
-            "sunCookieScale": "0",
-            "sunCookieScrollX": "0",
-            "sunCookieScrollY": "0",
-            "sunVolumetricCookie": "0",
+            "stops": sunstops,
             "type": "ssi",
-            "yaw": (sundirection.y + 180) % 360
+            "yaw": sundirection.y
         })
     else:
         gdt.add(f"{mapName}_sky", "material", {
