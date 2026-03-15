@@ -362,7 +362,7 @@ def surfaceType(surface: str, game=""):
     
 def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=None, colorMaps=set()):
     if game == "BO3":
-        return createMaterialGdtBo3(vmts, loadedTextures, colorMaps)
+        return createMaterialGdtBo3(vmts, loadedTextures, colorMaps, overlayMats)
     gdt = Gdt()
     textureDir = "texture_assets\\\\corvid\\\\"
     ext, _ext = ".tga", "_.tga"
@@ -483,7 +483,7 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
         gdt.add(assetName.strip(), "material", data)
     return gdt
 
-def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set()):
+def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), overlayMats=None):
     gdt = Gdt()
     total = len(vmts.items())
 
@@ -579,6 +579,10 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set()):
             else:
                 data["materialType"] = "lit_nocull"
                 
+        if overlayMats and assetName.strip() in overlayMats:
+            data["materialCategory"] = "Decal"
+            data["materialType"] = "lit_decal"
+
         # if "$selfillum" in mat:
         #     if mat["$selfillum"] == "1":
         #         data["materialType"] = "lit_emissive"
