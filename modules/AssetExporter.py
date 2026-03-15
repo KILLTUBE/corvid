@@ -521,7 +521,9 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set()):
         if "$envmapmask" in mat:
             fileName = newPath(mat["$envmapmask"], shorten=True)
             if fileName  in loadedTextures:
-                data["cosinePowerMap"] = "i_" + fileName
+                colorFileName = newPath(mat["$basetexture"], shorten=True) if "$basetexture" in mat else None
+                assetSuffix = "_" if fileName == colorFileName else ""
+                data["cosinePowerMap"] = "i_" + fileName + assetSuffix
                 data["materialCategory"] = "Geometry Plus"
                 data["materialType"] = "lit_plus"
         if "$basealphaenvmapmask" in mat and "$envmapmask" not in mat:
@@ -624,7 +626,9 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set()):
             if "$envmapmask2" in mat:
                 fileName = newPath(mat["$envmapmask2"], shorten=True)
                 if fileName  in loadedTextures:
-                    data2["cosinePowerMap"] = "i_" + newPath(mat["$envmapmask2"], shorten=True)
+                    colorFileName = newPath(mat["$basetexture2"], shorten=True) if "$basetexture2" in mat else None
+                    assetSuffix = "_" if fileName == colorFileName else ""
+                    data2["cosinePowerMap"] = "i_" + fileName + assetSuffix
                     data2["materialType"] = "lit_decal_reveal_plus"
             if "$basealphaenvmapmask2" in mat and "$envmapmask2" not in mat:
                 fileName = newPath(mat["$basetexture2"], shorten=True)
@@ -763,8 +767,8 @@ def createImageGdt(images):
         print(f"{i}|{total}|done", end="")
         
         # some materials use the same image for both their color maps and env maps. we need to create seperate image asset for them
-        file = file + "_" if file in images["colorMaps"] or file in images["colorMapsAlpha"] else file
-        gdt.add(f"i_{file}", "image", {
+        assetName = file + "_" if file in images["colorMaps"] or file in images["colorMapsAlpha"] else file
+        gdt.add(f"i_{assetName}", "image", {
             "imageType": "Texture",
             "type": "image",
             "baseImage": f"texture_assets\\\\corvid\\\\{file}.tif",
