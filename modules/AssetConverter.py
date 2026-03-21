@@ -40,13 +40,19 @@ def removeBackground(rgba):
     """Detects a solid background color from edge pixels and replaces it with alpha.
     Recovers original colors by removing background contamination from blended pixels."""
     arr = np.array(rgba)[:, :, :3]
-    # sample all edge pixels
-    top, bot, left, right = arr[0, :], arr[-1, :], arr[:, 0], arr[:, -1]
-    edges = np.concatenate([top, bot, left, right])
-    # check if edges are uniform (solid background)
-    if edges.std(axis=0).max() > 2:
+    # sample corner pixels (5x5 patches) to detect solid background
+    h, w = arr.shape[:2]
+    cs = min(5, h // 2, w // 2)
+    corners = np.concatenate([
+        arr[:cs, :cs].reshape(-1, 3),
+        arr[:cs, -cs:].reshape(-1, 3),
+        arr[-cs:, :cs].reshape(-1, 3),
+        arr[-cs:, -cs:].reshape(-1, 3),
+    ])
+    # check if corners are uniform (solid background)
+    if corners.std(axis=0).max() > 2:
         return rgba
-    bg = edges.mean(axis=0).astype(np.float32)
+    bg = corners.mean(axis=0).astype(np.float32)
     # compute color distance from background and use as alpha
     pixels = np.array(rgba)[:, :, :3].astype(np.float32)
     dist = np.sqrt(((pixels - bg) ** 2).sum(axis=2))
