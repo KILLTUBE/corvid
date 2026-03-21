@@ -438,6 +438,10 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
             data["sort"] = "decal - top 3"
             data["locale_decal"] = "1"
             data["polygonOffset"] = "Static Decal"
+            if "$alphatest" in mat or "$alpha" in mat:
+                data["blendFunc"] = "Multiply"
+            elif "blendFunc" not in data:
+                data["blendFunc"] = "Blend"
 
         if "$basetexture2" in mat:
             data2 = {}
@@ -611,6 +615,7 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
             data2 = {}
             data2["materialCategory"] = "Decal"
             data2["materialType"] = "lit_decal_reveal"
+            data2["layerSortDecal"] = "Asphalt (bottom)"
 
             fileName = newPath(mat["$basetexture2"], shorten=True)
             if fileName  in loadedTextures:
@@ -618,7 +623,7 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
             else:
                 data2["colorMap"] = "404"
             data2["usage"] = "tools" # probably not a good idea
-                    
+
             if "$bumpmap2" in mat and "$ssbump2" not in mat:
                 fileName = newPath(mat["$bumpmap2"], shorten=True)
                 if fileName  in loadedTextures:

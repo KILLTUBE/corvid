@@ -828,6 +828,15 @@ def exportMap(
         elif entity["classname"] == "infodecal" and "texture" in entity:
             overlayMats.add(newPath(entity["texture"].lower()))
 
+    # resolve overlay material names to their texture file names
+    overlayTextures = set()
+    for matName in overlayMats:
+        if matName in matData["vmts"]:
+            shader = list(matData["vmts"][matName])[0]
+            mat = matData["vmts"][matName][shader]
+            if "$basetexture" in mat:
+                overlayTextures.add(newPath(mat["$basetexture"].strip(), shorten=True))
+
     # create GDT files
     gdtFile = Gdt()
 
@@ -866,7 +875,7 @@ def exportMap(
     # convert the textures
     if not skipMats:
         print("Converting textures...")
-        convertImages(matData, f"{outDir}/texture_assets/corvid", "tif" if game == "BO3" else "tga")
+        convertImages(matData, f"{outDir}/texture_assets/corvid", "tif" if game == "BO3" else "tga", overlayTextures)
         if not skipModels:
             convertImages(mdlMatData, f"{outDir}/texture_assets/corvid", "tif" if game == "BO3" else "tga")
 

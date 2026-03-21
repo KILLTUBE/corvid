@@ -8,7 +8,7 @@ from glm import vec2
 from .Static import newPath, VecFromStr, Vec2Str, Vec2Hex
 from .ModelConverter import convertModel
 
-def convertImage(vtf_data, dest, format="rgba", invert=False, resize=False):
+def convertImage(vtf_data, dest, format="rgba", invert=False, resize=False, removeBg=False):
     if vtf_data is None:
         return False
     format = format.upper()
@@ -27,6 +27,8 @@ def convertImage(vtf_data, dest, format="rgba", invert=False, resize=False):
         rgba = rgba.resize((512, 512))
     if invert:
         rgba = ImageOps.invert(rgba.convert("RGB"))
+    if removeBg:
+        rgba = removeBackground(rgba)
     if format == "RGBA":
         rgba.save(dest)
     elif format == "RGB":
@@ -34,8 +36,35 @@ def convertImage(vtf_data, dest, format="rgba", invert=False, resize=False):
     elif len(format) == 1:
         rgba.getchannel(format).save(dest)
 
-def convertImages(images, outDir, ext="tga"):
+def removeBackground(rgba):
+    """Detects a solid background color from edge pixels and replaces it with alpha.
+    Recovers original colors by removing background contamination from blended pixels."""
+    arr = np.array(rgba)[:, :, :3]
+    # sample all edge pixels
+    top, bot, left, right = arr[0, :], arr[-1, :], arr[:, 0], arr[:, -1]
+    edges = np.concatenate([top, bot, left, right])
+    # check if edges are uniform (solid background)
+    if edges.std(axis=0).max() > 2:
+        return rgba
+    bg = edges.mean(axis=0).astype(np.float32)
+    # compute color distance from background and use as alpha
+    pixels = np.array(rgba)[:, :, :3].astype(np.float32)
+    dist = np.sqrt(((pixels - bg) ** 2).sum(axis=2))
+    alpha_f = np.clip(dist / 64.0, 0.0, 1.0)
+    # recover original color by removing background contribution
+    # blended = bg * (1 - a) + original * a  =>  original = (blended - bg * (1 - a)) / a
+    safe_alpha = np.maximum(alpha_f, 0.01)
+    recovered = (pixels - bg[None, None, :] * (1.0 - safe_alpha[:, :, None])) / safe_alpha[:, :, None]
+    recovered = np.clip(recovered, 0, 255).astype(np.uint8)
+    result = np.array(rgba)
+    result[:, :, :3] = np.where(alpha_f[:, :, None] > 0, recovered, 0)
+    result[:, :, 3] = (alpha_f * 255).astype(np.uint8)
+    return Image.fromarray(result, "RGBA")
+
+def convertImages(images, outDir, ext="tga", overlayTextures=None):
     vtf_data = images["vtfData"]
+    if overlayTextures is None:
+        overlayTextures = set()
 
     images["colorMaps"] = list(dict.fromkeys(images["colorMaps"]))
     images["colorMapsAlpha"] = list(dict.fromkeys(images["colorMapsAlpha"]))
@@ -69,7 +98,10 @@ def convertImages(images, outDir, ext="tga"):
         convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "g", True)
     for i, file in enumerate(images["colorMaps"], lencolorMapsAlpha + lennormalMaps + lenenvMaps + lenenvMapsAlpha + lenrevealMaps):
         print(f"{i}|{total}|done", end="")
-        convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "rgb")
+        if file in overlayTextures:
+            convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "rgba", removeBg=True)
+        else:
+            convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "rgb")
 
     # create 404 image for the textures that aren't found
     h = 512
