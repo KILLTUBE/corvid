@@ -1083,21 +1083,49 @@ def exportMap(
     if volumes is not None:
         res.entities.append(volumes)
 
-    # convert overlays
+    # convert overlays and decals with overlap-based z-offsets
+    # track placed decals per face: list of (origin, half_w, half_h, offset)
+    faceDecals: Dict[str, list] = {}
+
+    def getOverlapOffset(sideIds, origin, half_w, half_h):
+        """Find the next offset based on overlapping decals on the same faces."""
+        maxOffset = 0
+        for sid in sideIds:
+            for o_origin, o_hw, o_hh, o_offset in faceDecals.get(sid, []):
+                # check if close enough to overlap — use max of both half-extents
+                overlap_dist = max(half_w + o_hw, half_h + o_hh)
+                if distance(origin, o_origin) < overlap_dist:
+                    maxOffset = max(maxOffset, o_offset + 1)
+        for sid in sideIds:
+            if sid not in faceDecals:
+                faceDecals[sid] = []
+            faceDecals[sid].append((origin, half_w, half_h, maxOffset))
+        return maxOffset
+
     total = len(overlays)
     if total > 0:
         print("Converting overlays...")
     for i, overlay in enumerate(overlays):
         print(f"{i + 1}|{total}|done", end="")
         try:
-            decal = Overlay(overlay, sideDict, matSizes, scale=scale)
-            patches = decal.to_patches()
+            obj = Overlay(overlay, sideDict, matSizes, scale=scale)
+            zOffset = 0.0
+            if not obj.empty:
+                origin = vec3(float(obj.BasisOrigin[0]), float(obj.BasisOrigin[1]), float(obj.BasisOrigin[2]))
+                hw = float(distance(vec3(float(obj.uv_points[0][0]), float(obj.uv_points[0][1]), float(obj.uv_points[0][2])),
+                                     vec3(float(obj.uv_points[3][0]), float(obj.uv_points[3][1]), float(obj.uv_points[3][2])))) / 2
+                hh = float(distance(vec3(float(obj.uv_points[0][0]), float(obj.uv_points[0][1]), float(obj.uv_points[0][2])),
+                                     vec3(float(obj.uv_points[1][0]), float(obj.uv_points[1][1]), float(obj.uv_points[1][2])))) / 2
+                sideIds = [s.id for s in obj.sides]
+                zOffset = getOverlapOffset(sideIds, origin, hw, hh) * 0.125
+            patches = obj.to_patches(zOffset=zOffset)
             for patch in patches:
                 world.geo.append(patch)
         except Exception as e:
             pass
 
-    # convert decals
+    # convert decals — sort by entity id so overlapping decals layer consistently
+    decals.sort(key=lambda e: int(e.get("id", 0)))
     total = len(decals)
     if total > 0:
         print("Converting decals...")
@@ -1105,7 +1133,9 @@ def exportMap(
         print(f"{i + 1}|{total}|done", end="")
         try:
             decal = Decal(entity, brushDict, matSizes, matData["vmts"], scale=scale)
-            patches = decal.to_patches()
+            sideIds = [side.id for side, _ in decal.faces]
+            zOffset = getOverlapOffset(sideIds, decal.origin, decal.half_w, decal.half_h) * 0.125
+            patches = decal.to_patches(zOffset=zOffset)
             for patch in patches:
                 world.geo.append(patch)
         except Exception as e:

@@ -195,7 +195,7 @@ class Overlay:
             if norm_len > 0:
                 face_normal /= norm_len
             clipped = _ensure_winding(clipped, face_normal)
-            self._flat_faces.append(clipped)
+            self._flat_faces.append((clipped, face_normal))
 
         # process displacement sides
         self._disp_grids = []  # store full grids for surface projection
@@ -381,7 +381,7 @@ class Overlay:
                     # breaking the triangulation alignment with the displacement
                     for row in sub_grid:
                         row.reverse()
-                self._disp_patches.append(sub_grid)
+                self._disp_patches.append((sub_grid, face_normal))
 
         # process border cells — cells that straddle the overlay boundary
         for i in range(num_verts - 1):
@@ -400,12 +400,12 @@ class Overlay:
                 if all(cell_inside):
                     # fully inside but not part of inner grid — add as a quad
                     face = list(cell_verts)
-                    self._disp_border_faces.append(_ensure_winding(face, face_normal))
+                    self._disp_border_faces.append((_ensure_winding(face, face_normal), face_normal))
                 else:
                     # partially inside — clip the quad against slab planes
                     clipped = _clip_polygon_by_planes(list(cell_verts), self._slab_planes)
                     if len(clipped) >= 3:
-                        self._disp_border_faces.append(_ensure_winding(clipped, face_normal))
+                        self._disp_border_faces.append((_ensure_winding(clipped, face_normal), face_normal))
 
     @staticmethod
     def _rows_match(row_a: List[PatchVert], row_b: List[PatchVert], tol: float = 0.1) -> bool:
@@ -484,7 +484,7 @@ class Overlay:
             for row in patch.verts:
                 row.reverse()
 
-    def _build_patch_from_polygon(self, verts, uvs, mat, tex_scale):
+    def _build_patch_from_polygon(self, verts, uvs, mat, tex_scale, offset=vec3(0)):
         """Build a CoD patch mesh from a clipped polygon and its UVs."""
         if len(verts) < 3:
             return None
@@ -505,9 +505,9 @@ class Overlay:
             p2 = verts[count - i - 1]
             uv2 = uvs[count - i - 1]
 
-            pos1 = vec3(float(p1[0]), float(p1[1]), float(p1[2])) * self.scale
+            pos1 = vec3(float(p1[0]), float(p1[1]), float(p1[2])) * self.scale + offset
             uv1_scaled = vec2(float(uv1[0]), float(uv1[1])) * tex_scale
-            pos2 = vec3(float(p2[0]), float(p2[1]), float(p2[2])) * self.scale
+            pos2 = vec3(float(p2[0]), float(p2[1]), float(p2[2])) * self.scale + offset
             uv2_scaled = vec2(float(uv2[0]), float(uv2[1])) * tex_scale
 
             patch.verts.append([
@@ -518,7 +518,12 @@ class Overlay:
         self._fix_patch_winding(patch)
         return patch
 
-    def to_patches(self) -> List[Patch]:
+    def _face_offset(self, face_normal, zOffset):
+        """Compute outward offset from a numpy face normal. Negated because side.normal() points inward."""
+        n = vec3(float(face_normal[0]), float(face_normal[1]), float(face_normal[2]))
+        return n * -(zOffset) * self.scale
+
+    def to_patches(self, zOffset=0.0) -> List[Patch]:
         """Convert the overlay to a list of CoD patches."""
         if self.empty:
             return []
@@ -528,15 +533,17 @@ class Overlay:
         mat = newPath(self.material)
 
         # flat side patches
-        for face_verts in self._flat_faces:
+        for face_verts, face_normal in self._flat_faces:
+            offset = self._face_offset(face_normal, zOffset)
             verts = list(face_verts)
             uvs = [self._compute_uv_from_world(v) for v in verts]
-            patch = self._build_patch_from_polygon(verts, uvs, mat, tex_scale)
+            patch = self._build_patch_from_polygon(verts, uvs, mat, tex_scale, offset)
             if patch is not None:
                 patches.append(patch)
 
         # displacement sub-grid patches
-        for sub_grid in self._disp_patches:
+        for sub_grid, face_normal in self._disp_patches:
+            offset = self._face_offset(face_normal, zOffset)
             rows = len(sub_grid)
             cols = len(sub_grid[0])
 
@@ -548,7 +555,7 @@ class Overlay:
                 for j in range(cols):
                     world_pos = sub_grid[i][j]
                     uv = self._compute_uv_from_world(world_pos)
-                    pos = vec3(float(world_pos[0]), float(world_pos[1]), float(world_pos[2])) * self.scale
+                    pos = vec3(float(world_pos[0]), float(world_pos[1]), float(world_pos[2])) * self.scale + offset
                     uv_scaled = vec2(float(uv[0]), float(uv[1])) * tex_scale
                     row.append(PatchVert(pos, uv_scaled, vec2(0, 0)))
                 patch.verts.append(row)
@@ -558,10 +565,11 @@ class Overlay:
 
         # displacement border face patches (clipped quads/triangles)
         # project vertices onto displacement triangles to match CoD's triangulation
-        for face_verts in self._disp_border_faces:
+        for face_verts, face_normal in self._disp_border_faces:
+            offset = self._face_offset(face_normal, zOffset)
             verts = [self._project_onto_disp_surface(v) for v in face_verts]
             uvs = [self._compute_uv_from_world(v) for v in verts]
-            patch = self._build_patch_from_polygon(verts, uvs, mat, tex_scale)
+            patch = self._build_patch_from_polygon(verts, uvs, mat, tex_scale, offset)
             if patch is not None:
                 patches.append(patch)
 

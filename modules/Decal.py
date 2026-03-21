@@ -86,6 +86,9 @@ class Decal:
             if "$decalscale" in mat:
                 self.decalScale = float(mat["$decalscale"])
 
+        self.half_w = (self.texSize.x * self.decalScale) / 2.0
+        self.half_h = (self.texSize.y * self.decalScale) / 2.0
+
         self.faces: List[Tuple[Side, vec3]] = []
         self._find_colliding_faces(brushDict)
 
@@ -118,7 +121,7 @@ class Decal:
                 best = (side, closest)
         return best
 
-    def to_patches(self) -> List[Patch]:
+    def to_patches(self, zOffset=0.0) -> List[Patch]:
         if len(self.faces) == 0:
             return []
 
@@ -138,22 +141,18 @@ class Decal:
         tangent = normalize(cross(up, normal))
         bitangent = normalize(cross(normal, tangent))
 
-        # decal geometry size = texture dimensions * decalscale
-        half_w = (self.texSize.x * self.decalScale) / 2.0
-        half_h = (self.texSize.y * self.decalScale) / 2.0
-
         # full decal quad corners and UVs
         quad_verts = [
-            center + tangent * (-half_w) + bitangent * ( half_h),
-            center + tangent * ( half_w) + bitangent * ( half_h),
-            center + tangent * ( half_w) + bitangent * (-half_h),
-            center + tangent * (-half_w) + bitangent * (-half_h),
+            center + tangent * (-self.half_w) + bitangent * ( self.half_h),
+            center + tangent * ( self.half_w) + bitangent * ( self.half_h),
+            center + tangent * ( self.half_w) + bitangent * (-self.half_h),
+            center + tangent * (-self.half_w) + bitangent * (-self.half_h),
         ]
         quad_uvs = [
-            vec2(0, 1),
             vec2(1, 1),
-            vec2(1, 0),
+            vec2(0, 1),
             vec2(0, 0),
+            vec2(1, 0),
         ]
 
         patches = []
@@ -178,8 +177,9 @@ class Decal:
             if len(clipped_verts) < 3:
                 continue
 
-            # offset slightly along face normal to avoid z-fighting
-            offset = face_normal * -0.5
+            # offset outward along face normal to avoid z-fighting
+            # side.normal() points inward, so negate for outward direction
+            offset = face_normal * -(zOffset)
             clipped_verts = [v + offset for v in clipped_verts]
 
             # build patch: pair vertices across the polygon
