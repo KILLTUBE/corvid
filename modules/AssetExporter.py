@@ -924,8 +924,15 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         })
 
         suncolor = worldSpawnSettings.get("suncolor", vec3(1, 1, 1))
-        sundirection = worldSpawnSettings.get("sundirection", vec3(0, 0, 0))
         sunbrightness = worldSpawnSettings.get("sunlight", 1.5)
+
+        # Use raw Source angles for BO3 SSI conversion
+        # Source pitch: counter-clockwise (-90 = down)
+        # BO3 SSI pitch: positive = downward (90 = down)
+        source_pitch = worldSpawnSettings.get("source_sun_pitch", 0)
+        source_yaw = worldSpawnSettings.get("source_sun_yaw", 0)
+        bo3_pitch = -source_pitch
+        bo3_yaw = source_yaw
 
         # Source brightness to BO3 stops (logarithmic scale)
         sunstops = round(log2(max(sunbrightness, 0.01)) + 14, 2)
@@ -940,11 +947,11 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "evmax": "16",
             "evmin": "1",
             "penumbra_inches": "1.5",
-            "pitch": sundirection.x,
+            "pitch": bo3_pitch,
             "skyboxmodel": f"{mapName}_skybox",
             "stops": sunstops,
             "type": "ssi",
-            "yaw": sundirection.y
+            "yaw": bo3_yaw
         })
     else:
         gdt.add(f"{mapName}_sky", "material", {

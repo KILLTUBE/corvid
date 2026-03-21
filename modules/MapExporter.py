@@ -990,14 +990,20 @@ def exportMap(
                 angles = VecFromStr(entity["angles"], 3)
                 if "pitch" in entity:
                     # pitch key is already counter-clockwise (negative = down), same as CoD
-                    pitch = float(entity["pitch"])
+                    source_pitch = float(entity["pitch"])
                 else:
-                    # angles pitch is clockwise (positive = down), negate for CoD
-                    pitch = -angles.x
-                yaw = angles.y
+                    # angles pitch is clockwise (positive = down), negate to counter-clockwise
+                    source_pitch = -angles.x
+                source_yaw = angles.y
+
+                # store raw Source angles for BO3 SSI conversion
+                if game == "BO3":
+                    worldSpawnSettings["source_sun_pitch"] = source_pitch
+                    worldSpawnSettings["source_sun_yaw"] = source_yaw
+
                 # flip yaw by 180 to match CoD sun direction convention
-                yaw = yaw - 180 if yaw >= 180 else yaw + 180
-                worldSpawnSettings["sundirection"] = vec3(pitch, yaw, 0)
+                yaw = source_yaw - 180 if source_yaw >= 180 else source_yaw + 180
+                worldSpawnSettings["sundirection"] = vec3(source_pitch, yaw, 0)
 
                 # sun color and brightness from _light (R G B brightness)
                 # Source brightness is a multiplier, typical values 200-800
