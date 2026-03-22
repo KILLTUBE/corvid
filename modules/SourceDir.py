@@ -1,6 +1,7 @@
 import vpk
 from typing import List
-from os.path import isdir, isfile
+from os import walk
+from os.path import isdir, isfile, relpath
 from shutil import copyfile
 from pathlib import Path
 from tempfile import gettempdir
@@ -12,6 +13,7 @@ class SourceDir:
         self.dirs = []
         self.paks: List[vpk.VPK] = []
         self.addons: List[Addon] = []
+        self._file_index = {} # lowercase relative path -> actual full path
 
     def add(self, path):
         if isfile(path):
@@ -25,6 +27,12 @@ class SourceDir:
 
         elif isdir(path):
             self.dirs.append(path)
+            for root, dirs, files in walk(path):
+                for f in files:
+                    full = f"{root}/{f}"
+                    rel = relpath(full, path).replace("\\", "/").lower()
+                    if rel not in self._file_index:
+                        self._file_index[rel] = full
         else:
             print(f"\"{path}\" is an invalid path.")
 
@@ -43,12 +51,13 @@ class SourceDir:
                 with open(tmpPath, "rb") as f:
                     return f.read()
 
-        for dir in self.dirs:
+        resolved = self._file_index.get(src)
+        if resolved is not None:
             try:
-                with open(f"{dir}/{src}", "rb") as f:
+                with open(resolved, "rb") as f:
                     return f.read()
             except:
-                continue
+                pass
 
         if not silent:
             print(f"Could not find file {src}")
