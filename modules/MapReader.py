@@ -79,8 +79,8 @@ def readMap(vmf):
                     skin = int(entity["skin"])
                     if mdlName not in skinTints:
                         skinTints[mdlName] = {}
-                        if skin not in skinTints[mdlName]:
-                            skinTints[mdlName][skin] = []
+                    if skin not in skinTints[mdlName]:
+                        skinTints[mdlName][skin] = []
                     if entity["rendercolor"] not in skinTints[mdlName][skin]:
                         skinTints[mdlName][skin].append(entity["rendercolor"])
                 elif "rendercolor" in entity and entity["rendercolor"] != "255 255 255":

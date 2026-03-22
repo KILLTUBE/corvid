@@ -747,7 +747,10 @@ class TextRedirector(object):
         self.tag = tag
         self.eof = False
 
-    def write(self, str: str):        
+    def flush(self):
+        pass
+
+    def write(self, str: str):
         # update the progress bars depending on the printed text
         # I'm not really a Python guy normally, so I'm not sure if this is the best way to do this
         overAllSteps = [

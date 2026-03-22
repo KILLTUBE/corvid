@@ -24,7 +24,10 @@ def convertImage(vtf_data, dest, format="rgba", invert=False, resize=False, remo
         y = max(rgba.size[1], 4)
         rgba = rgba.resize((x, y))
     if resize:
-        rgba = rgba.resize((512, 512))
+        if isinstance(resize, tuple):
+            rgba = rgba.resize(resize)
+        else:
+            rgba = rgba.resize((512, 512))
     if invert:
         rgba = ImageOps.invert(rgba.convert("RGB"))
     if removeBg:

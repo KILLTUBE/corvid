@@ -5,7 +5,7 @@ from glm import vec2, vec3
 import numpy as np
 from modules.cube2equi import find_corresponding_pixel
 from modules.vdfutils import parse_vdf
-from os.path import basename, splitext, dirname, exists
+from os.path import basename, splitext, dirname
 from math import log2
 from .Static import fixVmt, newPath, VecFromStr, Vec2Str, Vec2Hex
 from .Gdt import Gdt
@@ -826,55 +826,102 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
     skyName = skyName.lower()
     faces = ["up", "dn", "lf", "rt", "ft", "bk"]
     gdt = Gdt()
-    ext = "tif" if game == "BO3" else "tga"
     convertDir = f"{outDir}/texture_assets/corvid/"
 
-    from .AssetConverter import convertImage
+    from SourceIO.library.utils.pylib.vtf import load_vtf_texture
+
+    # read VMT data for all faces and detect HDR
+    vmtData = {}
+    isHDR = False
+    skyColor = np.array([1.0, 1.0, 1.0], dtype=np.float32)
     for face in faces:
-        name = f"{mapName}_sky_{face}"
         vmtText = dir.read_text(f"materials/skybox/{skyName}{face}.vmt", silent=True)
-        if vmtText is not None:
-            vmt = parse_vdf(fixVmt(vmtText))
-            shader = list(vmt)[0]
-            mat = vmt[shader]
-            # could be any of these three
-            for param in ["$basetexture", "$hdrcompressedtexture", "$hdrbasetexture"]:
-                if param in mat:
-                    texture = param
-                    break
-            texture = splitext(basename(mat[texture]))[0]
-            vtfData = dir.read_bytes(f"materials/skybox/{texture}.vtf", silent=True)
-            convertImage(vtfData, f"{convertDir}/{name}.{ext}", format="rgb", resize=True)
+        if vmtText is None:
+            return gdt
+        vmt = parse_vdf(fixVmt(vmtText))
+        shader = list(vmt)[0]
+        vmtData[face] = vmt[shader]
+
+    firstMat = vmtData[faces[0]]
+    isHDR = "$hdrcompressedtexture" in firstMat or "$hdrbasetexture" in firstMat
+
+    # parse $color multiplier from VMT (e.g. "[.25 .25 .25]")
+    colorStr = firstMat.get("$color", "")
+    if colorStr:
+        colorStr = colorStr.strip("[]{}").strip()
+        colorVals = colorStr.split()
+        if len(colorVals) == 3:
+            skyColor = np.array([float(v) for v in colorVals], dtype=np.float32)
+
+    # load all faces from VTF data
+    skyImages = {}
+    maxDim = 0
+    for face in faces:
+        mat = vmtData[face]
+        # for BO3, prefer HDR textures; for older games, prefer LDR
+        if game == "BO3":
+            paramOrder = ["$hdrcompressedtexture", "$hdrbasetexture", "$basetexture"]
         else:
-            return gdt # return an empty gdt in case the sky materials can't be found
+            paramOrder = ["$basetexture", "$hdrcompressedtexture", "$hdrbasetexture"]
+        for param in paramOrder:
+            if param in mat:
+                texParam = param
+                break
+        texName = splitext(basename(mat[texParam]))[0]
+        vtfData = dir.read_bytes(f"materials/skybox/{texName}.vtf", silent=True)
+        pixel_data, width, height, is_float = load_vtf_texture(vtfData)
+        if is_float:
+            arr = np.frombuffer(pixel_data, dtype=np.float32).reshape(height, width, 4)
+        else:
+            arr = np.frombuffer(pixel_data, dtype=np.uint8).reshape(height, width, 4).astype(np.float32) / 255.0
+
+        # apply $basetexturetransform scale to determine target size
+        transform = mat.get("$basetexturetransform", "")
+        targetW, targetH = width, height
+        if "scale" in transform:
+            scale_part = transform.split("scale")[1].split("rotate")[0].strip()
+            scale_vals = scale_part.split()
+            targetW = int(width * float(scale_vals[0]))
+            targetH = int(height * float(scale_vals[1]))
+
+        maxDim = max(max(targetW, targetH), maxDim)
+        skyImages[face] = arr
+
+    # resize all faces to square
+    for face in faces:
+        arr = skyImages[face]
+        # apply $color multiplier for BO3 HDR path
+        if game == "BO3":
+            arr[:, :, :3] *= skyColor
+        if arr.shape[0] != maxDim or arr.shape[1] != maxDim:
+            pil = Image.fromarray((np.clip(arr, 0, 1) * 255).astype(np.uint8), "RGBA")
+            pil = pil.resize((maxDim, maxDim), Image.LANCZOS)
+            skyImages[face] = np.array(pil).astype(np.float32) / 255.0
+        else:
+            skyImages[face] = arr
+
+    if game != "BO3":
+        # save individual faces as plain RGB images for older CoD games
+        for face in faces:
+            arr = skyImages[face][:, :, :3]
+            ldr = (np.clip(arr, 0, 1) * 255).astype(np.uint8)
+            Image.fromarray(ldr, "RGB").save(f"{convertDir}/{mapName}_sky_{face}.tga")
 
     if game == "BO3":
         print("Converting skybox...")
-        # load all sides of the cubemap
-        images = {}
-        for face in faces:
-            if not exists(f"{convertDir}/{mapName}_sky_{face}.tif"):
-                return gdt
-            images[face] = Image.open(f"{convertDir}/{mapName}_sky_{face}.tif").resize((1024, 1024))
-        
-        # create an empty image and paste all sides in it
-        cubemap = Image.new(mode="RGB", size=(4096, 3072), color=(255, 255, 255))
 
-        # rt ft lf bk
-        # bk rt ft lf
+        # assemble cubemap cross layout
+        s = maxDim
+        cubemap = np.zeros((s * 3, s * 4, 3), dtype=np.float32)
+        cubemap[s:s*2, 0:s] = skyImages["bk"][:, :, :3]
+        cubemap[s:s*2, s:s*2] = skyImages["rt"][:, :, :3]
+        cubemap[0:s, s:s*2] = skyImages["up"][:, :, :3]
+        cubemap[s:s*2, s*2:s*3] = skyImages["ft"][:, :, :3]
+        cubemap[s:s*2, s*3:s*4] = skyImages["lf"][:, :, :3]
+        cubemap[s*2:s*3, s:s*2] = skyImages["dn"][:, :, :3]
 
-        cubemap.paste(images["bk"], (0, 1024))
-        cubemap.paste(images["rt"], (1024, 1024))
-        cubemap.paste(images["up"], (1024, 0))
-        cubemap.paste(images["ft"], (2048, 1024))
-        cubemap.paste(images["lf"], (3072, 1024))
-        cubemap.paste(images["dn"], (1024, 2048))
-        cubemap.save(f"{convertDir}/cubemap.tif")
-
-        # create an equirectangular image from the new cubemap image
-        # based on https://github.com/adamb70/Python-Spherical-Projection/blob/master/Example/Example%201/SingleExample.py
-        wo, ho = cubemap.size
-
+        # convert cubemap cross to equirectangular
+        wo, ho = cubemap.shape[1], cubemap.shape[0]
         h = int(wo / 3)
         w = int(2 * h)
         n = ho / 3
@@ -882,10 +929,8 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         xcoords, ycoords = np.meshgrid(np.arange(w), np.arange(h))
         corrx, corry = find_corresponding_pixel(xcoords, ycoords, w, h, n)
 
-        cubemap_arr = np.array(cubemap)
-        res_arr = cubemap_arr[corry, corrx, :3]
-        res = Image.fromarray(res_arr.astype(np.uint8), mode="RGB")
-
+        equi = cubemap[corry, corrx, :3]
+        res = Image.fromarray((np.clip(equi, 0, 1) * 255).astype(np.uint8), mode="RGB")
         res.save(f"{convertDir}/i_{mapName}_sky.tif")
 
         # create GDTs for the skybox assets
@@ -894,7 +939,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "type": "image",
             "baseImage": f"texture_assets\\\\corvid\\\\i_{mapName}_sky.tif",
             "semantic": "HDR",
-            "compressionMethod": "uncompressed",
+            "compressionMethod": "compressed",
             "coreSemantic": "HDR",
             "streamable": "1",
             "noMipMaps": "1"
@@ -911,7 +956,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "nonColliding": "1",
             "noCastShadow": "1",
             "skyHalfSpace": "1",
-            "skyStops": "13.5",
+            "skyStops": "3",
             "skySize": "8000"
 
         })
@@ -942,11 +987,11 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "colorSRGB": f"{Vec2Str(suncolor)} 1",
             "dynamicShadow": "1",
             "enablesun": "1",
-            "ev": "15",
+            "ev": "0",
             "evcmp": "0",
-            "evmax": "16",
-            "evmin": "1",
-            "penumbra_inches": "1.5",
+            "evmax": "31",
+            "evmin": "-32",
+            "penumbra_inches": "1",
             "pitch": bo3_pitch,
             "skyboxmodel": f"{mapName}_skybox",
             "stops": sunstops,
