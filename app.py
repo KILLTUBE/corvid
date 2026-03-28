@@ -596,18 +596,35 @@ class App:
         print(f"Steam directory: {settings['steamDir']}")
         print(f"Game profile: {currentGame['gameName']}")
 
+        def resolveGameRoot(appDir, gameRoot):
+            """Resolve the game root directory case-insensitively on Linux."""
+            commonDir = appDir + "/steamapps/common"
+            if os.path.isdir(commonDir + "/" + gameRoot):
+                return gameRoot
+            # case-insensitive fallback
+            try:
+                for entry in os.listdir(commonDir):
+                    if entry.lower() == gameRoot.lower():
+                        return entry
+            except OSError:
+                pass
+            return gameRoot
+
         def mountGame(game):
+            gameRoot = gameDef[game]["gameRoot"]
             # add the vpk files and the directories of the current game in the list
             for vpk in gameDef[game]["vpkFiles"]:
                 for appDir in steamAppsDirs:
-                    vpkPath = appDir + "/steamapps/common/" + gameDef[game]["gameRoot"] + "/" + vpk
+                    resolved = resolveGameRoot(appDir, gameRoot)
+                    vpkPath = appDir + "/steamapps/common/" + resolved + "/" + vpk
                     if os.path.isfile(vpkPath):
                         vpkFiles.append(vpkPath)
                         break
 
             for dir in gameDef[game]["gameDirs"]:
                 for appDir in steamAppsDirs:
-                    dirPath = appDir + "/steamapps/common/" + gameDef[game]["gameRoot"] + "/" + dir
+                    resolved = resolveGameRoot(appDir, gameRoot)
+                    dirPath = appDir + "/steamapps/common/" + resolved + "/" + dir
                     if os.path.isdir(dirPath):
                         gameDirs.append(dirPath)
                         break
