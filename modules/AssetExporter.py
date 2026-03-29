@@ -38,6 +38,7 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False):
         "envMapsAlpha": [],
         "normalMaps": [],
         "revealMaps": [],
+        "infected": {}, # basetexture name -> {gradient, clothRow, skinRow}
         "vmts": {}, # save vmt data to create GDT's later
         "vtfData": {} # VTF bytes keyed by normalized name
     }
@@ -91,7 +92,14 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False):
                 except:
                     pass
                 else:
-                    res["vmts"][fileName][shader] = mat
+                    # use the included file's shader name (e.g. "infected" instead of "patch")
+                    if shader == "patch":
+                        vmt[patch] = mat
+                        del vmt[shader]
+                        shader = patch
+                    else:
+                        vmt[shader] = mat
+                    res["vmts"][fileName] = vmt
 
         if "insert" in mat:
             mat = {**mat, **mat["insert"]}
@@ -110,7 +118,19 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False):
                 res["sizes"][file.strip()] = getTexSize(vtfData[name])
             else:
                 res["sizes"][file.strip()] = vec2(512, 512)
-        if "$basetexture" in mat:
+        # Infected shader: basetexture is a mask, not a color map.
+        # Load gradient texture and reconstruct the diffuse during conversion.
+        if shader == "infected" and "$basetexture" in mat and "$gradienttexture" in mat:
+            gradName = loadVtf(mat["$gradienttexture"].strip())
+            clothRow = int(mat.get("$colortintgradient", "0"))
+            skinRow = int(mat.get("$skintintgradient", "8"))
+            res["infected"][name] = {
+                "gradient": gradName,
+                "clothRow": clothRow,
+                "skinRow": skinRow,
+            }
+            res["colorMaps"].append(name)
+        elif "$basetexture" in mat:
             if "$translucent" in mat or "$alpha" in mat or "$alphatest" in mat:
                 res["colorMapsAlpha"].append(name)
             elif "$blendtintbybasealpha" in mat or "$blendtintcoloroverbase" in mat:
@@ -388,7 +408,7 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
             data["materialType"] = "world phong"
         elif shader == "unlitgeneric":
             data["materialType"] = "world unlit"
-        elif shader == "vertexlitgeneric":
+        elif shader == "vertexlitgeneric" or shader == "infected":
             data["materialType"] = "model phong"
         else:
             data["materialType"] = "world phong"
@@ -514,7 +534,7 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
         else:
             data["colorMap"] = "i_404"
         
-        if shader == "vertexlitgeneric" or shader == "vertexunlitgeneric":
+        if shader in ("vertexlitgeneric", "vertexunlitgeneric", "infected"):
             data["usage"] = "<not in editor>"
         else:
             data["usage"] = "tools" # probably not a good idea

@@ -8,6 +8,56 @@ from glm import vec2
 from .Static import newPath, VecFromStr, Vec2Str, Vec2Hex
 from .ModelConverter import convertModel
 
+def _load_gradient_vtf(vtf_data):
+    """Load a BGR888 gradient texture from VTF data, reading the top mip directly.
+    load_vtf_texture mishandles BGR888, so we parse the VTF header ourselves."""
+    import struct
+    width, height = struct.unpack_from('<HH', vtf_data, 16)
+    # BGR888: 3 bytes per pixel, top mip is last in the file
+    mip_size = width * height * 3
+    raw = vtf_data[-mip_size:]
+    bgr = np.frombuffer(raw, np.uint8).reshape(height, width, 3)
+    return bgr[:, :, ::-1].copy(), width, height
+
+def reconstructInfectedTexture(base_vtf, gradient_vtf, dest, clothRow=0, skinRow=0):
+    """Reconstruct a diffuse texture from the L4D2 Infected shader's inputs.
+    The $basetexture alpha channel indexes into the $gradienttexture horizontally.
+    The blue channel separates clothing (0-127) from skin (128-255).
+    The gradient texture is 256x16: rows 0-7 are clothing, rows 8-15 are skin.
+    $colortintgradient and $skintintgradient are absolute row indices (0-15)."""
+    if base_vtf is None or gradient_vtf is None:
+        return False
+
+    # load basetexture
+    px, w, h, is_f = load_vtf_texture(base_vtf)
+    if is_f:
+        base = (np.clip(np.frombuffer(px, np.float32).reshape(h, w, 4), 0, 1) * 255).astype(np.uint8)
+    else:
+        base = np.frombuffer(px, np.uint8).reshape(h, w, 4).copy()
+
+    # load gradient texture (BGR888 — parsed manually to avoid SourceIO bug)
+    grad, gw, gh = _load_gradient_vtf(gradient_vtf)
+
+    alpha = base[:, :, 3]  # luminosity / gradient X coordinate
+    blue = base[:, :, 2]   # cloth vs skin mask
+
+    # scale alpha to gradient width
+    x_coords = (alpha.astype(np.float32) / 255.0 * (gw - 1)).astype(np.int32)
+
+    # $colortintgradient and $skintintgradient are absolute row indices (0-15)
+    cloth_y = min(clothRow, gh - 1)
+    skin_y = min(skinRow, gh - 1)
+
+    cloth_color = grad[cloth_y, x_coords, :3]
+    skin_color = grad[skin_y, x_coords, :3]
+
+    # blue < 128 = clothing, blue >= 128 = skin
+    skin_mask = (blue >= 128)[:, :, np.newaxis]
+    result = np.where(skin_mask, skin_color, cloth_color)
+
+    Image.fromarray(result, "RGB").save(dest)
+    return True
+
 def convertImage(vtf_data, dest, format="rgba", invert=False, resize=False, removeBg=False):
     if vtf_data is None:
         return False
@@ -105,9 +155,19 @@ def convertImages(images, outDir, ext="tga", overlayTextures=None):
     for i, file in enumerate(images["revealMaps"], lencolorMapsAlpha + lennormalMaps + lenenvMaps + lenenvMapsAlpha):
         print(f"{i}|{total}|done", end="")
         convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "g", True)
+    infected = images.get("infected", {})
     for i, file in enumerate(images["colorMaps"], lencolorMapsAlpha + lennormalMaps + lenenvMaps + lenenvMapsAlpha + lenrevealMaps):
         print(f"{i}|{total}|done", end="")
-        if file in overlayTextures:
+        if file in infected:
+            info = infected[file]
+            reconstructInfectedTexture(
+                vtf_data.get(file),
+                vtf_data.get(info["gradient"]),
+                f"{outDir}/{file}.{ext}",
+                clothRow=info["clothRow"],
+                skinRow=info["skinRow"],
+            )
+        elif file in overlayTextures:
             convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "rgba", removeBg=True)
         else:
             convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "rgb")
