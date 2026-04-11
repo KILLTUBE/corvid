@@ -92,14 +92,14 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False):
                 except:
                     pass
                 else:
-                    # use the included file's shader name (e.g. "infected" instead of "patch")
-                    if shader == "patch":
+                    # resolve the included shader name for the infected shader
+                    if shader == "patch" and patch == "infected":
                         vmt[patch] = mat
                         del vmt[shader]
                         shader = patch
+                        res["vmts"][fileName] = vmt
                     else:
-                        vmt[shader] = mat
-                    res["vmts"][fileName] = vmt
+                        res["vmts"][fileName][shader] = mat
 
         if "insert" in mat:
             mat = {**mat, **mat["insert"]}
