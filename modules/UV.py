@@ -21,10 +21,10 @@ def fit_uvs(vertices: List[vec3], uvs: List[vec2], normal: vec3):
     def project(v):
         if du >= dr and du >= df:
             return (v.x, -v.y)
-        elif dr >= du and dr >= df:
-            return (v.x, -v.z)
-        else:
+        elif df >= du and df >= dr:
             return (v.y, -v.z)
+        else:
+            return (v.x, -v.z)
 
     proj = [project(v) for v in vertices[:3]]
 
@@ -57,9 +57,23 @@ def fit_uvs(vertices: List[vec3], uvs: List[vec2], normal: vec3):
         return fallback
 
     # Radiant assumes 512x512, so scale = 1/k directly
-    x_scale = 1.0 / kx
-    y_scale = 1.0 / ky
-    x_offset = -a3 / kx
-    y_offset = -a6 / ky
+    x_scale = round(1.0 / kx)
+    y_scale = round(1.0 / ky)
+    rotation = round(rotation)
+
+    # Recompute offset from vertex 0 using the rounded rotation and scale,
+    # since the .map format writes these as integers. Computing offset against
+    # the rounded values ensures consistency with what CoD Radiant actually uses.
+    if x_scale == 0 or y_scale == 0:
+        return fallback
+
+    p0 = proj[0]
+    angle_r = math.radians(rotation)
+    cos_a, sin_a = math.cos(angle_r), math.sin(angle_r)
+    r0_x = p0[0] * cos_a - p0[1] * sin_a
+    r0_y = p0[0] * sin_a + p0[1] * cos_a
+
+    x_offset = r0_x - uvs[0].x * x_scale
+    y_offset = r0_y - uvs[0].y * y_scale
 
     return (x_scale, y_scale, x_offset, y_offset, rotation)
