@@ -103,26 +103,6 @@ class Side:
         self._center = center / len(self.points)
         return self._center
 
-    def sortVertices(self):
-        # remove duplicate verts
-        temp = []
-        for point in self.points:
-            if point not in temp:
-                temp.append(point)
-        self.points = temp
-        center: vec3 = self.pointCenter()
-        normal: vec3 = normalize(self.normal())
-
-        def compare(a: vec3, b: vec3):
-            ca = center - a
-            cb = center - b
-            caXcb = cross(ca, cb)
-            if dot(normal, caXcb) > 0:
-                return 1
-            return -1
-
-        self.points.sort(key=functools.cmp_to_key(compare))
-
     def __eq__(self, rhs: 'Side'):
         return self.p1 == rhs.p1 and self.p2 == rhs.p2 and self.p3 == rhs.p3
 
