@@ -44,6 +44,17 @@ class Addon:
     def open(self):
         self.file = open(self.path, "rb")
 
+    def close(self):
+        if self.file is not None:
+            self.file.close()
+            self.file = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     def check_file(self):
         gmad = self.read_buff(4)
         if gmad != b"GMAD":
