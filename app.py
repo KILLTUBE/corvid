@@ -43,8 +43,6 @@ with open("res/settings.json") as f:
     settings = json.loads(f.read())
 with open("res/gameDef.json") as f:
     gameDef = json.loads(f.read())
-with open("res/gameDef.json") as f:
-    gameDefCustom = json.loads(f.read())
 with open("res/version.txt") as f:
     version = f.read().split("\n")[0]
 steamAppsDirs = []
