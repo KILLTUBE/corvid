@@ -92,8 +92,7 @@ class Map:
                         newgeo.append(patch)
                 
                 else:
-                    print("Invalid geo.", type(geo), "is not a valid geo type.")
-                    exit()
+                    print(f"Invalid geo. {type(geo)} is not a valid geo type. Skipping...")
 
             entity.geo = newgeo
             newlist.append(entity)
