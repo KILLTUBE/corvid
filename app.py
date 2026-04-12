@@ -169,6 +169,9 @@ class popupWindow:
                 self.app.changeSetting("scale", [xy, z])
                 self.top.destroy()
 
+class ConversionAborted(Exception):
+    pass
+
 class App:
     def __init__(self, root: tk.Tk):
         root.title(f"Corvid - v{version}")
@@ -179,6 +182,7 @@ class App:
         root.iconphoto(True, icon_img)
         
         self.root = root
+        self._abort = threading.Event()
         width=800
         height=620
         screenwidth = root.winfo_screenwidth()
@@ -446,8 +450,8 @@ class App:
         self.consoleTextBox["font"] = ft
         self.consoleTextBox["fg"] = "#333333"
         self.consoleTextBox.place(x=20,y=440,width=755,height=132)
-        sys.stdout = TextRedirector(self.consoleTextBox, self.progressOverall, self.progressCurrent, self.overallLabel, self.currentLabel, stdout)
-        sys.stderr = TextRedirector(self.consoleTextBox, self.progressOverall, self.progressCurrent, self.overallLabel, self.currentLabel, stderr)
+        sys.stdout = TextRedirector(self.consoleTextBox, self.progressOverall, self.progressCurrent, self.overallLabel, self.currentLabel, self._abort, stdout)
+        sys.stderr = TextRedirector(self.consoleTextBox, self.progressOverall, self.progressCurrent, self.overallLabel, self.currentLabel, self._abort, stderr)
         self.consoleScrollbar = tk.Scrollbar(self.consoleTextBox)
         self.consoleScrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
         self.consoleTextBox["yscrollcommand"] = self.consoleScrollbar.set
@@ -689,83 +693,103 @@ class App:
                 alert.showerror(title="Error", message=f"{dir} is not a valid directory.")
                 return
 
-        self.convertButton["state"] = "disabled"
+        try:
+            start = time.time()
+            vmfName = os.path.splitext(os.path.basename(vmfPath))[0].lower()
+            # read the map file and convert everything
+            game = self.game.get()
+            outputDir += f"/{vmfName}_{game}"
+            print(f"Opening VMF file \"{vmfPath}\"...")
+            with open(vmfPath) as f:
+                vmfFile = f.read()
+            print("Reading VMF file...")
 
-        start = time.time()
-        vmfName = os.path.splitext(os.path.basename(vmfPath))[0].lower()
-        # read the map file and convert everything
-        game = self.game.get()
-        outputDir += f"/{vmfName}_{game}"
-        print(f"Opening VMF file \"{vmfPath}\"...")
-        with open(vmfPath) as f:
-            vmfFile = f.read()
-        print("Reading VMF file...")
+            # prepare the necessary stuff to move and write files
+            prefabDir = "prefabs" if game == "CoD4" or game == "CoD2" else "_prefabs"
+            os.makedirs(f"{outputDir}/map_source", exist_ok=True)
+            os.makedirs(f"{outputDir}/model_export/corvid", exist_ok=True)
+            os.makedirs(f"{outputDir}/source_data", exist_ok=True)
+            os.makedirs(f"{outputDir}/texture_assets/corvid", exist_ok=True)
+            if game != "BO3":
+                os.makedirs(f"{outputDir}/bin", exist_ok=True)
+            else:
+                os.makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}", exist_ok=True)
 
-        
-        # prepare the necessary stuff to move and write files
-        prefabDir = "prefabs" if game == "CoD4" or game == "CoD2" else "_prefabs"
-        os.makedirs(f"{outputDir}/map_source", exist_ok=True)
-        os.makedirs(f"{outputDir}/model_export/corvid", exist_ok=True)
-        os.makedirs(f"{outputDir}/source_data", exist_ok=True)
-        os.makedirs(f"{outputDir}/texture_assets/corvid", exist_ok=True)
-        if game != "BO3":
-            os.makedirs(f"{outputDir}/bin", exist_ok=True)
-        else:
-            os.makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}", exist_ok=True)
+            writePath = f"map_source/{prefabDir}/{vmfName}" if game == "BO3" else "map_source"
+            print("Generating map data...")
 
-        writePath = f"map_source/{prefabDir}/{vmfName}" if game == "BO3" else "map_source"
-        print("Generating map data...")
+            with open(f"{outputDir}/{writePath}/{vmfName}.map", "w") as file:
+                exportMap(
+                    vmfFile, vpkFiles, gameDirs, game,
+                    self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"],
+                scale=vec3(settings["scale"][0], settings["scale"][0], settings["scale"][1]), file=file,
+                outputDir=outputDir
+                )
 
-        with open(f"{outputDir}/{writePath}/{vmfName}.map", "w") as file:
-            exportMap(
-                vmfFile, vpkFiles, gameDirs, game,
-                self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"],
-            scale=vec3(settings["scale"][0], settings["scale"][0], settings["scale"][1]), file=file,
-            outputDir=outputDir
-            )
+            end = time.time()
+            total = ProperTime(round(end - start))
+            print(f"Conversion finished in {total}")
 
-        end = time.time()
-        total = ProperTime(round(end - start))
-        print(f"Conversion finished in {total}")
-
-        with open(f"{outputDir}/log.txt", "w") as f:
-            f.write(self.consoleTextBox.get(1.0, tkinter.constants.END))
-
-        self.convertButton["state"] = "active"
+            with open(f"{outputDir}/log.txt", "w") as f:
+                f.write(self.consoleTextBox.get(1.0, tkinter.constants.END))
+        except ConversionAborted:
+            self._abort.clear()
+            print("Conversion aborted by user.")
 
     def convertButton_thread(self):
+        self._abort.clear()
         self.conversionThread = threading.Thread(target=self.convertButton_command)
         self.conversionThread.daemon = True
         self.conversionThread.start()
-        self.checkThread = threading.Thread(target=self.checkThreadFinished)
-        self.checkThread.start()
+        self.convertButton.place_forget()
+        self.stopButton.place(x=20,y=360,width=755,height=30)
+        self._pollThread()
 
-    def checkThreadFinished(self):
-        while self.conversionThread.is_alive():
-            time.sleep(3) # we don't need to check it that often 
-            pass
-        # make sure the convert button is enabled even when the conversion thread fails
-        self.convertButton["state"] = "active"
+    def _pollThread(self):
+        if self.conversionThread.is_alive():
+            self.root.after(1000, self._pollThread)
+        else:
+            self.stopButton.place_forget()
+            self.convertButton.place(x=20,y=360,width=755,height=30)
+            self.convertButton["state"] = "active"
 
     def stopButton_command(self):
-        pass
+        self._abort.set()
 
 class TextRedirector(object):
-    def __init__(self, widget, overall, current, overallLabel, currentLabel, tag="stdout"):
+    def __init__(self, widget, overall, current, overallLabel, currentLabel, abort_event=None, tag="stdout"):
         self.widget = widget
         self.overall = overall
         self.current = current
         self.overallLabel = overallLabel
         self.currentLabel = currentLabel
+        self.abort_event = abort_event
         self.tag = tag
         self.eof = False
 
     def flush(self):
         pass
 
+    def _update_overall(self, value, text):
+        self.overall["value"] = value
+        self.overallLabel["text"] = text
+
+    def _update_current(self, value, text):
+        self.current["value"] = value
+        self.currentLabel["text"] = text
+
+    def _append_text(self, str):
+        if self.eof:
+            self.eof = False
+            self.widget.delete(1.0, "end")
+        self.widget.insert("end", str, (self.tag,))
+        self.widget.see("end")
+
     def write(self, str: str):
-        # update the progress bars depending on the printed text
-        # I'm not really a Python guy normally, so I'm not sure if this is the best way to do this
+        # check if the conversion has been aborted
+        if self.abort_event is not None and self.abort_event.is_set():
+            raise ConversionAborted()
+
         overAllSteps = [
             "Opening VMF file",
             "Reading VMF file...",
@@ -785,21 +809,15 @@ class TextRedirector(object):
         totalSteps = len(overAllSteps)
         for i in range(totalSteps):
             if str.startswith(overAllSteps[i]):
-                self.overall["value"] = ((i + 1) / totalSteps) * 100
-                self.overallLabel["text"] = f"Total: {i + 1}/{totalSteps}"
+                self.widget.after(0, self._update_overall, ((i + 1) / totalSteps) * 100, f"Total: {i + 1}/{totalSteps}")
 
         if str.endswith("|done"):
             tok = str.split("|")
             current = int(tok[0])
             total = int(tok[1])
-            self.current["value"] = ((current + 1) / total) * 100
-            self.currentLabel["text"] = f"Current: {current + 1}/{total}"
+            self.widget.after(0, self._update_current, ((current + 1) / total) * 100, f"Current: {current + 1}/{total}")
         else:
-            if self.eof:
-                self.eof = False
-                self.widget.delete(1.0, "end")
-            self.widget.insert("end", str, (self.tag,))
-            self.widget.see("end")
+            self.widget.after(0, self._append_text, str)
 
 if __name__ == "__main__":
     root = tk.Tk()
