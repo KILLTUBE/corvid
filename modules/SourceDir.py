@@ -5,7 +5,6 @@ from os.path import isdir, isfile, relpath
 from shutil import copyfile
 from pathlib import Path
 from tempfile import gettempdir
-from sys import exit
 from .Gma import Addon, load as loadGma
 
 class SourceDir:
@@ -19,7 +18,7 @@ class SourceDir:
         if isfile(path):
             if path[-4:] not in [".vpk", ".gma"]:
                 print(f"\"{path}\" is not a valid file.")
-                exit()
+                return
             if path.endswith(".vpk"):
                 self.paks.append(vpk.open(path))
             elif path.endswith(".gma"):
