@@ -1,6 +1,4 @@
 from io import TextIOWrapper
-# from ..Vector3 import Vector3
-# from ..Vector2 import Vector2
 from glm import vec2, vec3
 from ..Static import Vec2Str
 import numpy as np

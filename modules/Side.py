@@ -1,13 +1,9 @@
-# from .Vector3 import Vector3
-# from .Vector2 import Vector2
-# from mathutils import Vector, Matrix
 from glm import vec2, vec3, cross, dot, normalize
 from numpy.linalg import solve
 from math import copysign, cos, degrees, pow, radians, sin, sqrt, fabs
 from .Static import VecFromStr
 from .AABB import AABB
 import re
-import functools
 
 def parseTriplets(tri: str):
     res = []

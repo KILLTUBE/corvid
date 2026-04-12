@@ -1,5 +1,4 @@
 from typing import List
-# from .Vector3 import Vector3
 from glm import vec3, min, max
 
 class AABB:

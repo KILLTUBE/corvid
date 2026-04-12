@@ -239,7 +239,7 @@
 		]
 	},
 	"_s": {
-		"gameName": "seperator"
+		"gameName": "separator"
 	},
 	"insurgency": {
 		"gameName": "Insurgency",
@@ -295,7 +295,7 @@
 		]
 	},
 	"_s2": {
-		"gameName": "seperator"
+		"gameName": "separator"
 	},
 	"none": {
 		"gameName": "<none>",

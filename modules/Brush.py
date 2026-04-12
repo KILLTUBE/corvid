@@ -1,4 +1,3 @@
-# from .Vector3 import Vector3
 from .Side import Side
 from .AABB import AABB
 from math import isnan

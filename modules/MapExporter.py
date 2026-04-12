@@ -8,8 +8,6 @@ from .Side import Side
 from .MapReader import readMap
 from glm import vec2, vec3, lerp, distance, normalize, cross, dot, min, max, length
 from .Static import VecFromStr, Vec2Str, Vec2Hex
-# from .Vector2 import Vector2
-# from .Vector3 import Vector3
 from .Gdt import Gdt
 from os.path import basename, splitext
 from .AssetExporter import *

@@ -1,6 +1,5 @@
 from io import TextIOWrapper
 from glm import vec3, vec2
-# from ..Vector3 import Vector3
 from ..Static import Vec2Str
 
 class Face:

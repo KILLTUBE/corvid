@@ -34,7 +34,6 @@ from time import gmtime, strftime
 from pathlib import Path
 from PIL import Image, ImageTk
 from modules.MapExporter import exportMap
-# from modules.Vector3 import Vector3
 from glm import vec3
 from modules.vdfutils import parse_vdf
 
@@ -211,7 +210,7 @@ class App:
         currentGameMenu = tk.Menu(self.menuBar, tearoff=0)
 
         for game in gameDef:
-            if gameDef[game]["gameName"] == "seperator":
+            if gameDef[game]["gameName"] == "separator":
                 currentGameMenu.add_separator()
             else:
                 currentGameMenu.add_radiobutton(label=gameDef[game]["gameName"], variable=self.currentGame, value=game, command=self.setCurrentGame)
