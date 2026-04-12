@@ -14,14 +14,17 @@ from SourceIO.library.models.mdl.v49.mdl_file import MdlV49
 from SourceIO.library.utils import MemoryBuffer
 from pathlib import Path
 from .SourceDir import SourceDir
+from .Progress import Progress
 
 
-def loadMaterials(mats, dir: SourceDir):
+def loadMaterials(mats, dir: SourceDir, progress: Progress=None):
+    if progress is None:
+        progress = Progress()
     res = []
     vmtCache = {}
     total = len(mats)
     for i, mat in enumerate(mats):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         name = newPath(mat)
         data = dir.read_text(f"materials/{mat}.vmt", silent=True)
         if data is not None:
@@ -29,7 +32,9 @@ def loadMaterials(mats, dir: SourceDir):
         res.append(name)
     return res, vmtCache
 
-def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False):
+def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False, progress: Progress=None):
+    if progress is None:
+        progress = Progress()
     res = {
         "sizes": {}, # save the dimensions of $basetexture
         "colorMaps": [],
@@ -56,11 +61,11 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False):
 
     total = len(mats)
     for i, file in enumerate(mats):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         fileName = basename(file)
         vmtText = vmtCache.get(fileName) or vmtCache.get(file)
         if vmtText is None:
-            print(f"Could not find material {fileName}. Creating an empty material for it...")
+            progress.log(f"Could not find material {fileName}. Creating an empty material for it...")
             res["vmts"][fileName] = parse_vdf('lightmappedgeneric\n{\n"$basetexture" "404"\n}')
             res["sizes"][file.strip()] = vec2(512, 512)
             continue
@@ -71,7 +76,7 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False):
             shader = list(vmt)[0]
             mat = vmt[shader]
         except:
-            print(f"Could not parse material {fileName}. Skipping...")
+            progress.log(f"Could not parse material {fileName}. Skipping...")
             continue
 
         # some materials in Source can reference & inherit other materials' properties
@@ -168,11 +173,13 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False):
             res["envMapsAlpha"].append(newPath(splitext(mat["$bumpmap2"])[0], True))
     return res
 
-def loadModels(models, dir: SourceDir):
+def loadModels(models, dir: SourceDir, progress: Progress=None):
+    if progress is None:
+        progress = Progress()
     modelData = {}
     total = len(models)
     for i, model in enumerate(models):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         modelName = splitext(basename(model))[0]
         newName = splitext(newPath(model))[0]
         path = dirname(model)
@@ -188,14 +195,16 @@ def loadModels(models, dir: SourceDir):
             modelData[newName] = data
     return modelData
 
-def loadModelMaterials(models, modelData, dir: SourceDir, modelTints, modelSkins, skinTints, game="WaW"):
+def loadModelMaterials(models, modelData, dir: SourceDir, modelTints, modelSkins, skinTints, game="WaW", progress: Progress=None):
+    if progress is None:
+        progress = Progress()
     materials = []
     res = []
     vmtCache = {}
     total = len(models)
 
     for i, model in enumerate(models):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         mdlName = splitext(newPath(model))[0]
         tints = modelTints[mdlName] if mdlName in modelTints else []
 
@@ -230,7 +239,7 @@ def loadModelMaterials(models, modelData, dir: SourceDir, modelTints, modelSkins
 
     total = len(materials)
     for i, (mat, surface_prop, tints) in enumerate(materials):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         name = newPath(mat)
         vmtText = dir.read_text(f"materials/{mat}.vmt", silent=True)
         if vmtText is None:
@@ -381,9 +390,11 @@ def surfaceType(surface: str, game=""):
             "glossrange": (0, 4)
         }
     
-def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=None, colorMaps=set()):
+def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=None, colorMaps=set(), progress: Progress=None):
+    if progress is None:
+        progress = Progress()
     if game == "BO3":
-        return createMaterialGdtBo3(vmts, loadedTextures, colorMaps, overlayMats)
+        return createMaterialGdtBo3(vmts, loadedTextures, colorMaps, overlayMats, progress)
     gdt = Gdt()
     textureDir = "texture_assets\\\\corvid\\\\"
     ext, _ext = ".tga", "_.tga"
@@ -391,15 +402,15 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
     total = len(vmts.items())
 
     for i, (name, vmt) in enumerate(vmts.items()):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         shader = list(vmt)[0]
         
         try:
             mat = vmt[shader]
             data = {}
         except:
-            print(f"Error parsing {name}. Skipping...")
-            print(vmt)
+            progress.log(f"Error parsing {name}. Skipping...")
+            progress.log(str(vmt))
             continue
 
         assetName = name
@@ -508,12 +519,14 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
         gdt.add(assetName.strip(), "material", data)
     return gdt
 
-def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), overlayMats=None):
+def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), overlayMats=None, progress: Progress=None):
+    if progress is None:
+        progress = Progress()
     gdt = Gdt()
     total = len(vmts.items())
 
     for i, (name, vmt) in enumerate(vmts.items()):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         shader = list(vmt)[0]
         mat = vmt[shader]
         assetName = name
@@ -695,12 +708,14 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
     
     return gdt
 
-def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}, skinTints={}):
+def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}, skinTints={}, progress: Progress=None):
+    if progress is None:
+        progress = Progress()
     gdt = Gdt()
     total = len(models)
 
     for i, model in enumerate(models):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         name = splitext(newPath(model))[0]
 
         gdt.add("m_" + name, "xmodel", {
@@ -738,7 +753,9 @@ def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}, skinTints={
 
     return gdt
 
-def createImageGdt(images):
+def createImageGdt(images, progress: Progress=None):
+    if progress is None:
+        progress = Progress()
     gdt = Gdt()
     images["colorMaps"] = list(dict.fromkeys(images["colorMaps"]))
     images["colorMapsAlpha"] = list(dict.fromkeys(images["colorMapsAlpha"]))
@@ -756,7 +773,7 @@ def createImageGdt(images):
     total = lencolorMaps + lencolorMapsAlpha + lennormalMaps + lenenvMaps + lenenvMapsAlpha + lenrevealMaps
 
     for i, file in enumerate(images["colorMaps"]):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -768,7 +785,7 @@ def createImageGdt(images):
         })
 
     for i, file in enumerate(images["colorMapsAlpha"], lencolorMaps):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -780,7 +797,7 @@ def createImageGdt(images):
         })
 
     for i, file in enumerate(images["normalMaps"], lencolorMaps + lencolorMapsAlpha):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -792,7 +809,7 @@ def createImageGdt(images):
         })
 
     for i, file in enumerate(images["envMaps"], lencolorMaps + lencolorMapsAlpha + lennormalMaps):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         
         # some materials use the same image for both their color maps and env maps. we need to create seperate image asset for them
         assetName = file + "_" if file in images["colorMaps"] or file in images["colorMapsAlpha"] else file
@@ -807,7 +824,7 @@ def createImageGdt(images):
         })
 
     for i, file in enumerate(images["envMapsAlpha"], lencolorMaps + lencolorMapsAlpha + lennormalMaps + lenenvMaps):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         gdt.add(f"i_{file}_", "image", {
             "imageType": "Texture",
             "type": "image",
@@ -819,7 +836,7 @@ def createImageGdt(images):
         })
 
     for i, file in enumerate(images["revealMaps"], lencolorMaps + lencolorMapsAlpha + lennormalMaps + lenenvMaps + lenenvMapsAlpha):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         gdt.add(f"i_{file}", "image", {
             "imageType": "Texture",
             "type": "image",

@@ -14,6 +14,7 @@ from .AssetExporter import *
 from .AssetConverter import convertImages, convertModels
 from .Overlay import Overlay
 from .Decal import Decal
+from .Progress import Progress
 import modules.CoDMap.CoDMap as cod
 
 UP, RIGHT, FORWARD = vec3(0.0, 0.0, 1.0), vec3(0.0, 1.0, 0.0), vec3(1.0, 0.0, 0.0)
@@ -787,8 +788,10 @@ def exportMap(
         vmfString, vpkFiles=[], gameDirs=[], game="WaW",
         skipMats=False, skipModels=False, mapName="",
         brushConversion=False, scale=1.0, file: TextIOWrapper=None,
-        outputDir=""
+        outputDir="", progress: Progress=None
     ):
+    if progress is None:
+        progress = Progress()
     outDir = outputDir
 
     mapData = readMap(vmfString)
@@ -796,27 +799,31 @@ def exportMap(
     # load &/ define the paks and folders where the assets will be grabbed from
     gamePath = SourceDir()
     for vpkFile in vpkFiles:
-        print(f"Mounting {vpkFile}...")
+        progress.log(f"Mounting {vpkFile}...")
         gamePath.add(vpkFile)
     for dir in gameDirs:
-        print(f"Mounting {dir}...")
+        progress.log(f"Mounting {dir}...")
         gamePath.add(dir)
 
     # load world materials and textures into memory
-    print("Loading materials...")
-    materials, vmtCache = loadMaterials(mapData["materials"], gamePath)
-    print("Loading texture data...")
-    matData = loadTextures(materials, vmtCache, gamePath)
+    progress.log("Loading materials...")
+    progress.overall(1, 13)
+    materials, vmtCache = loadMaterials(mapData["materials"], gamePath, progress)
+    progress.log("Loading texture data...")
+    progress.overall(2, 13)
+    matData = loadTextures(materials, vmtCache, gamePath, progress=progress)
     matSizes = matData["sizes"]
 
     # load models, model materials and textures into memory
     modelData = {}
     if not skipModels:
-        print("Loading models...")
-        modelData = loadModels(mapData["models"], gamePath)
-        print("Loading model materials...")
-        mdlMaterials, mdlVmtCache = loadModelMaterials(mapData["models"], modelData, gamePath, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], game)
-        mdlMatData = loadTextures(mdlMaterials, mdlVmtCache, gamePath, True)
+        progress.log("Loading models...")
+        progress.overall(3, 13)
+        modelData = loadModels(mapData["models"], gamePath, progress)
+        progress.log("Loading model materials...")
+        progress.overall(4, 13)
+        mdlMaterials, mdlVmtCache = loadModelMaterials(mapData["models"], modelData, gamePath, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], game, progress)
+        mdlMatData = loadTextures(mdlMaterials, mdlVmtCache, gamePath, True, progress=progress)
 
     # collect overlay/decal material names for GDT tagging
     overlayMats = set()
@@ -845,46 +852,50 @@ def exportMap(
 
     batFile = ""
     if not skipMats or not skipModels:
-        print("Generating GDT file...")
+        progress.log("Generating GDT file...")
+        progress.overall(5, 13)
     if not skipMats:
         allColorMaps = set(matData["colorMaps"] + matData["colorMapsAlpha"])
-        worldMats = createMaterialGdt(matData["vmts"], game, set(matData["vtfData"].keys()), overlayMats=overlayMats, colorMaps=allColorMaps)
+        worldMats = createMaterialGdt(matData["vmts"], game, set(matData["vtfData"].keys()), overlayMats=overlayMats, colorMaps=allColorMaps, progress=progress)
         gdtFile += worldMats
     if game != "BO3" and not skipMats:
         batFile += worldMats.toBat()
     if not skipModels:
         allMdlColorMaps = set(mdlMatData["colorMaps"] + mdlMatData["colorMapsAlpha"])
-        modelMats = createMaterialGdt(mdlMatData["vmts"], game, set(mdlMatData["vtfData"].keys()), colorMaps=allMdlColorMaps)
+        modelMats = createMaterialGdt(mdlMatData["vmts"], game, set(mdlMatData["vtfData"].keys()), colorMaps=allMdlColorMaps, progress=progress)
         gdtFile += modelMats
     if game != "BO3" and not skipModels:
         batFile += modelMats.toBat()
     if not skipModels:
-        models = createModelGdt(mapData["models"], game, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"])
+        models = createModelGdt(mapData["models"], game, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], progress=progress)
         gdtFile += models
     if game != "BO3" and not skipModels:
         batFile += models.toBat()
     # create GDT files for images for Bo3
     if game == "BO3":
         if not skipMats:
-            gdtFile += createImageGdt(matData)
+            gdtFile += createImageGdt(matData, progress)
         if not skipModels:
-            gdtFile += createImageGdt(mdlMatData)
+            gdtFile += createImageGdt(mdlMatData, progress)
 
     # convert the textures
     if not skipMats:
-        print("Converting textures...")
-        convertImages(matData, f"{outDir}/texture_assets/corvid", "tif" if game == "BO3" else "tga", overlayTextures)
+        progress.log("Converting textures...")
+        progress.overall(6, 13)
+        convertImages(matData, f"{outDir}/texture_assets/corvid", "tif" if game == "BO3" else "tga", overlayTextures, progress)
         if not skipModels:
-            convertImages(mdlMatData, f"{outDir}/texture_assets/corvid", "tif" if game == "BO3" else "tga")
+            convertImages(mdlMatData, f"{outDir}/texture_assets/corvid", "tif" if game == "BO3" else "tga", progress=progress)
 
     # convert the models
     if not skipModels:
-        print("Converting models...")
+        progress.log("Converting models...")
+        progress.overall(7, 13)
         materialNames = set(mdlMaterials)
-        convertModels(mapData["models"], modelData, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], materialNames, game, scale, outDir)
+        convertModels(mapData["models"], modelData, mapData["modelTints"], mapData["modelSkins"], mapData["skinTints"], materialNames, game, scale, outDir, progress)
 
     # generate map geometry
-    print("Generating .map file...")
+    progress.log("Generating .map file...")
+    progress.overall(8, 13)
     res = cod.Map()
     world = cod.Entity({
         "classname": "worldspawn"
@@ -928,7 +939,7 @@ def exportMap(
 
     # convert world geo & entities
     for i, brush in enumerate(mapData["worldBrushes"]):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         geo = convertBrush(brush, True, game, mapName, matSizes=matSizes, brushConversion=brushConversion, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax)
         if geo is not None:
             world.geo.append(geo)
@@ -937,7 +948,7 @@ def exportMap(
             brushDict[brush.id] = brush
 
     for i, brush in enumerate(mapData["entityBrushes"], lenWorld):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         geo = convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax)
         if geo is not None:
             world.geo.append(geo)
@@ -953,7 +964,7 @@ def exportMap(
             AABBmin.x, AABBmin.y, AABBmin.z = min(AABBmin, origin)
 
         try:
-            print(f"{i}|{total}|done", end="")
+            progress.current(i + 1, total)
 
             if entity["classname"].startswith("prop_"):
                 res.entities.append(convertProp(entity, game, scale=scale))
@@ -1036,25 +1047,25 @@ def exportMap(
                 if game == "CoD4":
                     worldSpawnSettings["reflection_ignore_portals"] = "1"
         except Exception as e:
-            print(f"Could not convert the entity '{entity['classname']}' with the ID {entity['id']}. Skipping...")
-            print(f"Exception message:\n{e}")
+            progress.log(f"Could not convert the entity '{entity['classname']}' with the ID {entity['id']}. Skipping...")
+            progress.log(f"Exception message:\n{e}")
             pass
             
     # convert 3d skybox geo & entities
     for i, brush in enumerate(mapData["skyBrushes"], lenWorld + lenEntBrushes + lenEnts):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         geo = convertBrush(brush, True, game, mapName, origin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], sideDict=sideDict, AABBmin=AABBmin, AABBmax=AABBmax)
         if geo is not None:
             world.geo.append(geo)
 
     for i, brush in enumerate(mapData["skyEntityBrushes"], lenWorld + lenEntBrushes + lenEnts + lenSky):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         geo = convertBrush(brush, False, game, mapName, origin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], sideDict=sideDict, AABBmin=AABBmin, AABBmax=AABBmax)
         if geo is not None:
             world.geo.append(geo)
 
     for i, entity in enumerate(mapData["skyEntities"], lenWorld + lenEntBrushes + lenEnts + lenSky + lenSkyEntBrushes):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
 
         origin = (VecFromStr(entity["origin"], 3) - mapData["skyBoxOrigin"]) * mapData["skyBoxScale"] * scale
         AABBmax.x, AABBmax.y, AABBmax.z = max(AABBmax, origin)
@@ -1108,9 +1119,10 @@ def exportMap(
 
     total = len(overlays)
     if total > 0:
-        print("Converting overlays...")
+        progress.log("Converting overlays...")
+        progress.overall(9, 13)
     for i, overlay in enumerate(overlays):
-        print(f"{i + 1}|{total}|done", end="")
+        progress.current(i + 1, total)
         try:
             obj = Overlay(overlay, sideDict, matSizes, scale=scale)
             zOffset = 0.0
@@ -1132,9 +1144,10 @@ def exportMap(
     decals.sort(key=lambda e: int(e.get("id", 0)))
     total = len(decals)
     if total > 0:
-        print("Converting decals...")
+        progress.log("Converting decals...")
+        progress.overall(10, 13)
     for i, entity in enumerate(decals):
-        print(f"{i + 1}|{total}|done", end="")
+        progress.current(i + 1, total)
         try:
             decal = Decal(entity, brushDict, matSizes, matData["vmts"], scale=scale)
             sideIds = [side.id for side, _ in decal.faces]
@@ -1143,7 +1156,7 @@ def exportMap(
             for patch in patches:
                 world.geo.append(patch)
         except Exception as e:
-            print(f"Failed to convert decal {entity['id'] if 'id' in entity else '?'}: {e}")
+            progress.log(f"Failed to convert decal {entity['id'] if 'id' in entity else '?'}: {e}")
 
     # add corners for minimap and create a minimap material in gdt
     if game != "CoD2":
@@ -1182,9 +1195,13 @@ def exportMap(
 
 
     # write the gdt & bat files
-    open(f"{outDir}/source_data/_{mapName}.gdt", "w").write(gdtFile.toStr())
+    progress.log("Moving all converted assets to output directory...")
+    progress.overall(11, 13)
+    with open(f"{outDir}/source_data/_{mapName}.gdt", "w") as f:
+        f.write(gdtFile.toStr())
     if game != "BO3":
-        open(f"{outDir}/bin/_convert_{mapName}_assets.bat", "w", encoding="utf-8").write(gdtFile.toBat())
+        with open(f"{outDir}/bin/_convert_{mapName}_assets.bat", "w", encoding="utf-8") as f:
+            f.write(gdtFile.toBat())
 
     if game == "BO3":
         res.flags.append('"script_startingnumber" 0\n')
@@ -1215,5 +1232,7 @@ def exportMap(
     else:
         world.properties.update(worldSpawnSettings)
     
-    print("Writing map file...")
+    progress.log("Writing map file...")
+    progress.overall(12, 13)
     res.Save(file)
+    progress.overall(13, 13)

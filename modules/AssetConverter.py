@@ -7,6 +7,7 @@ from SourceIO.library.utils.pylib.vtf import load_vtf_texture
 from glm import vec2
 from .Static import newPath, VecFromStr, Vec2Str, Vec2Hex
 from .ModelConverter import convertModel
+from .Progress import Progress
 
 def _load_gradient_vtf(vtf_data):
     """Load a BGR888 gradient texture from VTF data, reading the top mip directly.
@@ -120,7 +121,9 @@ def removeBackground(rgba):
     result[:, :, 3] = (alpha_f * 255).astype(np.uint8)
     return Image.fromarray(result, "RGBA")
 
-def convertImages(images, outDir, ext="tga", overlayTextures=None):
+def convertImages(images, outDir, ext="tga", overlayTextures=None, progress: Progress=None):
+    if progress is None:
+        progress = Progress()
     vtf_data = images["vtfData"]
     if overlayTextures is None:
         overlayTextures = set()
@@ -141,23 +144,23 @@ def convertImages(images, outDir, ext="tga", overlayTextures=None):
     total = lencolorMaps + lencolorMapsAlpha + lennormalMaps + lenenvMaps + lenenvMapsAlpha + lenrevealMaps
 
     for i, file in enumerate(images["colorMapsAlpha"]):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "rgba")
     for i, file in enumerate(images["normalMaps"], lencolorMapsAlpha):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "rgb")
     for i, file in enumerate(images["envMaps"], lencolorMapsAlpha + lennormalMaps):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "rgb")
     for i, file in enumerate(images["envMapsAlpha"], lencolorMapsAlpha + lennormalMaps + lenenvMaps):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         convertImage(vtf_data.get(file), f"{outDir}/{file}_.{ext}", "a")
     for i, file in enumerate(images["revealMaps"], lencolorMapsAlpha + lennormalMaps + lenenvMaps + lenenvMapsAlpha):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "g", True)
     infected = images.get("infected", {})
     for i, file in enumerate(images["colorMaps"], lencolorMapsAlpha + lennormalMaps + lenenvMaps + lenenvMapsAlpha + lenrevealMaps):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         if file in infected:
             info = infected[file]
             reconstructInfectedTexture(
@@ -201,12 +204,14 @@ def getTexSize(vtf_data):
     pixel_data, width, height, is_float = load_vtf_texture(vtf_data)
     return vec2(width, height)
 
-def convertModels(models, modelData, modelTints, modelSkins, skinTints, materialNames, game="WaW", scale=1.0, outDir=""):
+def convertModels(models, modelData, modelTints, modelSkins, skinTints, materialNames, game="WaW", scale=1.0, outDir="", progress: Progress=None):
+    if progress is None:
+        progress = Progress()
     convertDir = f"{outDir}/model_export/corvid"
     total = len(models)
 
     for i, model in enumerate(models):
-        print(f"{i}|{total}|done", end="")
+        progress.current(i + 1, total)
         model = splitext(newPath(model))[0]
         if model not in modelData:
             continue

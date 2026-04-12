@@ -32,6 +32,7 @@ from time import gmtime, strftime
 from pathlib import Path
 from PIL import Image, ImageTk
 from modules.MapExporter import exportMap
+from modules.Progress import Progress
 from glm import vec3
 from modules.vdfutils import parse_vdf
 
@@ -450,8 +451,8 @@ class App:
         self.consoleTextBox["font"] = ft
         self.consoleTextBox["fg"] = "#333333"
         self.consoleTextBox.place(x=20,y=440,width=755,height=132)
-        sys.stdout = TextRedirector(self.consoleTextBox, self.progressOverall, self.progressCurrent, self.overallLabel, self.currentLabel, self._abort, stdout)
-        sys.stderr = TextRedirector(self.consoleTextBox, self.progressOverall, self.progressCurrent, self.overallLabel, self.currentLabel, self._abort, stderr)
+        sys.stdout = ConsoleWriter(self.consoleTextBox, self._abort, stdout)
+        sys.stderr = ConsoleWriter(self.consoleTextBox, self._abort, stderr)
         self.consoleScrollbar = tk.Scrollbar(self.consoleTextBox)
         self.consoleScrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
         self.consoleTextBox["yscrollcommand"] = self.consoleScrollbar.set
@@ -693,16 +694,18 @@ class App:
                 alert.showerror(title="Error", message=f"{dir} is not a valid directory.")
                 return
 
+        progress = self._create_progress()
+
         try:
             start = time.time()
             vmfName = os.path.splitext(os.path.basename(vmfPath))[0].lower()
             # read the map file and convert everything
             game = self.game.get()
             outputDir += f"/{vmfName}_{game}"
-            print(f"Opening VMF file \"{vmfPath}\"...")
+            progress.log(f"Opening VMF file \"{vmfPath}\"...")
             with open(vmfPath) as f:
                 vmfFile = f.read()
-            print("Reading VMF file...")
+            progress.log("Reading VMF file...")
 
             # prepare the necessary stuff to move and write files
             prefabDir = "prefabs" if game == "CoD4" or game == "CoD2" else "_prefabs"
@@ -716,25 +719,54 @@ class App:
                 os.makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}", exist_ok=True)
 
             writePath = f"map_source/{prefabDir}/{vmfName}" if game == "BO3" else "map_source"
-            print("Generating map data...")
 
             with open(f"{outputDir}/{writePath}/{vmfName}.map", "w") as file:
                 exportMap(
                     vmfFile, vpkFiles, gameDirs, game,
                     self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"],
                 scale=vec3(settings["scale"][0], settings["scale"][0], settings["scale"][1]), file=file,
-                outputDir=outputDir
+                outputDir=outputDir, progress=progress
                 )
 
             end = time.time()
             total = ProperTime(round(end - start))
-            print(f"Conversion finished in {total}")
+            progress.log(f"Conversion finished in {total}")
 
             with open(f"{outputDir}/log.txt", "w") as f:
                 f.write(self.consoleTextBox.get(1.0, tkinter.constants.END))
         except ConversionAborted:
             self._abort.clear()
-            print("Conversion aborted by user.")
+            progress.log("Conversion aborted by user.")
+
+    def _create_progress(self):
+        def on_log(message):
+            if self._abort.is_set():
+                raise ConversionAborted()
+            self.consoleTextBox.after(0, self._append_console, message + "\n")
+
+        def on_overall(step, total):
+            if self._abort.is_set():
+                raise ConversionAborted()
+            value = (step / total) * 100
+            text = f"Total: {step}/{total}"
+            self.progressOverall.after(0, self._update_bar, self.progressOverall, value, self.overallLabel, text)
+
+        def on_current(step, total):
+            if self._abort.is_set():
+                raise ConversionAborted()
+            value = (step / total) * 100
+            text = f"Current: {step}/{total}"
+            self.progressCurrent.after(0, self._update_bar, self.progressCurrent, value, self.currentLabel, text)
+
+        return Progress(on_log=on_log, on_overall=on_overall, on_current=on_current)
+
+    def _append_console(self, text):
+        self.consoleTextBox.insert("end", text)
+        self.consoleTextBox.see("end")
+
+    def _update_bar(self, bar, value, label, text):
+        bar["value"] = value
+        label["text"] = text
 
     def convertButton_thread(self):
         self._abort.clear()
@@ -756,68 +788,25 @@ class App:
     def stopButton_command(self):
         self._abort.set()
 
-class TextRedirector(object):
-    def __init__(self, widget, overall, current, overallLabel, currentLabel, abort_event=None, tag="stdout"):
+class ConsoleWriter(object):
+    """Redirects stdout/stderr writes to a Tkinter Text widget (thread-safe)."""
+
+    def __init__(self, widget, abort_event=None, tag="stdout"):
         self.widget = widget
-        self.overall = overall
-        self.current = current
-        self.overallLabel = overallLabel
-        self.currentLabel = currentLabel
         self.abort_event = abort_event
         self.tag = tag
-        self.eof = False
 
     def flush(self):
         pass
 
-    def _update_overall(self, value, text):
-        self.overall["value"] = value
-        self.overallLabel["text"] = text
-
-    def _update_current(self, value, text):
-        self.current["value"] = value
-        self.currentLabel["text"] = text
-
-    def _append_text(self, str):
-        if self.eof:
-            self.eof = False
-            self.widget.delete(1.0, "end")
-        self.widget.insert("end", str, (self.tag,))
+    def _append(self, text):
+        self.widget.insert("end", text, (self.tag,))
         self.widget.see("end")
 
-    def write(self, str: str):
-        # check if the conversion has been aborted
+    def write(self, text: str):
         if self.abort_event is not None and self.abort_event.is_set():
             raise ConversionAborted()
-
-        overAllSteps = [
-            "Opening VMF file",
-            "Reading VMF file...",
-            "Reading materials...",
-            "Reading texture data...",
-            "Extracting models...",
-            "Reading model materials...",
-            "Generating GDT file...",
-            "Converting textures...",
-            "Converting models...",
-            "Generating .map file...",
-            #"Converting decals...",
-            "Moving all converted assets to",
-            "Writing",
-            "Conversion finished"
-        ]
-        totalSteps = len(overAllSteps)
-        for i in range(totalSteps):
-            if str.startswith(overAllSteps[i]):
-                self.widget.after(0, self._update_overall, ((i + 1) / totalSteps) * 100, f"Total: {i + 1}/{totalSteps}")
-
-        if str.endswith("|done"):
-            tok = str.split("|")
-            current = int(tok[0])
-            total = int(tok[1])
-            self.widget.after(0, self._update_current, ((current + 1) / total) * 100, f"Current: {current + 1}/{total}")
-        else:
-            self.widget.after(0, self._append_text, str)
+        self.widget.after(0, self._append, text)
 
 if __name__ == "__main__":
     root = tk.Tk()
