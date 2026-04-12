@@ -71,11 +71,13 @@ class AABB:
 
         for child in box.children:
             if child.children is not None:
-                self.GetTouchingFaces(child)
+                res.extend(self.GetTouchingFaces(child))
             else:
                 for brush in child.brushes:
                     if self.IsTouching(brush.AABB()):
-                        res.append()
+                        res.append(brush)
+
+        return res
 
     def __repr__(self) -> str:
         return f"<AABB center: {self.center}, min: {self.min}, max: {self.max}, extents: {self.extents}, children: {len(self.children) if self.children is not None else 0}>"

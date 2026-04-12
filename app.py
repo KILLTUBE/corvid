@@ -13,8 +13,7 @@ if os.name == "nt":
 else:
     pass
 
-import os.path
-import time 
+import time
 import threading
 import shutil
 import json
@@ -25,8 +24,7 @@ import tkinter.messagebox as alert
 import tkinter.font as tkFont
 from tkinter import filedialog, simpledialog
 from tkinter.ttk import Progressbar
-from sys import stderr, stdout, exit
-from os import makedirs, listdir, getenv
+from sys import stderr, stdout
 from os.path import exists
 from tempfile import gettempdir
 from datetime import datetime
@@ -503,7 +501,8 @@ class App:
     
     def changeSetting(self, key, value):
         settings[key] = value
-        open("res/settings.json", "w").write(json.dumps(settings, indent=4))
+        with open("res/settings.json", "w") as f:
+            f.write(json.dumps(settings, indent=4))
 
     def popup(self):
         self.popupWindow=popupWindow(self)
@@ -531,15 +530,15 @@ class App:
             print("Warning: If you going to convert a map from a game that isn't included in the list, make sure you add all the VPK files and the directories of the game to the lists above.")
 
     def chooseVmfDialog_command(self):
-        file = filedialog.askopenfile(mode="r", filetypes=[("Source Engine map file", "*.vmf")])
-        if file is not None:
+        file = filedialog.askopenfilename(filetypes=[("Source Engine map file", "*.vmf")])
+        if file:
             self.vmfPath.delete(0, tkinter.constants.END)
-            self.vmfPath.insert(0, file.name)
+            self.vmfPath.insert(0, file)
 
     def addVpkButton_command(self):
-        file = filedialog.askopenfile(mode="r", filetypes=[("Valve pak file", "*.vpk"), ("Garry's Mod addon", "*.gma")])
-        if file is not None:
-            self.vpkList.insert(tk.END, file.name)
+        file = filedialog.askopenfilename(filetypes=[("Valve pak file", "*.vpk"), ("Garry's Mod addon", "*.gma")])
+        if file:
+            self.vpkList.insert(tk.END, file)
 
     def addGameDirButton_command(self):
         dir = filedialog.askdirectory()
@@ -570,17 +569,18 @@ class App:
     
     def saveConsoleLog(self):
         consoleLog = self.consoleTextBox.get(1.0, tkinter.constants.END)
-        saveFile = filedialog.asksaveasfile(title="Save console log as", initialfile="Corvid-log-" + datetime.now().strftime("%d.%m.%Y_(%H.%M.%S)"), filetypes=[('Text files', '*.txt')], defaultextension=[('Text files', '*.txt')])
-        if saveFile is None:
-            return None
-        open(saveFile.name, "w").write(consoleLog)
+        savePath = filedialog.asksaveasfilename(title="Save console log as", initialfile="Corvid-log-" + datetime.now().strftime("%d.%m.%Y_(%H.%M.%S)"), filetypes=[('Text files', '*.txt')], defaultextension='.txt')
+        if not savePath:
+            return
+        with open(savePath, "w") as f:
+            f.write(consoleLog)
 
     def convertButton_command(self):
         # set the export directory
         outputDir = filedialog.askdirectory(title="Select a directory to export the converted map and its assets")
         if outputDir == "":
             alert.showwarning(title="Warning", message="Please select a directory to export the map!")
-            exit()
+            return
 
         _game = self.currentGame.get()
         currentGame = gameDef[_game]
@@ -646,7 +646,8 @@ class App:
                 if not exists(f"{gmodDir}/garrysmod/cfg/mountdepots.txt"):
                     return
 
-                mountData = parse_vdf(open(f"{gmodDir}/garrysmod/cfg/mountdepots.txt").read())
+                with open(f"{gmodDir}/garrysmod/cfg/mountdepots.txt") as f:
+                    mountData = parse_vdf(f.read())
 
                 if not "gamedepotsystem" in mountData:
                     return
@@ -663,30 +664,30 @@ class App:
         # check if the selected file is a valid VMF file
         if len(vmfPath) == 0:
             alert.showerror("Please select a VMF file!")
-            exit()
+            return
         if not os.path.isfile(vmfPath):
             alert.showerror(title="Error", message="Please select a valid file!")
-            exit()
+            return
         if not os.path.exists(vmfPath):
             alert.showerror(title="Error", message="VMF file does not exist.")
-            exit()
+            return
         if os.path.splitext(vmfPath)[1].lower() != ".vmf":
             alert.showerror(title="Error", message="Please choose a VMF file")
-            exit()
+            return
         
         # check vpks
         for vpk in vpkFiles:
             if not os.path.isfile(vpk):
                 alert.showerror(title="Error", message=f"\"{vpk}\" is not a valid file!")
-                exit()
+                return
             if not vpk.endswith((".vpk", ".gma")):
                 alert.showerror(title="error", message=f"\"{vpk}\" is not a VPK or a GMA file!")
-                exit()
+                return
         # check gamedirs
         for dir in gameDirs:
             if not os.path.isdir(dir):
                 alert.showerror(title="Error", message=f"{dir} is not a valid directory.")
-                exit()
+                return
 
         self.convertButton["state"] = "disabled"
 
@@ -696,23 +697,21 @@ class App:
         game = self.game.get()
         outputDir += f"/{vmfName}_{game}"
         print(f"Opening VMF file \"{vmfPath}\"...")
-        vmfFile = open(vmfPath).read()
+        with open(vmfPath) as f:
+            vmfFile = f.read()
         print("Reading VMF file...")
 
         
         # prepare the necessary stuff to move and write files
         prefabDir = "prefabs" if game == "CoD4" or game == "CoD2" else "_prefabs"
-        try:
-            makedirs(f"{outputDir}/map_source")
-            makedirs(f"{outputDir}/model_export/corvid")
-            makedirs(f"{outputDir}/source_data")
-            makedirs(f"{outputDir}/texture_assets/corvid")
-            if game != "BO3":
-                makedirs(f"{outputDir}/bin")
-            else:
-                makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}")
-        except:
-            pass
+        os.makedirs(f"{outputDir}/map_source", exist_ok=True)
+        os.makedirs(f"{outputDir}/model_export/corvid", exist_ok=True)
+        os.makedirs(f"{outputDir}/source_data", exist_ok=True)
+        os.makedirs(f"{outputDir}/texture_assets/corvid", exist_ok=True)
+        if game != "BO3":
+            os.makedirs(f"{outputDir}/bin", exist_ok=True)
+        else:
+            os.makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}", exist_ok=True)
 
         writePath = f"map_source/{prefabDir}/{vmfName}" if game == "BO3" else "map_source"
         print("Generating map data...")
@@ -729,10 +728,10 @@ class App:
         total = ProperTime(round(end - start))
         print(f"Conversion finished in {total}")
 
-        open(f"{outputDir}/log.txt", "w").write(self.consoleTextBox.get(1.0, tkinter.constants.END))
+        with open(f"{outputDir}/log.txt", "w") as f:
+            f.write(self.consoleTextBox.get(1.0, tkinter.constants.END))
 
         self.convertButton["state"] = "active"
-        exit()
 
     def convertButton_thread(self):
         self.conversionThread = threading.Thread(target=self.convertButton_command)
