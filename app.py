@@ -270,7 +270,7 @@ class App:
         vpkLabel["font"] = ft
         vpkLabel["fg"] = "#333333"
         vpkLabel["justify"] = "left"
-        vpkLabel["text"] = "VPK files / Garry's Mod addons"
+        vpkLabel["text"] = "Additional resoruce files (VPK, BSP, GMAD)"
         vpkLabel["anchor"] = "w"
         vpkLabel.place(x=20,y=50,width=300,height=30)
 
@@ -541,7 +541,7 @@ class App:
             self.vmfPath.insert(0, file)
 
     def addVpkButton_command(self):
-        file = filedialog.askopenfilename(filetypes=[("Valve pak file", "*.vpk"), ("Garry's Mod addon", "*.gma")])
+        file = filedialog.askopenfilename(filetypes=[("Valve pak file", "*.vpk"), ("Garry's Mod addon", "*.gma"), ("BSP map file", "*.bsp")])
         if file:
             self.vpkList.insert(tk.END, file)
 
@@ -685,7 +685,7 @@ class App:
             if not os.path.isfile(vpk):
                 alert.showerror(title="Error", message=f"\"{vpk}\" is not a valid file!")
                 return
-            if not vpk.endswith((".vpk", ".gma")):
+            if not vpk.endswith((".vpk", ".gma", ".bsp")):
                 alert.showerror(title="error", message=f"\"{vpk}\" is not a VPK or a GMA file!")
                 return
         # check gamedirs

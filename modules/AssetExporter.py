@@ -27,6 +27,8 @@ def loadMaterials(mats, dir: SourceDir, progress: Progress=None):
         progress.current(i + 1, total)
         name = newPath(mat)
         data = dir.read_text(f"materials/{mat}.vmt", silent=True)
+        if data is None:
+            data = dir.read_wvt_fallback(mat)
         if data is not None:
             vmtCache[name] = data
         res.append(name)
