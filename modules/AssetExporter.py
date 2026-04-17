@@ -265,6 +265,46 @@ def loadModelMaterials(models, modelData, dir: SourceDir, modelTints, modelSkins
 
     return sorted(set(res)), vmtCache
 
+def modelUsage(name: str, surfaceprop: str = ""):
+    name = name.lower()
+    surfaceprop = surfaceprop.lower()
+
+    nameKeywords = {
+        "foliage": "foliage", "tree": "foliage", "leaf": "foliage", "leaves": "foliage",
+        "bush": "foliage", "plant": "foliage", "grass": "foliage", "vine": "foliage",
+        "ivy": "foliage", "shrub": "foliage", "hedge": "foliage", "fern": "foliage",
+        "flower": "foliage", "weed": "foliage",
+        "rock": "rock", "stone": "rock", "boulder": "rock", "cliff": "rock",
+        "barrel": "barrel",
+        "crate": "crate", "box": "crate",
+        "fence": "fence", "chainlink": "fence",
+        "sign": "sign",
+        "poster": "poster",
+        "door": "door", "gate": "door",
+        "window": "window",
+    }
+
+    for keyword, usage in nameKeywords.items():
+        if keyword in name:
+            return usage
+
+    surfacepropMap = {
+        "foliage": "foliage", "grass": "foliage",
+        "rock": "rock", "boulder": "rock", "baserock": "rock",
+        "wood_box": "crate", "wood_crate": "crate",
+        "floating_metal_barrel": "barrel", "metal_barrel": "barrel",
+        "chainlink": "fence",
+        "water": "liquid", "wade": "liquid", "puddle": "liquid",
+        "slipperyslime": "liquid", "slime": "liquid",
+        "dirt": "ground", "mud": "ground", "sand": "ground",
+        "quicksand": "ground", "antlionsand": "ground",
+    }
+
+    if surfaceprop in surfacepropMap:
+        return surfacepropMap[surfaceprop]
+
+    return "core"
+
 def surfaceType(surface: str, game=""):
     surface = surface.lower()
     surfaces =     {
@@ -426,7 +466,11 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
         else:
             data["materialType"] = "world phong"
         
-        data["usage"] = "tools"
+        if shader not in ("vertexlitgeneric", "infected"):
+            data["usage"] = "tools"
+        else:
+            surfprop = mat.get("$surfaceprop", "").strip()
+            data["usage"] = modelUsage(name, surfprop)
 
         if "$basetexture" in mat:
             fileName = newPath(mat["$basetexture"], shorten=True)
@@ -549,10 +593,11 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
         else:
             data["colorMap"] = "i_404"
         
-        if shader in ("vertexlitgeneric", "vertexunlitgeneric", "infected"):
-            data["usage"] = "<not in editor>"
+        if shader not in ("vertexlitgeneric", "vertexunlitgeneric", "infected"):
+            data["usage"] = "tools"
         else:
-            data["usage"] = "tools" # probably not a good idea
+            surfprop = mat.get("$surfaceprop", "").strip()
+            data["usage"] = modelUsage(name, surfprop)
 
         if "$bumpmap" in mat and "$ssbump" not in mat:
             fileName = newPath(mat["$bumpmap"], shorten=True)
