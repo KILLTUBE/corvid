@@ -361,10 +361,10 @@ def surfaceType(surface: str, game=""):
     }
 
     glossranges = {
-        "<full>": (0.0, 17.0), "asphalt": (0.0, 4.0), "brick": (0.0, 4.0), "carpet": (0.0, 2.0),"ceramic": (0.0, 17.0), "cloth": (0.0, 4.0), "concrete": (0.0, 4.0),
-        "dirt": (0.0, 4.0), "skin": (2.0, 10.0), "foliage": (0.0, 6.5), "glass": (6.0, 17.0), "gravel": (0.0, 4.0), "ice": (4.0, 17.0), "metal": (0.0, 17.0),
-        "mud": (4.0, 13.0), "paint": (2.0, 7.0), "paper": (0.0, 2.0), "plaster": (0.0, 2.0), "plastic": (4.0, 13.0), "rock": (0.0, 4.0), "rubber": (0.0, 4.0),
-        "sand": (2.0, 8.0), "snow": (4.0, 12.0), "water": (6.0, 17.0), "wood": (2.0, 5.0), "bark": (0.0, 4.0)
+        "<full>": (0.0, 8.5), "asphalt": (0.0, 2.0), "brick": (0.0, 2.0), "carpet": (0.0, 1.0), "ceramic": (0.0, 8.5), "cloth": (0.0, 2.0), "concrete": (0.0, 2.0),
+        "dirt": (0.0, 2.0), "skin": (1.0, 5.0), "foliage": (0.0, 3.0), "glass": (3.0, 8.5), "gravel": (0.0, 2.0), "ice": (2.0, 8.5), "metal": (0.0, 8.5),
+        "mud": (2.0, 6.5), "paint": (1.0, 3.5), "paper": (0.0, 1.0), "plaster": (0.0, 1.0), "plastic": (2.0, 6.5), "rock": (0.0, 2.0), "rubber": (0.0, 2.0),
+        "sand": (1.0, 4.0), "snow": (2.0, 6.0), "water": (3.0, 8.5), "wood": (1.0, 2.5), "bark": (0.0, 2.0)
     }
 
     if surface in surfaces:
@@ -588,7 +588,11 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
             data["surfaceType"] = "<none>"
             data["glossSurfaceType"] = "<custom>"
             data["glossRangeMin"] = "0.0"
-            data["glossRangeMax"] = "4.0"
+            data["glossRangeMax"] = "0.0"
+
+        if "cosinePowerMap" not in data:
+            data["glossRangeMin"] = 0.0
+            data["glossRangeMax"] = 0.0
         
         # gotta change the material type for things like alphatest, translucency and back face culling
         # that's one of the major differences between the old and new asset pipeline from what I can tell
@@ -694,7 +698,11 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
                 data2["surfaceType"] = "<none>"
                 data2["glossSurfaceType"] = "<custom>"
                 data2["glossRangeMin"] = "0.0"
-                data2["glossRangeMax"] = "0.4"
+                data2["glossRangeMax"] = "0.0"
+
+            if "cosinePowerMap" not in data2:
+                data2["glossRangeMin"] = 0.0
+                data2["glossRangeMax"] = 0.0
 
             if "$layertint2" in mat:
                 tint = VecFromStr(mat["$layertint2"], 3)
