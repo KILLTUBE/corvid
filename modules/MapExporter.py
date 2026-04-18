@@ -777,11 +777,6 @@ def createSkyBrushes(AABBmin: vec3, AABBmax: vec3, mapName="", game="WaW"):
         }))
         vol[-1].geo.append(createVolume(AABBmin, AABBmax, "umbra_volume"))
 
-        vol.append(cod.Entity({
-            "classname": "volume_fpstool",
-        }))
-        vol[-1].geo.append(createVolume(AABBmin, AABBmax, "volume_fpstool"))
-
     return sky, vol
 
 def exportMap(
