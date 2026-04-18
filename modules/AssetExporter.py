@@ -1007,7 +1007,6 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         })
 
         suncolor = worldSpawnSettings.get("suncolor", vec3(1, 1, 1))
-        sunbrightness = worldSpawnSettings.get("sunlight", 1.5)
 
         # Use raw Source angles for BO3 SSI conversion
         # Source pitch: counter-clockwise (-90 = down)
@@ -1017,19 +1016,32 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         bo3_pitch = -source_pitch
         bo3_yaw = source_yaw
 
-        # Source brightness to BO3 stops (logarithmic scale)
-        sunstops = round(log2(max(sunbrightness, 0.01)) + 14, 2)
+        # Map Source _light intensity I to BO3 stops, fit against stock ssi.gdt
+        # presets: default_night (stops=-2.2) to default_day (stops=14).
+        source_intensity = worldSpawnSettings.get("source_sun_intensity", 400)
+        sunstops = round(max(-3.0, min(14.0, 1.6 * log2(max(source_intensity, 0.5)) - 3.5)), 2)
+
+        # Tonemap exposure mirrors stock presets: night bumps evcmp, day widens evmax.
+        if sunstops < 3:
+            ev, evmin, evmax, evcmp = 6, 3, 7, 2.5
+        elif sunstops < 10:
+            ev, evmin, evmax, evcmp = 10, 8, 11, 1
+        else:
+            ev = round(max(11.0, sunstops - 1), 2)
+            evmin = round(max(10.0, sunstops - 2), 2)
+            evmax = round(min(16.0, sunstops + 1), 2)
+            evcmp = 0
 
         gdt.add(f"{mapName}_ssi", "ssi", {
             "bounceCount": "4",
             "colorSRGB": f"{Vec2Str(suncolor)} 1",
             "dynamicShadow": "1",
             "enablesun": "1",
-            "ev": "0",
-            "evcmp": "0",
-            "evmax": "31",
-            "evmin": "-32",
-            "penumbra_inches": "1",
+            "ev": ev,
+            "evcmp": evcmp,
+            "evmax": evmax,
+            "evmin": evmin,
+            "penumbra_inches": "1.5",
             "pitch": bo3_pitch,
             "skyboxmodel": f"{mapName}_skybox",
             "stops": sunstops,

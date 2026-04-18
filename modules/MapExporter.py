@@ -1010,29 +1010,31 @@ def exportMap(
                 worldSpawnSettings["sundirection"] = vec3(source_pitch, yaw, 0)
 
                 # sun color and brightness from _light (R G B brightness)
-                # Source brightness is a multiplier, typical values 200-800
-                # CoD sunlight: 1 = fullbright, 1.5 = overbright
+                # Source _light intensity I spans ~2 (deep night) to ~1500 (saturated day).
+                # Stock CoD4/WaW sunlight spans 0.25 – 3.0 (median ~1.3). sqrt(I/100)
+                # fits that range: I=100→1.0, I=400→2.0, I=900→3.0.
                 if "_light" in entity:
                     light_parts = [float(v) for v in entity["_light"].split() if v != ""]
                     sun_color = vec3(light_parts[0], light_parts[1], light_parts[2]) / 255
-                    # scale so typical Source brightness (200-400) maps to CoD 1.0-1.5
-                    sun_brightness = light_parts[3] / 200 if len(light_parts) > 3 else 1.5
+                    source_intensity = light_parts[3] if len(light_parts) > 3 else 400
+                    if game == "BO3":
+                        worldSpawnSettings["source_sun_intensity"] = source_intensity
+                    sun_brightness = (max(source_intensity, 0.0) / 100) ** 0.5
                     worldSpawnSettings["suncolor"] = sun_color
-                    worldSpawnSettings["sunlight"] = round(min(sun_brightness, 2.0), 3)
+                    worldSpawnSettings["sunlight"] = round(max(0.25, min(3.0, sun_brightness)), 3)
                 else:
                     worldSpawnSettings["suncolor"] = vec3(1, 1, 1)
                     worldSpawnSettings["sunlight"] = 1.5
 
                 # ambient light from _ambient (R G B brightness)
-                # Source ambient brightness is typically 50-150
-                # CoD ambient: 0.1-0.3 is a typical range
+                # Stock CoD4/WaW ambient sits in 0.0 – 0.35 with median ~0.2.
                 ambient_key = "_ambient" if "_ambient" in entity else "ambient" if "ambient" in entity else None
                 if ambient_key:
                     ambient_parts = [float(v) for v in entity[ambient_key].split() if v != ""]
                     ambient_color = vec3(ambient_parts[0], ambient_parts[1], ambient_parts[2]) / 255
                     ambient_brightness = ambient_parts[3] / 500 if len(ambient_parts) > 3 else 0.2
                     worldSpawnSettings["_color"] = ambient_color
-                    worldSpawnSettings["ambient"] = round(max(ambient_brightness, 0.1), 3)
+                    worldSpawnSettings["ambient"] = round(max(0.1, min(0.35, ambient_brightness)), 3)
                 else:
                     worldSpawnSettings["ambient"] = 0.2
 
