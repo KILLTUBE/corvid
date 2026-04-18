@@ -977,7 +977,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             "type": "image",
             "baseImage": f"texture_assets\\\\corvid\\\\i_{mapName}_sky.tif",
             "semantic": "HDR",
-            "compressionMethod": "compressed",
+            "compressionMethod": "uncompressed",
             "coreSemantic": "HDR",
             "streamable": "1",
             "noMipMaps": "1"
