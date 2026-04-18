@@ -409,7 +409,8 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
         
         try:
             mat = vmt[shader]
-            data = {"usage": "<not in editor>"}
+            isModel = shader in ("vertexlitgeneric", "vertexunlitgeneric", "infected")
+            data = {"usage": "<not in editor>" if isModel else "exterior wall"}
         except:
             progress.log(f"Error parsing {name}. Skipping...")
             progress.log(str(vmt))
@@ -475,7 +476,7 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
                 data["blendFunc"] = "Blend"
 
         if "$basetexture2" in mat:
-            data2 = {"usage": "<not in editor>"}
+            data2 = {"usage": "exterior wall"}
             data2["materialType"] = "world phong"
             fileName = newPath(mat["$basetexture2"], shorten=True)
             if fileName  in loadedTextures:
@@ -530,7 +531,8 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
         mat = vmt[shader]
         assetName = name
 
-        data = {"usage": "<not in editor>"}
+        isModel = shader in ("vertexlitgeneric", "vertexunlitgeneric", "infected")
+        data = {"usage": "<not in editor>" if isModel else "exterior wall"}
         data["template"] = "material.template"
 
         # these are default values and should stay the same unless the material requires more than a color map and a normal map
@@ -643,7 +645,7 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
             data["colorTint"] = tint
 
         if "$basetexture2" in mat:
-            data2 = {"usage": "<not in editor>"}
+            data2 = {"usage": "exterior wall"}
             data2["materialCategory"] = "Decal"
             data2["materialType"] = "lit_decal_reveal"
             data2["layerSortDecal"] = "Asphalt (bottom)"
