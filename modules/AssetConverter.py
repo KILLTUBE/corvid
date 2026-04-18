@@ -104,9 +104,12 @@ def removeBackground(rgba):
         arr[-cs:, -cs:].reshape(-1, 3),
     ])
     # check if corners are uniform (solid background)
-    if corners.std(axis=0).max() > 2:
-        return rgba
+    # near-grayscale corners (R≈G≈B) get a looser uniformity threshold,
+    # so noisy gray backgrounds still get stripped regardless of brightness
     bg = corners.mean(axis=0).astype(np.float32)
+    std_limit = 8 if (bg.max() - bg.min()) < 5 else 2
+    if corners.std(axis=0).max() > std_limit:
+        return rgba
     # compute color distance from background and use as alpha
     pixels = np.array(rgba)[:, :, :3].astype(np.float32)
     dist = np.sqrt(((pixels - bg) ** 2).sum(axis=2))
