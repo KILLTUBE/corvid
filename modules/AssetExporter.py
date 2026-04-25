@@ -514,7 +514,13 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
             data2["sort"] = "decal - bottom 1"
             data2["locale"] = "decal"
 
+            if data2.get("blendFunc") == "Blend":
+                data2.pop("alphaTest", None)
+
             gdt.add(assetName.strip() + "_blend", "material", data2)
+
+        if data.get("blendFunc") == "Blend":
+            data.pop("alphaTest", None)
 
         gdt.add(assetName.strip(), "material", data)
     return gdt
@@ -1083,7 +1089,7 @@ def exportMinimap(mapName: str, dir: SourceDir, game="WaW", outDir=""):
     overview = dir.read_text(f"resource/overviews/{mapName}.txt", silent=True)
 
     if overview is None:
-        return None, None, None
+        return None, None, None, None, None
 
     overview = fixVmt(overview)
 
@@ -1091,7 +1097,7 @@ def exportMinimap(mapName: str, dir: SourceDir, game="WaW", outDir=""):
     data = data[list(data)[0]]
 
     if "material" not in data:
-        return None, None, None
+        return None, None, None, None, None
 
     image = None
     # csgo uses dds images for radars whereas older games use vtf images
@@ -1107,16 +1113,22 @@ def exportMinimap(mapName: str, dir: SourceDir, game="WaW", outDir=""):
             if "$basetexture" in mat:
                 vtfData = dir.read_bytes("materials/" + mat["$basetexture"] + ".vtf", silent=True)
                 if vtfData is None:
-                    return None, None, None
+                    return None, None, None, None, None
             convertImage(vtfData, f"{outDir}/texture_assets/corvid/{mapName}_radar.{ext}", "rgb")
             image = Image.open(f"{outDir}/texture_assets/corvid/{mapName}_radar.{ext}")
         else:
-            return None, None, None
+            return None, None, None, None, None
 
     if "rotate" in data and data["rotate"] != "1":
         image = image.rotate(90)
-    
+
     image.save(f"{outDir}/texture_assets/corvid/{mapName}_radar.{ext}")
+
+    pos_x = float(data["pos_x"])
+    pos_y = float(data["pos_y"])
+    radar_scale = float(data.get("scale", 1))
+    br_x = pos_x + image.width * radar_scale
+    br_y = pos_y - image.height * radar_scale
 
     if game == "BO3":
         gdt.add(f"i_{mapName}_minimap", "image",{
@@ -1149,4 +1161,4 @@ def exportMinimap(mapName: str, dir: SourceDir, game="WaW", outDir=""):
             "nopicmipColor": "1"
         })
 
-    return gdt, float(data["pos_x"]), float(data["pos_y"])
+    return gdt, pos_x, pos_y, br_x, br_y

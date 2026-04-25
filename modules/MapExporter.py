@@ -1157,7 +1157,7 @@ def exportMap(
 
     # add corners for minimap and create a minimap material in gdt
     if game != "CoD2":
-        minimapData, x, y = exportMinimap(mapName, gamePath, game, outDir)
+        minimapData, x, y, br_x, br_y = exportMinimap(mapName, gamePath, game, outDir)
         if minimapData is not None:
             if not skipMats:
                 gdtFile += minimapData
@@ -1166,19 +1166,20 @@ def exportMap(
             z = (AABBmin.z + AABBmax.z) / 2
 
             # top left
-            origin = vec3(x, y, z) * scale
+            tl = vec3(x, y, z) * scale
+            # bottom right
+            br = vec3(br_x, br_y, z) * scale
 
             res.entities.append(cod.Entity({
                 "classname": "script_origin",
-                "origin": f"{Vec2Str(origin)}",
+                "origin": f"{Vec2Str(tl)}",
                 "targetname": "minimap_corner",
                 "_color": "1.0 0.6470588 0.0"
             }))
 
-            # bottom right
             res.entities.append(cod.Entity({
                 "classname": "script_origin",
-                "origin": f"{origin.y} {origin.x} {z}",
+                "origin": f"{Vec2Str(br)}",
                 "targetname": "minimap_corner",
                 "_color": "1.0 0.6470588 0.0"
             }))
