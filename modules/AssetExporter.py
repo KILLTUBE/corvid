@@ -45,6 +45,7 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False, progress: Progress=N
         "envMapsAlpha": [],
         "normalMaps": [],
         "revealMaps": [],
+        "ssbumpMaps": set(), # normal map names that need the SSBump → tangent-space transform on conversion
         "infected": {}, # basetexture name -> {gradient, clothRow, skinRow}
         "vmts": {}, # save vmt data to create GDT's later
         "vtfData": {} # VTF bytes keyed by normalized name
@@ -147,6 +148,8 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False, progress: Progress=N
         if "$bumpmap" in mat:
             name = loadVtf(mat["$bumpmap"].strip())
             res["normalMaps"].append(name)
+            if "$ssbump" in mat:
+                res["ssbumpMaps"].add(name)
         if "$envmapmask" in mat:
             name = loadVtf(mat["$envmapmask"].strip())
             res["envMaps"].append(name)
@@ -162,6 +165,8 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False, progress: Progress=N
         if "$bumpmap2" in mat:
             name = loadVtf(mat["$bumpmap2"].strip())
             res["normalMaps"].append(name)
+            if "$ssbump2" in mat or "$ssbump" in mat:
+                res["ssbumpMaps"].add(name)
         if "$envmapmask2" in mat:
             name = loadVtf(mat["$envmapmask2"].strip())
             res["envMaps"].append(name)
@@ -436,7 +441,7 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
         else:
             data["colorMap"] = textureDir + "404" + ext
         
-        if "$bumpmap" in mat and "$ssbump" not in mat:
+        if "$bumpmap" in mat:
             fileName = newPath(mat["$bumpmap"], shorten=True)
             if fileName  in loadedTextures:
                 data["normalMap"] = textureDir + fileName + ext
@@ -486,7 +491,7 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
 
             data2["blendFunc"] = "Blend"
 
-            if "$bumpmap2" in mat and "$ssbump" not in mat:
+            if "$bumpmap2" in mat:
                 fileName = newPath(mat["$bumpmap2"], shorten=True)
                 if fileName  in loadedTextures:
                     data2["normalMap"] = textureDir + fileName + ext
@@ -554,7 +559,7 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
         else:
             data["colorMap"] = "i_404"
 
-        if "$bumpmap" in mat and "$ssbump" not in mat:
+        if "$bumpmap" in mat:
             fileName = newPath(mat["$bumpmap"], shorten=True)
             if fileName  in loadedTextures:
                 data["normalMap"] = "i_" + fileName
@@ -662,7 +667,7 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
             else:
                 data2["colorMap"] = "404"
 
-            if "$bumpmap2" in mat and "$ssbump2" not in mat:
+            if "$bumpmap2" in mat:
                 fileName = newPath(mat["$bumpmap2"], shorten=True)
                 if fileName  in loadedTextures:
                     data2["normalMap"] = "i_" + newPath(mat["$bumpmap2"], shorten=True)

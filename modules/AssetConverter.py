@@ -59,7 +59,13 @@ def reconstructInfectedTexture(base_vtf, gradient_vtf, dest, clothRow=0, skinRow
     Image.fromarray(result, "RGB").save(dest)
     return True
 
-def convertImage(vtf_data, dest, format="rgba", invert=False, resize=False, removeBg=False):
+_SSBUMP_BASIS_T = np.array([
+    [0.81649661064147949, -0.40824833512306213, -0.40824833512306213],
+    [0.0,                  0.70710676908493042, -0.70710682868957520],
+    [0.57735025882720947,  0.57735025882720947,  0.57735025882720947],
+], dtype=np.float32)
+
+def convertImage(vtf_data, dest, format="rgba", invert=False, resize=False, removeBg=False, ssbump=False):
     if vtf_data is None:
         return False
     format = format.upper()
@@ -68,7 +74,14 @@ def convertImage(vtf_data, dest, format="rgba", invert=False, resize=False, remo
         rgba_arr = np.frombuffer(pixel_data, dtype=np.float32).reshape(height, width, 4)
         rgba_arr = (np.clip(rgba_arr, 0, 1) * 255).astype(np.uint8)
     else:
-        rgba_arr = np.frombuffer(pixel_data, dtype=np.uint8).reshape(height, width, 4)
+        rgba_arr = np.frombuffer(pixel_data, dtype=np.uint8).reshape(height, width, 4).copy()
+    if ssbump:
+        # Source SSBump → tangent-space normal: project the per-pixel basis weights
+        # onto the SSBump basis (rob5300/ssbumpToNormal), remap [-1,1] → [0,1].
+        rgb_f = rgba_arr[:, :, :3].astype(np.float32) / 255.0
+        rgb_f = rgb_f @ _SSBUMP_BASIS_T.T
+        rgb_f = np.clip(rgb_f * 0.5 + 0.5, 0.0, 1.0)
+        rgba_arr[:, :, :3] = (rgb_f * 255.0).astype(np.uint8)
     rgba = Image.fromarray(rgba_arr, "RGBA")
     if rgba.size[0] < 4 or rgba.size[1] < 4:
         x = max(rgba.size[0], 4)
@@ -149,9 +162,10 @@ def convertImages(images, outDir, ext="tga", overlayTextures=None, progress: Pro
     for i, file in enumerate(images["colorMapsAlpha"]):
         progress.current(i + 1, total)
         convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "rgba")
+    ssbumpMaps = images.get("ssbumpMaps", set())
     for i, file in enumerate(images["normalMaps"], lencolorMapsAlpha):
         progress.current(i + 1, total)
-        convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "rgb")
+        convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "rgb", ssbump=(file in ssbumpMaps))
     for i, file in enumerate(images["envMaps"], lencolorMapsAlpha + lennormalMaps):
         progress.current(i + 1, total)
         convertImage(vtf_data.get(file), f"{outDir}/{file}.{ext}", "rgb")
