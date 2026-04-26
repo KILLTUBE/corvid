@@ -477,7 +477,9 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
             data["polygonOffset"] = "Static Decal"
             if "$alphatest" in mat or "$alpha" in mat:
                 data["blendFunc"] = "Multiply"
-            elif "blendFunc" not in data:
+                data["alphaTest"] = "GE128"
+
+            if "blendFunc" not in data:
                 data["blendFunc"] = "Blend"
 
         if "$basetexture2" in mat:
