@@ -1131,7 +1131,8 @@ def exportMap(
                                      vec3(float(obj.uv_points[1][0]), float(obj.uv_points[1][1]), float(obj.uv_points[1][2])))) / 2
                 sideIds = [s.id for s in obj.sides]
                 zOffset = getOverlapOffset(sideIds, origin, hw, hh) * 0.125
-            patches = obj.to_patches(zOffset=zOffset)
+            maxPatchSize = 9 if (game == "CoD4" or game == "CoD2") else 30
+            patches = obj.to_patches(zOffset=zOffset, maxPatchSize=maxPatchSize)
             for patch in patches:
                 world.geo.append(patch)
         except Exception as e:

@@ -500,8 +500,13 @@ class Overlay:
         n = vec3(float(face_normal[0]), float(face_normal[1]), float(face_normal[2]))
         return n * -(zOffset) * self.scale
 
-    def to_patches(self, zOffset=0.0) -> List[Patch]:
-        """Convert the overlay to a list of CoD patches."""
+    def to_patches(self, zOffset=0.0, maxPatchSize: int = 30) -> List[Patch]:
+        """Convert the overlay to a list of CoD patches.
+
+        maxPatchSize bounds the row/column count of any emitted patch — power-4
+        displacements (17 verts/side), heavily-clipped flat faces, and welded
+        chains can all blow past CoD4/CoD2's 9-vert limit, so the caller passes
+        9 for those games."""
         if self.empty:
             return []
 
@@ -551,4 +556,10 @@ class Overlay:
             if patch is not None:
                 patches.append(patch)
 
-        return self._weld_patches(patches)
+        welded = self._weld_patches(patches)
+        if maxPatchSize and maxPatchSize > 1:
+            sliced: List[Patch] = []
+            for p in welded:
+                sliced.extend(p.Slice(maxPatchSize))
+            return sliced
+        return welded

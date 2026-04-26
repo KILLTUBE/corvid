@@ -95,6 +95,7 @@ class Patch:
                     (len(newarr), len(newarr[0])), self.samplesize, self.smoothing, self.layer
                 )
                 newpatch.verts = newarr
+                newpatch.nolightmap = self.nolightmap
                 res.append(newpatch)
         
         return res
