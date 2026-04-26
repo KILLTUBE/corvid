@@ -60,38 +60,54 @@ def _clip_polygon_by_planes(verts: List[np.ndarray], planes: List[Tuple[np.ndarr
     return verts
 
 
-def _project_point_onto_triangle(point: np.ndarray, v0: np.ndarray, v1: np.ndarray, v2: np.ndarray):
-    """Project a point onto a triangle's plane. Returns projected point if it falls
-    within the triangle (with tolerance), otherwise None."""
-    e1 = v1 - v0
-    e2 = v2 - v0
-    tri_normal = np.cross(e1, e2)
-    norm_sq = np.dot(tri_normal, tri_normal)
-    if norm_sq < 1e-12:
-        return None
+def _inverse_bilinear_2d(q: np.ndarray, p0: np.ndarray, p1: np.ndarray,
+                         p2: np.ndarray, p3: np.ndarray) -> Tuple[float, float]:
+    """Find (s, t) such that bilinear interpolation across the four 2D corners
+    p0,p1,p2,p3 (mapped to (0,0),(0,1),(1,1),(1,0)) gives q.
 
-    # project point onto triangle plane
-    dist = np.dot(tri_normal, point - v0) / norm_sq
-    projected = point - dist * tri_normal
+    Solves the standard quadratic from
+        q = (1-s)(1-t) p0 + (1-s)t p1 + s t p2 + s(1-t) p3
+    by viewing q as lying on the line lerp(p0,p3,s)→lerp(p1,p2,s) for some s,
+    and requiring that line to pass through q. Falls back to the linear case
+    when the warp term is ~0 (parallelogram)."""
+    a = p3 - p0           # ∂q/∂s at t=0
+    b = p1 - p0           # ∂q/∂t at s=0
+    h = p2 - p3 - p1 + p0 # warp; zero for parallelograms
+    d = q - p0
 
-    # barycentric coordinates to check if inside triangle
-    d = projected - v0
-    d11 = np.dot(e1, e1)
-    d12 = np.dot(e1, e2)
-    d22 = np.dot(e2, e2)
-    d1p = np.dot(e1, d)
-    d2p = np.dot(e2, d)
-    denom = d11 * d22 - d12 * d12
-    if abs(denom) < 1e-12:
-        return None
+    def cross2(u, v):
+        return u[0] * v[1] - u[1] * v[0]
 
-    u = (d22 * d1p - d12 * d2p) / denom
-    v = (d11 * d2p - d12 * d1p) / denom
+    qa = -cross2(a, h)
+    qb = cross2(d, h) - cross2(a, b)
+    qc = cross2(d, b)
 
-    tol = 0.01
-    if u >= -tol and v >= -tol and (u + v) <= 1.0 + tol:
-        return projected
-    return None
+    if abs(qa) < 1e-12:
+        s = -qc / qb if abs(qb) > 1e-12 else 0.0
+    else:
+        disc = qb * qb - 4.0 * qa * qc
+        if disc < 0.0:
+            disc = 0.0
+        sq = disc ** 0.5
+        s1 = (-qb + sq) / (2.0 * qa)
+        s2 = (-qb - sq) / (2.0 * qa)
+        # pick the root in (or closest to) [0,1]
+        def clamp_dist(x):
+            if x < 0.0: return -x
+            if x > 1.0: return x - 1.0
+            return 0.0
+        s = s1 if clamp_dist(s1) <= clamp_dist(s2) else s2
+
+    m = p0 + s * a              # = lerp(p0, p3, s)
+    n = p1 + s * (p2 - p1)      # = lerp(p1, p2, s)
+    mn = n - m
+    denom = mn[0] * mn[0] + mn[1] * mn[1]
+    if denom < 1e-12:
+        t = 0.0
+    else:
+        qm = q - m
+        t = (qm[0] * mn[0] + qm[1] * mn[1]) / denom
+    return float(s), float(t)
 
 
 class Overlay:
@@ -131,7 +147,6 @@ class Overlay:
             _parse_vec3(entity["uv2"]),
             _parse_vec3(entity["uv3"])
         ]
-        self.origin = _parse_vec3(entity["origin"])
 
         mat_key = newPath(entity["material"])
         if mat_key in matSizes:
@@ -161,17 +176,22 @@ class Overlay:
         # these define the overlay's boundary
         uv_edges = [self.uv_points[:2], self.uv_points[1:3], self.uv_points[2:4], (self.uv_points[3], self.uv_points[0])]
         up_vector = np.array([0.0, 0.0, 1.0])
+        # centroid of the UV quad (in overlay-local space) — used to pick the inward
+        # plane normal regardless of whether uv_points are wound CW or CCW.
+        uv_centroid = sum(self.uv_points) / 4.0
+        world_centroid = origin + uv_rot_to_global_matrix @ uv_centroid
         self._slab_planes = []
         for side_vert_a, side_vert_b in uv_edges:
             cut_normal_uv = np.cross(up_vector, side_vert_b - side_vert_a)
-            # convert plane to world space: normal and a point on the plane
             world_normal = uv_rot_to_global_matrix @ cut_normal_uv
             norm_len = np.linalg.norm(world_normal)
             if norm_len > 0:
                 world_normal /= norm_len
             world_point = origin + uv_rot_to_global_matrix @ side_vert_a
-            # inward normal (points inside the overlay)
-            self._slab_planes.append((world_point, -world_normal))
+            # flip if needed so the normal points toward the overlay's interior
+            if np.dot(world_normal, world_centroid - world_point) < 0:
+                world_normal = -world_normal
+            self._slab_planes.append((world_point, world_normal))
 
         # separate displacement sides from flat sides
         # treat displacements with all-zero distances as flat
@@ -198,7 +218,6 @@ class Overlay:
             self._flat_faces.append((clipped, face_normal))
 
         # process displacement sides
-        self._disp_grids = []  # store full grids for surface projection
         for side in disp_sides:
             self._process_displacement_side(side, origin, uv_rot_to_global_matrix, global_to_uv_rot_matrix)
 
@@ -215,8 +234,9 @@ class Overlay:
         self._global_to_uv_rot_matrix = global_to_uv_rot_matrix
 
     def _compute_uv_from_world(self, world_point: np.ndarray) -> Tuple[float, float]:
-        """Compute texture UV by projecting onto overlay plane and using bilinear interpolation
-        within the UV quad, matching the Source engine's approach."""
+        """Compute texture UV by projecting onto the overlay plane and inverse-bilinear-
+        interpolating within the UV quad (matches Source's runtime overlay behaviour for
+        non-rectangular UV handles)."""
         # project world point onto overlay plane
         delta = world_point - self._origin
         dist = np.dot(self._basis_normal, delta)
@@ -225,55 +245,17 @@ class Overlay:
         # get 2D overlay-local coordinates
         local = self._global_to_uv_rot_matrix @ (plane_point - self._origin)
 
-        # find parametric (s, t) within the UV quad
         # uv0 → s=0,t=0; uv1 → s=0,t=1; uv2 → s=1,t=1; uv3 → s=1,t=0
-        p0 = self.uv_points[0][:2]
-        edge_s = self.uv_points[3][:2] - p0  # s direction: uv0 → uv3
-        edge_t = self.uv_points[1][:2] - p0  # t direction: uv0 → uv1
-
-        d = local[:2] - p0
-
-        s_denom = np.dot(edge_s, edge_s)
-        t_denom = np.dot(edge_t, edge_t)
-
-        s = np.dot(d, edge_s) / s_denom if s_denom > 1e-10 else 0.0
-        t = np.dot(d, edge_t) / t_denom if t_denom > 1e-10 else 0.0
+        s, t = _inverse_bilinear_2d(
+            local[:2],
+            self.uv_points[0][:2], self.uv_points[1][:2],
+            self.uv_points[2][:2], self.uv_points[3][:2],
+        )
 
         u = self.StartU + s * (self.EndU - self.StartU)
+        # CoD's V axis points up, Source's points down — invert to match.
         v = 1.0 - (self.StartV + t * (self.EndV - self.StartV))
         return (u, v)
-
-    def _project_onto_disp_surface(self, point: np.ndarray) -> np.ndarray:
-        """Project a point onto the nearest triangle in the displacement grids.
-        Uses the same triangulation pattern as CoD's Patch.Triangulate()."""
-        best_point = point
-        best_dist = float('inf')
-
-        for grid in self._disp_grids:
-            rows = len(grid)
-            cols = len(grid[0])
-            for i in range(rows - 1):
-                for k in range(cols):
-                    # triangle 1: (i+1,k), (i,k+1), (i,k) — matches Patch.Triangulate
-                    if k < cols - 1:
-                        projected = _project_point_onto_triangle(
-                            point, grid[i+1][k], grid[i][k+1], grid[i][k])
-                        if projected is not None:
-                            d = np.linalg.norm(projected - point)
-                            if d < best_dist:
-                                best_dist = d
-                                best_point = projected
-                    # triangle 2: (i+1,k-1), (i+1,k), (i,k)
-                    if k > 0:
-                        projected = _project_point_onto_triangle(
-                            point, grid[i+1][k-1], grid[i+1][k], grid[i][k])
-                        if projected is not None:
-                            d = np.linalg.norm(projected - point)
-                            if d < best_dist:
-                                best_dist = d
-                                best_point = projected
-
-        return best_point
 
     def _process_displacement_side(self, side: Side, origin: np.ndarray,
                                     uv_rot_to_global: np.ndarray, global_to_uv_rot: np.ndarray):
@@ -347,8 +329,6 @@ class Overlay:
         if max_r < min_r:
             return  # no vertices inside
 
-        self._disp_grids.append(grid)
-
         # extract sub-grid patch (only fully-inside rows/cols)
         # shrink bounds to only include rows/cols where ALL vertices in the row/col range are inside
         inner_min_r, inner_max_r = max_r, min_r
@@ -373,17 +353,16 @@ class Overlay:
                     row.append(grid[i][j])
                 sub_grid.append(row)
             if len(sub_grid) >= 2 and len(sub_grid[0]) >= 2:
-                # check winding: first cell's cross product should align with face normal
-                e1 = sub_grid[0][1] - sub_grid[0][0]
-                e2 = sub_grid[1][0] - sub_grid[0][0]
-                if np.dot(np.cross(e1, e2), face_normal) < 0:
-                    # reverse columns (not rows) to fix winding without
-                    # breaking the triangulation alignment with the displacement
-                    for row in sub_grid:
-                        row.reverse()
+                # don't reorient: any row/column reversal flips Patch.Triangulate's
+                # diagonal direction in every cell, which desyncs the overlay's
+                # triangulation from the underlying displacement and causes cracks.
+                # MapExporter.convertDisplacement also relies on the natural a→b→c→d order.
                 self._disp_patches.append((sub_grid, face_normal))
 
-        # process border cells — cells that straddle the overlay boundary
+        # process border cells — clip each cell as the two triangles that
+        # Patch.Triangulate would emit (anti-diagonal: top-right→bottom-left),
+        # so the clipped polygon stays on the actual displacement surface
+        # instead of cutting through it.
         for i in range(num_verts - 1):
             for j in range(num_verts - 1):
                 # skip cells fully inside the inner sub-grid
@@ -391,21 +370,19 @@ class Overlay:
                                   inner_min_c <= j and j + 1 <= inner_max_c):
                     continue
 
-                cell_inside = [inside[i][j], inside[i][j+1], inside[i+1][j+1], inside[i+1][j]]
-                cell_verts = [grid[i][j], grid[i][j+1], grid[i+1][j+1], grid[i+1][j]]
+                if not (inside[i][j] or inside[i][j+1] or inside[i+1][j] or inside[i+1][j+1]):
+                    continue  # fully outside the slab
 
-                if not any(cell_inside):
-                    continue  # fully outside
-
-                if all(cell_inside):
-                    # fully inside but not part of inner grid — add as a quad
-                    face = list(cell_verts)
-                    self._disp_border_faces.append((_ensure_winding(face, face_normal), face_normal))
-                else:
-                    # partially inside — clip the quad against slab planes
-                    clipped = _clip_polygon_by_planes(list(cell_verts), self._slab_planes)
+                # Triangle 1: (i+1,j), (i,j+1), (i,j)  [matches Patch.Triangulate, k=j]
+                # Triangle 2: (i+1,j), (i+1,j+1), (i,j+1)  [matches Patch.Triangulate at k=j+1]
+                for tri in (
+                    [grid[i+1][j], grid[i][j+1], grid[i][j]],
+                    [grid[i+1][j], grid[i+1][j+1], grid[i][j+1]],
+                ):
+                    clipped = _clip_polygon_by_planes(list(tri), self._slab_planes)
                     if len(clipped) >= 3:
-                        self._disp_border_faces.append((_ensure_winding(clipped, face_normal), face_normal))
+                        self._disp_border_faces.append(
+                            (_ensure_winding(clipped, face_normal), face_normal))
 
     @staticmethod
     def _rows_match(row_a: List[PatchVert], row_b: List[PatchVert], tol: float = 0.1) -> bool:
@@ -560,14 +537,15 @@ class Overlay:
                     row.append(PatchVert(pos, uv_scaled, vec2(0, 0)))
                 patch.verts.append(row)
 
-            self._fix_patch_winding(patch)
+            # No _fix_patch_winding here: reversing rows/cols would flip Patch.Triangulate's
+            # diagonal and desync the overlay from the underlying displacement.
             patches.append(patch)
 
-        # displacement border face patches (clipped quads/triangles)
-        # project vertices onto displacement triangles to match CoD's triangulation
+        # displacement border face patches — already clipped per displacement
+        # triangle, so each polygon lies on the actual surface.
         for face_verts, face_normal in self._disp_border_faces:
             offset = self._face_offset(face_normal, zOffset)
-            verts = [self._project_onto_disp_surface(v) for v in face_verts]
+            verts = list(face_verts)
             uvs = [self._compute_uv_from_world(v) for v in verts]
             patch = self._build_patch_from_polygon(verts, uvs, mat, tex_scale, offset)
             if patch is not None:
