@@ -881,7 +881,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
     gdt = Gdt()
     convertDir = f"{outDir}/texture_assets/corvid/"
 
-    from SourceIO.library.utils.pylib.vtf import load_vtf_texture
+    from SourceIO.library.utils.pylib.vtf import load_vtf_texture, VTFFile, ImageFormat
 
     # read VMT data for all faces and detect HDR
     vmtData = {}
@@ -922,11 +922,36 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
                 break
         texName = splitext(basename(mat[texParam]))[0]
         vtfData = dir.read_bytes(f"materials/skybox/{texName}.vtf", silent=True)
-        pixel_data, width, height, is_float = load_vtf_texture(vtfData)
-        if is_float:
-            arr = np.frombuffer(pixel_data, dtype=np.float32).reshape(height, width, 4)
+
+        # Format-aware HDR decode, matching Source's sky_hdr_dx9.cpp:
+        #   RGBA16161616F   → linear absolute, no scale
+        #   RGBA16161616    → linear * 16
+        #   RGBA8888 + $hdrcompressedtexture → RGBS: rgb * a * 8
+        vtf = VTFFile()
+        vtf.load_bytes(vtfData)
+        fmt = ImageFormat(int(vtf.format))
+        width, height = int(vtf.width), int(vtf.height)
+        formatScale = 1.0
+        if fmt == ImageFormat.RGBA16161616F:
+            raw = vtf.get_data(0, 0, 0, 0)
+            assert len(raw) == width * height * 8, f"RGBA16161616F size mismatch in {texName}"
+            arr = np.frombuffer(raw, dtype=np.float16).astype(np.float32).reshape(height, width, 4)
+        elif fmt == ImageFormat.RGBA16161616:
+            raw = vtf.get_data(0, 0, 0, 0)
+            assert len(raw) == width * height * 8, f"RGBA16161616 size mismatch in {texName}"
+            arr = np.frombuffer(raw, dtype=np.uint16).astype(np.float32).reshape(height, width, 4) / 65535.0
+            formatScale = 16.0
         else:
-            arr = np.frombuffer(pixel_data, dtype=np.uint8).reshape(height, width, 4).astype(np.float32) / 255.0
+            pixel_data, width, height, is_float = load_vtf_texture(vtfData)
+            if is_float:
+                arr = np.frombuffer(pixel_data, dtype=np.float32).reshape(height, width, 4)
+            else:
+                arr = np.frombuffer(pixel_data, dtype=np.uint8).reshape(height, width, 4).astype(np.float32) / 255.0
+        if texParam == "$hdrcompressedtexture":
+            arr[:, :, :3] *= arr[:, :, 3:4]
+            arr[:, :, 3] = 1.0
+            formatScale *= 8.0
+        arr[:, :, :3] *= formatScale
 
         # apply $basetexturetransform scale to determine target size
         transform = mat.get("$basetexturetransform", "")
@@ -941,17 +966,26 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         skyImages[face] = arr
 
     # resize all faces to square
+    sideFaces = {"lf", "rt", "ft", "bk"}
     for face in faces:
         arr = skyImages[face]
-        # apply $color multiplier for BO3 HDR path
-        if game == "BO3":
-            arr[:, :, :3] *= skyColor
-        if arr.shape[0] != maxDim or arr.shape[1] != maxDim:
+        # $color is the InputScale constant in Source's sky shader — applies in every path.
+        arr[:, :, :3] *= skyColor
+        h, w = arr.shape[:2]
+        if h == maxDim and w == maxDim:
+            skyImages[face] = arr
+        elif face in sideFaces and h < w == maxDim:
+            # Side textures are usually wider than tall because the bottom rows are uniform
+            # horizon color the artist trimmed for VRAM. Pad by replicating the last row
+            # downward instead of stretching the whole image vertically.
+            canvas = np.empty((maxDim, maxDim, 4), dtype=np.float32)
+            canvas[:h] = arr
+            canvas[h:] = arr[-1:, :, :]
+            skyImages[face] = canvas
+        else:
             pil = Image.fromarray((np.clip(arr, 0, 1) * 255).astype(np.uint8), "RGBA")
             pil = pil.resize((maxDim, maxDim), Image.LANCZOS)
             skyImages[face] = np.array(pil).astype(np.float32) / 255.0
-        else:
-            skyImages[face] = arr
 
     if game != "BO3":
         # save individual faces as plain RGB images for older CoD games
