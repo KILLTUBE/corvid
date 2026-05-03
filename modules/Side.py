@@ -49,8 +49,8 @@ class Side:
             self.vAxis: vec3 = vec3(v[1], v[2], v[3])
             self.uOffset: float = float(u[4])
             self.vOffset: float = float(v[4])
-            self.uScale: float = float(u[6])
-            self.vScale: float = float(v[6])
+            self.uScale: float = float(u[6]) or 1
+            self.vScale: float = float(v[6]) or 1
 
             self.texSize: vec2 = vec2(1024, 1024)
             self.lightmapScale: int = int(data["lightmapscale"])
