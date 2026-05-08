@@ -1016,15 +1016,25 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         xcoords, ycoords = np.meshgrid(np.arange(w), np.arange(h))
         corrx, corry = find_corresponding_pixel(xcoords, ycoords, w, h, n)
 
-        equi = cubemap[corry, corrx, :3]
-        res = Image.fromarray((np.clip(equi, 0, 1) * 255).astype(np.uint8), mode="RGB")
-        res.save(f"{convertDir}/i_{mapName}_sky.tif")
+        equi = cubemap[corry, corrx, :3].astype(np.float32)
+        if isHDR:
+            import OpenEXR
+            with OpenEXR.File(
+                {"compression": OpenEXR.ZIP_COMPRESSION, "type": OpenEXR.scanlineimage},
+                {"RGB": equi},
+            ) as outfile:
+                outfile.write(f"{convertDir}/i_{mapName}_sky.exr")
+            skyImageExt = "exr"
+        else:
+            ldr = (np.clip(equi, 0, 1) * 255).astype(np.uint8)
+            Image.fromarray(ldr, "RGB").save(f"{convertDir}/i_{mapName}_sky.tif")
+            skyImageExt = "tif"
 
         # create GDTs for the skybox assets
         gdt.add(f"i_{mapName}_sky", "image", {
             "imageType": "Texture",
             "type": "image",
-            "baseImage": f"texture_assets\\\\corvid\\\\i_{mapName}_sky.tif",
+            "baseImage": f"texture_assets\\\\corvid\\\\i_{mapName}_sky.{skyImageExt}",
             "semantic": "HDR",
             "compressionMethod": "uncompressed",
             "coreSemantic": "HDR",
