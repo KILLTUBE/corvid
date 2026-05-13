@@ -408,7 +408,7 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
     if progress is None:
         progress = Progress()
     if game == "BO3":
-        return createMaterialGdtBo3(vmts, loadedTextures, colorMaps, overlayMats, progress)
+        return createMaterialGdtBo3(vmts, loadedTextures, colorMaps, overlayMats, vtfData, progress)
     gdt = Gdt()
     textureDir = "texture_assets\\\\corvid\\\\"
     ext, _ext = ".tga", "_.tga"
@@ -484,19 +484,15 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
                     except ValueError:
                         pass
             elif game in ("CoD4", "CoD2"):
-                # CoD 4 and CoD 2 share the same water schema: per-channel waterColor and distortionScale*
+                # CoD 4 / CoD 2 water uses per-channel waterColor R/G/B.
+                # There's no refraction-strength field — surface distortion is driven
+                # entirely by the waterMap wave simulation (amplitude + wind), so
+                # $refractamount has no clean target on these games.
                 if "$fogcolor" in mat:
                     c = _parseSourceColor(mat["$fogcolor"])
                     data["waterColorR"] = round(c.x, 3)
                     data["waterColorG"] = round(c.y, 3)
                     data["waterColorB"] = round(c.z, 3)
-                if "$refractamount" in mat:
-                    try:
-                        r = round(max(0.0, min(1.0, float(mat["$refractamount"]))), 3)
-                        data["distortionScaleX"] = r
-                        data["distortionScaleY"] = r
-                    except ValueError:
-                        pass
             
             data["noLightmap"] = "1"
             data["noDynamicLight"] = "1"
@@ -607,10 +603,12 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
         gdt.add(assetName.strip(), "material", data)
     return gdt
 
-def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), overlayMats=None, progress: Progress=None):
+def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), overlayMats=None, vtfData=None, progress: Progress=None):
     if progress is None:
         progress = Progress()
     gdt = Gdt()
+    vtfData = vtfData or {}
+    avgColorCache = {}
     total = len(vmts.items())
 
     for i, (name, vmt) in enumerate(vmts.items()):
@@ -618,6 +616,47 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
         shader = list(vmt)[0]
         mat = vmt[shader]
         assetName = name
+
+        # Dedicated water branch: emit a translucent material tagged for the water
+        # surface so BO3's material.template fills in the rest of the water params.
+        if shader == "water" or "%compilewater" in mat or "%compileslime" in mat:
+            wdata = {
+                "template": "material.template",
+                "materialCategory": "Geometry",
+                "materialType": "lit_transparent_nocull" if "$nocull" in mat else "lit_transparent",
+                "surfaceType": "water",
+                "glossSurfaceType": "water",
+                "usage": "water",
+                "glossRangeMin": 0.0,
+                "glossRangeMax": 0.0,
+            }
+            if "$basetexture" in mat:
+                fileName = newPath(mat["$basetexture"], shorten=True)
+                wdata["colorMap"] = ("i_" + fileName) if fileName in loadedTextures else "i_404"
+            else:
+                wdata["colorMap"] = "i_404"
+            if "$bumpmap" in mat:
+                fileName = newPath(mat["$bumpmap"], shorten=True)
+                if fileName in loadedTextures:
+                    wdata["normalMap"] = "i_" + fileName
+
+            tint = vec3(1.0, 1.0, 1.0)
+            if "$basetexture" in mat:
+                texName = newPath(mat["$basetexture"], shorten=True)
+                if texName in vtfData:
+                    if texName not in avgColorCache:
+                        try:
+                            avgColorCache[texName] = getAverageColor(vtfData[texName])
+                        except Exception:
+                            avgColorCache[texName] = vec3(1.0, 1.0, 1.0)
+                    tint = avgColorCache[texName]
+            wdata["colorTint"] = f"{Vec2Str(tint)} 1"
+
+            if "$fogcolor" in mat:
+                wdata["waterColor"] = f"{Vec2Str(_parseSourceColor(mat['$fogcolor']))} 0"
+
+            gdt.add(assetName, "material", wdata)
+            continue
 
         isModel = shader in ("vertexlitgeneric", "vertexunlitgeneric", "infected")
         data = {"usage": "<not in editor>" if isModel else "exterior wall"}
