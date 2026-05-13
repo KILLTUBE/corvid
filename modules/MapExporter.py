@@ -227,9 +227,6 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=vec3(0
             else:
                 material = "clip"
 
-        elif side.material.startswith("liquid"):
-                material = "clip_water"
-        
         elif brushConversion:
             material = newPath(side.material)
         
@@ -851,13 +848,13 @@ def exportMap(
         progress.overall(5, 13)
     if not skipMats:
         allColorMaps = set(matData["colorMaps"] + matData["colorMapsAlpha"])
-        worldMats = createMaterialGdt(matData["vmts"], game, set(matData["vtfData"].keys()), overlayMats=overlayMats, colorMaps=allColorMaps, progress=progress)
+        worldMats = createMaterialGdt(matData["vmts"], game, set(matData["vtfData"].keys()), overlayMats=overlayMats, colorMaps=allColorMaps, vtfData=matData["vtfData"], progress=progress)
         gdtFile += worldMats
     if game != "BO3" and not skipMats:
         batFile += worldMats.toBat()
     if not skipModels:
         allMdlColorMaps = set(mdlMatData["colorMaps"] + mdlMatData["colorMapsAlpha"])
-        modelMats = createMaterialGdt(mdlMatData["vmts"], game, set(mdlMatData["vtfData"].keys()), colorMaps=allMdlColorMaps, progress=progress)
+        modelMats = createMaterialGdt(mdlMatData["vmts"], game, set(mdlMatData["vtfData"].keys()), colorMaps=allMdlColorMaps, vtfData=mdlMatData["vtfData"], progress=progress)
         gdtFile += modelMats
     if game != "BO3" and not skipModels:
         batFile += modelMats.toBat()

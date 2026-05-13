@@ -4,7 +4,7 @@ os.environ["NO_BPY"] = "1"
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from SourceIO.library.utils.pylib.vtf import load_vtf_texture
-from glm import vec2
+from glm import vec2, vec3
 from .Static import newPath, VecFromStr, Vec2Str, Vec2Hex
 from .ModelConverter import convertModel
 from .Progress import Progress
@@ -217,9 +217,26 @@ def convertImages(images, outDir, ext="tga", overlayTextures=None, progress: Pro
     draw.text((62, 206), "TEXTURE NOT FOUND", (255, 255, 255), font=ImageFont.truetype("impact.ttf", 50))
     img.save(f"{outDir}/404.{ext}")
 
+    # Older CoD asset converters require texture_assets/case/case64blue.tga to exist
+    # for water materials, even though it's not referenced from any GDT we emit.
+    if ext == "tga":
+        casePath = f"{os.path.dirname(outDir)}/case"
+        os.makedirs(casePath, exist_ok=True)
+        Image.new("RGB", (64, 64), (0, 0, 255)).save(f"{casePath}/case64blue.tga")
+
 def getTexSize(vtf_data):
     pixel_data, width, height, is_float = load_vtf_texture(vtf_data)
     return vec2(width, height)
+
+def getAverageColor(vtf_data):
+    """Average RGB color of a VTF texture, returned as a vec3 in 0-1 range."""
+    pixel_data, width, height, is_float = load_vtf_texture(vtf_data)
+    if is_float:
+        arr = np.frombuffer(pixel_data, dtype=np.float32).reshape(height, width, 4)[:, :, :3]
+    else:
+        arr = np.frombuffer(pixel_data, dtype=np.uint8).reshape(height, width, 4)[:, :, :3].astype(np.float32) / 255.0
+    avg = arr.reshape(-1, 3).mean(axis=0)
+    return vec3(float(avg[0]), float(avg[1]), float(avg[2]))
 
 def convertModels(models, modelData, modelTints, modelSkins, skinTints, materialNames, game="WaW", scale=1.0, outDir="", progress: Progress=None):
     if progress is None:

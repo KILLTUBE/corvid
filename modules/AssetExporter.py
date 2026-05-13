@@ -9,7 +9,7 @@ from os.path import basename, splitext, dirname
 from math import log2
 from .Static import fixVmt, newPath, VecFromStr, Vec2Str, Vec2Hex
 from .Gdt import Gdt
-from .AssetConverter import getTexSize
+from .AssetConverter import getTexSize, getAverageColor
 from SourceIO.library.models.mdl.v49.mdl_file import MdlV49
 from SourceIO.library.utils import MemoryBuffer
 from pathlib import Path
@@ -397,7 +397,14 @@ def surfaceType(surface: str, game=""):
             "glossrange": (0, 4)
         }
     
-def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=None, colorMaps=set(), progress: Progress=None):
+def _parseSourceColor(s: str) -> vec3:
+    """Parse a Source RGB color ('[r g b]' 0-1 or '{r g b}' 0-255) as a 0-1 vec3."""
+    vec = VecFromStr(s, 3)
+    if "{" in s or vec.x > 1.0 or vec.y > 1.0 or vec.z > 1.0:
+        vec = vec3(vec.x / 255.0, vec.y / 255.0, vec.z / 255.0)
+    return vec
+
+def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=None, colorMaps=set(), vtfData=None, progress: Progress=None):
     if progress is None:
         progress = Progress()
     if game == "BO3":
@@ -405,6 +412,8 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
     gdt = Gdt()
     textureDir = "texture_assets\\\\corvid\\\\"
     ext, _ext = ".tga", "_.tga"
+    vtfData = vtfData or {}
+    avgColorCache = {}
 
     total = len(vmts.items())
 
@@ -429,6 +438,72 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
             data["materialType"] = "world unlit"
         elif shader == "vertexlitgeneric" or shader == "infected":
             data["materialType"] = "model phong"
+        elif shader == "water" or "%compilewater" in mat or "%compileslime" in mat:
+            data["materialType"] = "water"
+
+            # colorTint + envMap reflection apply to WaW and CoD 4 (CoD 2 has no such keys)
+            if game in ("WaW", "CoD4"):
+                tint = vec3(1.0, 1.0, 1.0)
+                if "$basetexture" in mat:
+                    texName = newPath(mat["$basetexture"], shorten=True)
+                    if texName in vtfData:
+                        if texName not in avgColorCache:
+                            try:
+                                avgColorCache[texName] = getAverageColor(vtfData[texName])
+                            except Exception:
+                                avgColorCache[texName] = vec3(1.0, 1.0, 1.0)
+                        tint = avgColorCache[texName]
+                data["colorTint"] = f"{Vec2Str(tint)} 1"
+
+                if "$reflectamount" in mat:
+                    try:
+                        r = max(0.0, min(1.0, float(mat["$reflectamount"])))
+                        data["envMapMax"] = round(r, 3)
+                        data["envMapMin"] = round(r * 0.2, 3)
+                    except ValueError:
+                        pass
+
+            if game == "WaW":
+                # CoDWaW is the only target that supports water normal maps
+                if "$bumpmap" in mat:
+                    data["normalMap"] = newPath(mat["$bumpmap"], shorten=True)
+                if "$fogcolor" in mat:
+                    data["waterColor"] = f"{Vec2Str(_parseSourceColor(mat['$fogcolor']))} 0"
+                if "$refracttint" in mat:
+                    data["waterGroundColor"] = f"{Vec2Str(_parseSourceColor(mat['$refracttint']))} 0"
+                if "$reflecttint" in mat:
+                    data["waterSkyColor"] = f"{Vec2Str(_parseSourceColor(mat['$reflecttint']))} 0"
+                if "$refractamount" in mat:
+                    try:
+                        data["waterRefract"] = round(max(0.0, min(100.0, float(mat["$refractamount"]) * 100.0)), 3)
+                    except ValueError:
+                        pass
+                if "$flow_bumpstrength" in mat:
+                    try:
+                        data["waterRoughness"] = round(max(0.0, min(1.0, float(mat["$flow_bumpstrength"]))), 3)
+                    except ValueError:
+                        pass
+            elif game in ("CoD4", "CoD2"):
+                # CoD 4 and CoD 2 share the same water schema: per-channel waterColor and distortionScale*
+                if "$fogcolor" in mat:
+                    c = _parseSourceColor(mat["$fogcolor"])
+                    data["waterColorR"] = round(c.x, 3)
+                    data["waterColorG"] = round(c.y, 3)
+                    data["waterColorB"] = round(c.z, 3)
+                if "$refractamount" in mat:
+                    try:
+                        r = round(max(0.0, min(1.0, float(mat["$refractamount"]))), 3)
+                        data["distortionScaleX"] = r
+                        data["distortionScaleY"] = r
+                    except ValueError:
+                        pass
+            
+            data["noLightmap"] = "1"
+            data["noDynamicLight"] = "1"
+            data["noCastShadow"] = "1"
+            data["transparent"] = "1"
+            data["detail"] = "1"
+            data["noMarks"] = "1"
         else:
             data["materialType"] = "world phong"
 
@@ -438,7 +513,7 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
                 data["colorMap"] = textureDir + fileName + ext
             else:
                 data["colorMap"] = textureDir + "404" + ext
-        else:
+        elif data["materialType"] == "water":
             data["colorMap"] = textureDir + "404" + ext
         
         if "$bumpmap" in mat:

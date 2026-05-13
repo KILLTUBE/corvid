@@ -44,7 +44,7 @@ def readMap(vmf):
             for side in (solid["side"] if isinstance(solid["side"], list) else [solid["side"]]):
                 sides.append(Side(side))
                 matName = side["material"].lower()
-                if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
+                if matName not in materials and not matName.startswith("tools/"):
                     materials.append(matName)
             if "editor" in solid:
                 if "visgroupid" in solid["editor"] and solid["editor"]["visgroupid"] == skyBoxId:
@@ -111,7 +111,7 @@ def readMap(vmf):
                     for side in (solid["side"] if isinstance(solid["side"], list) else [solid["side"]]):
                         sides.append(Side(side))
                         matName = side["material"].lower()
-                        if matName not in materials and not matName.startswith("tools/") and not matName.startswith("liquids/"):
+                        if matName not in materials and not matName.startswith("tools/"):
                             materials.append(matName)
                     if "editor" in solid:
                         if "visgroupid" in solid["editor"] and solid["editor"]["visgroupid"] == skyBoxId:
