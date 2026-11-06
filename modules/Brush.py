@@ -1,6 +1,6 @@
 from .Side import Side
 from .AABB import AABB
-from math import isnan
+from math import isnan, inf
 from glm import vec3, normalize, cross, dot, min, max, length
 
 class Brush:
@@ -12,7 +12,8 @@ class Brush:
         self.rebuildGeometry()
         self.entity = entity
         self.entData = entData
-        self.isToolBrush = False
+        # true if every side uses a tool material (clip, trigger, nodraw, skybox etc.)
+        self.isToolBrush = all(side.material.startswith("tools") for side in sides)
         self._box: AABB = None
 
     def isPointInside(self, point: vec3, epsilon: float = 1e-4) -> bool:
@@ -48,16 +49,16 @@ class Brush:
             
             if side.hasDisp:
                 self.hasDisp = True
-            if not side.material.startswith("tools"):
-                self.isToolBrush = True
 
     # get the bounding box of a brush
     def AABB(self):
         if self._box is not None:
             return self._box
 
-        _min = vec3(0, 0, 0)
-        _max = vec3(0, 0, 0)
+        # start with an inverted infinite box so the first point initializes it.
+        # a brush without any points keeps it and doesn't touch anything
+        _min = vec3(inf, inf, inf)
+        _max = vec3(-inf, -inf, -inf)
 
         for side in self.sides:
             for point in side.points:
@@ -80,7 +81,7 @@ class Brush:
 
         for side in self.sides:
             if side.IsTouching(box):
-                if dot(normalize(side.normal), box.center - side.p1) < 0: # if it's behind the side, we don't need it
+                if dot(normalize(side.normal()), box.center - side.p1) < 0: # if it's behind the side, we don't need it
                     continue
                 points.append(side.getClosestPoint(box.center))
         

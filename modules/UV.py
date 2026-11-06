@@ -2,78 +2,102 @@ from __future__ import annotations
 import math
 import numpy as np
 from typing import List
-from glm import vec3, vec2, dot, normalize
+from glm import vec3, vec2
+
+
+# CoD Radiant's axial texture planes (q3radiant's baseaxis): a normal, then the s and t texture axes.
+# Order matters: when two planes are equally close, the first one wins.
+_BASE_AXIS = (
+    ((0, 0, 1), (1, 0, 0), (0, -1, 0)),
+    ((0, 0, -1), (1, 0, 0), (0, -1, 0)),
+    ((1, 0, 0), (0, 1, 0), (0, 0, -1)),
+    ((-1, 0, 0), (0, 1, 0), (0, 0, -1)),
+    ((0, 1, 0), (1, 0, 0), (0, 0, -1)),
+    ((0, -1, 0), (1, 0, 0), (0, 0, -1)),
+)
+
+
+def _texture_axes(normal: vec3):
+    """
+    Same as Radiant's TextureAxisIndices: returns the coordinate index each texture axis runs
+    along (sv, tv) and the sign of that axis (xs, ys).
+    """
+    best, bestAxis = 0.0, 0
+    for i, (n, _, _) in enumerate(_BASE_AXIS):
+        d = normal.x * n[0] + normal.y * n[1] + normal.z * n[2]
+        if d > best:
+            best, bestAxis = d, i
+    _, xv, yv = _BASE_AXIS[bestAxis]
+    sv = next(i for i in range(3) if xv[i] != 0)
+    tv = next(i for i in range(3) if yv[i] != 0)
+    return sv, tv, xv[sv], yv[tv]
 
 
 def fit_uvs(vertices: List[vec3], uvs: List[vec2], normal: vec3):
     """
-    Compute CoD UV parameters from 3 vertices, their UVs, and face normal.
-    CoD Radiant treats all textures as 512x512.
-    Returns (h_scale, v_scale, h_offset, v_offset, rotation).
+    Compute CoD texture parameters for a brush face from its vertices and their UVs.
+    UVs are in texture repeats (1.0 = one full texture), the same unit Radiant uses.
+
+    This is the inverse of how Radiant builds a face's texture matrix (Texdef_GetMatrix), done
+    the same way Radiant itself does it (Face_UVsToTexdefs -> Texdef_FromSolved). Since the texture
+    definition has 6 parameters including shear, any affine Source texture mapping can be
+    represented exactly, including skewed texture axes.
+    Unlike Radiant, nothing is snapped to "nice" values: a tiny scale change gets multiplied by the
+    distance from the origin, which can shift textures by several pixels on large maps.
+    Returns (h_scale, v_scale, h_shift, v_shift, rotation, shear).
     """
-    fallback = (128.0, 128.0, 0.0, 0.0, 0.0)
+    fallback = (128.0, 128.0, 0.0, 0.0, 0.0, 0.0)
 
-    # Project vertices to 2D using CoD's axis convention
-    n = normalize(normal)
-    UP, RIGHT, FORWARD = vec3(0, 0, 1), vec3(0, 1, 0), vec3(1, 0, 0)
-    du, dr, df = abs(dot(n, UP)), abs(dot(n, RIGHT)), abs(dot(n, FORWARD))
-
-    def project(v):
-        if du >= dr and du >= df:
-            return (v.x, -v.y)
-        elif df >= du and df >= dr:
-            return (v.y, -v.z)
-        else:
-            return (v.x, -v.z)
-
-    proj = [project(v) for v in vertices[:3]]
-
-    # Solve affine system:
-    #   uv.x = a1*px + a2*py + a3
-    #   uv.y = a4*px + a5*py + a6
-    M = np.array([[p[0], p[1], 1.0] for p in proj])
-
-    try:
-        a1, a2, a3 = np.linalg.solve(M, [uvs[i].x for i in range(3)])
-        a4, a5, a6 = np.linalg.solve(M, [uvs[i].y for i in range(3)])
-    except np.linalg.LinAlgError:
+    if len(vertices) < 3 or len(vertices) != len(uvs):
         return fallback
 
-    # Decompose: a1 = c/sx, a2 = -s/sx => rotation = atan2(-a2, a1)
-    kx = math.sqrt(a1**2 + a2**2)
-    if kx < 1e-9:
+    nLen = math.sqrt(normal.x ** 2 + normal.y ** 2 + normal.z ** 2)
+    if nLen < 1e-12:
+        return fallback
+    n = vec3(normal.x / nLen, normal.y / nLen, normal.z / nLen)
+    sv, tv, xs, ys = _texture_axes(n)
+
+    # Texture coordinates are an affine function of the two coordinates the axial plane keeps:
+    #   u = A * P[sv] + B * P[tv] + C
+    #   v = D * P[sv] + E * P[tv] + F
+    # Every vertex is used (least squares), so slivers and nearly collinear points don't matter.
+    M = np.array([[float(p[sv]), float(p[tv]), 1.0] for p in vertices])
+    U = np.array([float(uv.x) for uv in uvs])
+    V = np.array([float(uv.y) for uv in uvs])
+    (A, B, C), _, rankU, _ = np.linalg.lstsq(M, U, rcond=None)
+    (D, E, F), _, rankV, _ = np.linalg.lstsq(M, V, rcond=None)
+    if rankU < 3 or rankV < 3:
         return fallback
 
-    angle = math.atan2(-a2, a1)
-    rotation = math.degrees(angle)
-    if rotation < 0:
-        rotation += 360.0
-    if rotation == 360.0:
-        rotation = 0.0
+    # rows of the texture matrix along the s and t axes
+    S = [0.0, 0.0, 0.0]
+    T = [0.0, 0.0, 0.0]
+    S[sv], S[tv] = A, B
+    T[sv], T[tv] = D, E
 
-    # y-scale with sign: ky = a4*sin(angle) + a5*cos(angle) = 1/sy
-    ky = a4 * math.sin(angle) + a5 * math.cos(angle)
-    if abs(ky) < 1e-9:
+    tLen2 = T[0] ** 2 + T[1] ** 2 + T[2] ** 2
+    if tLen2 < 1e-18:
         return fallback
 
-    # Radiant assumes 512x512, so scale = 1/k directly
-    x_scale = round(1.0 / kx)
-    y_scale = round(1.0 / ky)
-    rotation = round(rotation)
+    # the part of s that runs along t is the shear
+    shear = (S[0] * T[0] + S[1] * T[1] + S[2] * T[2]) / tLen2
+    S = [S[i] - shear * T[i] for i in range(3)]
 
-    # Recompute offset from vertex 0 using the rounded rotation and scale,
-    # since the .map format writes these as integers. Computing offset against
-    # the rounded values ensures consistency with what CoD Radiant actually uses.
-    if x_scale == 0 or y_scale == 0:
+    sLen = math.sqrt(S[0] ** 2 + S[1] ** 2 + S[2] ** 2)
+    if sLen < 1e-9:
         return fallback
+    xScale = 1.0 / sLen
+    yScale = 1.0 / math.sqrt(tLen2)
+    # mirrored textures get a negative vertical scale
+    if (T[tv] * (S[sv] * xs)) * ys - (T[sv] * (S[tv] * xs)) * ys < 0.0:
+        yScale = -yScale
 
-    p0 = proj[0]
-    angle_r = math.radians(rotation)
-    cos_a, sin_a = math.cos(angle_r), math.sin(angle_r)
-    r0_x = p0[0] * cos_a - p0[1] * sin_a
-    r0_y = p0[0] * sin_a + p0[1] * cos_a
+    rotation = math.degrees(math.atan2(S[tv] * xs, S[sv] * xs))
+    rotation %= 360.0
 
-    x_offset = r0_x - uvs[0].x * x_scale
-    y_offset = r0_y - uvs[0].y * y_scale
+    # The texture repeats every |scale| units, so wrap the shifts into a single repeat.
+    # This keeps them small, so they don't lose precision on faces far away from the origin.
+    xShift = math.fmod(-C * xScale, abs(xScale))
+    yShift = math.fmod(-F * yScale, abs(yScale))
 
-    return (x_scale, y_scale, x_offset, y_offset, rotation)
+    return (xScale, yScale, xShift, yShift, rotation, shear)

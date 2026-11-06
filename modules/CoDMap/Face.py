@@ -1,9 +1,9 @@
 from io import TextIOWrapper
 from glm import vec3, vec2
-from ..Static import Vec2Str
+from ..Static import Vec2Str, Float2Str
 
 class Face:
-    # (p1) (p2) (p3) texture hScale vScale hShift vShift rotation 0 lmap lhScale lvScale lhShift lvShift lrot 0
+    # (p1) (p2) (p3) texture hScale vScale hShift vShift rotation shear lmap lhScale lvScale lhShift lvShift lrot 0
     p1: vec3
     p2: vec3
     p3: vec3
@@ -26,13 +26,14 @@ class Face:
         self.hScale, self.vScale = hScale, vScale
         self.hShift, self.vShift = hShift, vShift
         self.rotation = rotation
+        self.shear = 0
         self.lightmap = lmap
         self.lhScale, self.lvScale = lhScale, lvScale
         self.lhShift, self.lvShift = lhShift, lvShift
         self.smoothing = smoothing
 
     def __str__(self) -> str:
-        res = f"( {Vec2Str(self.p1)} ) ( {Vec2Str(self.p2)} ) ( {Vec2Str(self.p3)} ) {self.texture} {round(self.hScale)} {round(self.vScale)} {self.hShift:.5g} {self.vShift:.5g} {round(self.rotation)} 0 {self.lightmap} {self.lhScale} {self.lhScale} 0 0 0 0"
+        res = f"( {Vec2Str(self.p1)} ) ( {Vec2Str(self.p2)} ) ( {Vec2Str(self.p3)} ) {self.texture} {Float2Str(self.hScale)} {Float2Str(self.vScale)} {Float2Str(self.hShift)} {Float2Str(self.vShift)} {Float2Str(self.rotation)} {Float2Str(self.shear)} {self.lightmap} {self.lhScale} {self.lvScale} 0 0 0 0"
         
         if self.smoothing is not None:
             res += " smoothing " + self.smoothing
@@ -49,9 +50,10 @@ class Face:
     def Fit(self, normal, vertices: list[vec3], uvs: list[vec2]):
         """ Fits the UV parameters from vertices, UVs, and face normal. """
         from ..UV import fit_uvs
-        h, v, ho, vo, r = fit_uvs(vertices, uvs, normal)
+        h, v, ho, vo, r, sh = fit_uvs(vertices, uvs, normal)
         self.hScale = h
         self.vScale = v
         self.hShift = ho
         self.vShift = vo
         self.rotation = r
+        self.shear = sh
