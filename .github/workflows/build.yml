@@ -24,9 +24,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # Corvid.spec bundles pylib.pyd and MSVCP140.dll (required by pylib.pyd)
       - name: Build executable
         run: |
-          pyinstaller app.py -F -i res/icon.ico -n "Corvid" --windowed --hidden-import=glm --add-binary "SourceIO/library/utils/pylib/windows/pylib.pyd;SourceIO/library/utils/pylib/windows"
+          pyinstaller --noconfirm Corvid.spec
 
       - name: Copy resources
         run: |

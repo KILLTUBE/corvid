@@ -1,5 +1,6 @@
 @echo off
 if exist dist rd /S /Q dist
-pyinstaller app.py -F -i res/icon.ico -n "Corvid" --windowed --hidden-import=glm --add-binary "SourceIO/library/utils/pylib/windows/pylib.pyd;SourceIO/library/utils/pylib/windows"
+REM Corvid.spec bundles pylib.pyd and MSVCP140.dll (required by pylib.pyd)
+pyinstaller --noconfirm Corvid.spec
 mkdir "dist\res"
 xcopy /s /e "res" "dist\res\"

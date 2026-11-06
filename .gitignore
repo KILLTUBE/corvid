@@ -7,6 +7,6 @@ test/
 test.py
 .vscode/settings.json
 *.tmp
-Corvid.spec
 corvid_venv_win
 corvid_venv_linux
+*.whl
