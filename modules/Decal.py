@@ -3,7 +3,6 @@ from math import fabs
 
 from glm import vec2, vec3, normalize, cross, dot, length
 
-from os.path import basename
 from modules.Static import newPath
 from .Brush import Brush
 from .Side import Side
@@ -78,9 +77,9 @@ class Decal:
 
         # read $decalscale from VMT — units per texel (typically 0.25 or lower)
         self.decalScale = 0.25
-        mat_basename = basename(self.texture.lower().replace("\\", "/"))
-        if mat_basename in vmts:
-            vmt = vmts[mat_basename]
+        # vmts are keyed by the converted material name, same as matSizes
+        if mat_key in vmts:
+            vmt = vmts[mat_key]
             shader = list(vmt)[0]
             mat = vmt[shader]
             if "$decalscale" in mat:

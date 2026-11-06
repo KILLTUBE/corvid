@@ -3,6 +3,7 @@ from os.path import basename, splitext, dirname
 from hashlib import shake_256
 from glm import vec2, vec3
 from typing import Union
+import numpy as np
 
 # cod 4 and waw don't like images when their names contain more than 42 charcters including the extension
 # so we need to make sure they won't cause any problems while being converted
@@ -94,8 +95,20 @@ def VecFromStr(vec: str, size: int) -> Union[vec2, vec3]:
     tok = vec.translate(table).strip().split()
     return vec3([float(i) for i in tok[:size]])
 
+def Float2Str(value: float) -> str:
+    """
+    Shortest decimal that reads back as the same 32-bit float, which is what CoD's tools store.
+    Fixed digit counts either lose precision on large coordinates or print float noise.
+    """
+    if abs(value) < 1e-6:
+        return "0"
+    # fast path for whole numbers, which most map coordinates are
+    if value == int(value) and abs(value) < 16777216:
+        return str(int(value))
+    return np.format_float_positional(np.float32(value), trim="-")
+
 def Vec2Str(vec: Union[vec2, vec3]) -> str:
-    return " ".join([f"{i:.5g}" for i in vec])
+    return " ".join([Float2Str(i) for i in vec])
 
 def Vec2Hex(vec: vec3) -> str:
     return "%02x%02x%02x" % (int(vec.x), int(vec.y), int(vec.z))

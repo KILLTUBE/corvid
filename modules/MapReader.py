@@ -7,6 +7,30 @@ from .vdfutils import parse_vdf
 from os.path import splitext
 from glm import vec3
 
+def makeBrush(sides: List[Side], entity: str, solidId: str, entData: dict = None):
+    """Creates a brush, dropping degenerate sides. Returns None if the brush geometry can't be built."""
+    validSides = [side for side in sides if not side.isDegenerate()]
+    if len(validSides) != len(sides):
+        print(f"Brush {solidId} has {len(sides) - len(validSides)} degenerate side(s). Skipping them...")
+    if len(validSides) < 4:
+        print(f"Brush {solidId} does not have enough valid sides. Skipping it...")
+        return None
+
+    try:
+        brush = Brush(validSides, entity, solidId) if entData is None else Brush(validSides, entity, solidId, entData)
+    except Exception as e:
+        print(f"Could not build the geometry of brush {solidId} ({e}). Skipping it...")
+        return None
+
+    # less than 4 faces, or points left on the huge base winding means the brush isn't closed
+    if sum(1 for side in brush.sides if len(side.points) >= 3) < 4 or any(
+        abs(coord) > 16384 * 3 for side in brush.sides for point in side.points for coord in point
+    ):
+        print(f"Brush {solidId} has invalid geometry. Skipping it...")
+        return None
+
+    return brush
+
 def readMap(vmf):
     mapData = parse_vdf(vmf, allowRepeats=True)
     worldBrushes: List[Brush] = []
@@ -46,13 +70,13 @@ def readMap(vmf):
                 matName = side["material"].lower()
                 if matName not in materials and not matName.startswith("tools/"):
                     materials.append(matName)
-            if "editor" in solid:
-                if "visgroupid" in solid["editor"] and solid["editor"]["visgroupid"] == skyBoxId:
-                    skyBrushes.append(Brush(sides, "world", solid["id"]))
-                else:
-                    worldBrushes.append(Brush(sides, "world", solid["id"]))
+            brush = makeBrush(sides, "world", solid["id"])
+            if brush is None:
+                continue
+            if "editor" in solid and "visgroupid" in solid["editor"] and solid["editor"]["visgroupid"] == skyBoxId:
+                skyBrushes.append(brush)
             else:
-                worldBrushes.append(Brush(sides, "world", solid["id"]))
+                worldBrushes.append(brush)
 
     if "entity" not in mapData:
         mapData["entity"] = []
@@ -113,13 +137,14 @@ def readMap(vmf):
                         matName = side["material"].lower()
                         if matName not in materials and not matName.startswith("tools/"):
                             materials.append(matName)
-                    if "editor" in solid:
-                        if "visgroupid" in solid["editor"] and solid["editor"]["visgroupid"] == skyBoxId:
-                            skyEntityBrushes.append(Brush(sides, entity["classname"], solid["id"]))
-                        else:
-                            entityBrushes.append(Brush(sides, entity["classname"], solid["id"], entity))
+                    if "editor" in solid and "visgroupid" in solid["editor"] and solid["editor"]["visgroupid"] == skyBoxId:
+                        brush = makeBrush(sides, entity["classname"], solid["id"])
+                        if brush is not None:
+                            skyEntityBrushes.append(brush)
                     else:
-                        entityBrushes.append(Brush(sides, entity["classname"], solid["id"], entity))
+                        brush = makeBrush(sides, entity["classname"], solid["id"], entity)
+                        if brush is not None:
+                            entityBrushes.append(brush)
         elif entity["classname"] == "sky_camera":
             skyBoxOrigin = VecFromStr(entity["origin"], 3)
             skyBoxScale = float(entity["scale"])
@@ -141,6 +166,21 @@ def readMap(vmf):
                     entities.append(entity)
             else:
                 entities.append(entity)
+
+    # overlays are placed on brush sides, so the ones placed on 3d skybox brushes are moved
+    # to the skybox entities to get the same transform as the skybox geometry
+    if len(skyBrushes) > 0 or len(skyEntityBrushes) > 0:
+        skySides = set(side.id for brush in skyBrushes + skyEntityBrushes for side in brush.sides)
+        worldSides = set(side.id for brush in worldBrushes + entityBrushes for side in brush.sides)
+        for entity in entities.copy():
+            if entity["classname"] != "info_overlay" or entity.get("sides", "") == "":
+                continue
+            sideIds = entity["sides"].split()
+            skyCount = sum(1 for sideId in sideIds if sideId in skySides)
+            worldCount = sum(1 for sideId in sideIds if sideId in worldSides)
+            if skyCount > 0 and skyCount >= worldCount:
+                entities.remove(entity)
+                skyEntities.append(entity)
 
     models = sorted(set(models))
     materials = sorted(set(materials))

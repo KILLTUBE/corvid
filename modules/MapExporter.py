@@ -1,4 +1,5 @@
 from io import TextIOWrapper
+from copy import copy
 from math import sin, cos, acos, atan2, log2, radians, degrees, inf
 from typing import Dict, List, Union
 from modules.Brush import Brush
@@ -165,11 +166,25 @@ def convertDisplacement(side: Side, matSize, origin=vec3(0, 0, 0), scale=1, game
     return [res, res2]
 
 
-def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=vec3(0, 0, 0), scale=1, matSizes: dict=None, brushConversion=False, sideDict: dict=None, AABBmin: vec3=vec3(0, 0, 0), AABBmax: vec3=vec3(0, 0, 0)):
+def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=vec3(0, 0, 0), scale=1, matSizes: dict=None, sideDict: dict=None, AABBmin: vec3=None, AABBmax: vec3=None, waterMats: set=None):
+    # AABBmin/AABBmax are updated in place, so they must never be shared default instances
+    if AABBmin is None:
+        AABBmin = vec3(inf, inf, inf)
+    if AABBmax is None:
+        AABBmax = vec3(-inf, -inf, -inf)
     if matSizes is None:
         matSizes = {}
     if sideDict is None:
         sideDict = {}
+    if waterMats is None:
+        waterMats = set()
+
+    # In Source, a single water face makes the whole brush a water volume. In CoD, the brush
+    # becomes a clip_water volume and each water face becomes a separate patch with the water material.
+    isWater = any(
+        not side.material.startswith("tools") and (newPath(side.material) in waterMats or side.material.lower().startswith("liquids/"))
+        for side in brush.sides
+    )
     tools = {
         "toolsnodraw": "caulk",
         "toolsclip": "clip", "toolsplayerclip": "clip", "toolsinvisible": "clip", "toolsnpcclip": "clip", "toolsgrenadeclip": "clip_missile",
@@ -220,6 +235,18 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=vec3(0
         p2 = (side.p2 - origin) * scale
         p3 = (side.p3 - origin) * scale
 
+        if isWater:
+            if not side.material.startswith("tools") and len(side.points) >= 3:
+                # convertSide appends to the side's points/uvs, so work on a copy
+                waterSide = copy(side)
+                waterSide.points = list(side.points)
+                waterSide.uvs = []
+                waterPatch = convertSide(waterSide, matSizes, origin, scale)
+                if waterPatch is not None:
+                    resPatch.append(waterPatch)
+            faces.append(cod.Face(p1, p2, p3, "clip_water"))
+            continue
+
         if side.material.startswith("tools"):
             mat = basename(side.material.replace("\\", "/"))
             if mat in tools:
@@ -227,20 +254,20 @@ def convertBrush(brush: Brush, world=True, game="WaW", mapName="", origin=vec3(0
             else:
                 material = "clip"
 
-        elif brushConversion:
-            material = newPath(side.material)
-        
         else:
             material = newPath(side.material)
             if material not in matSizes:
                 matSizes[material] = vec2(512, 512)
             
-            # Fit UVs to get proper CoD brush UV parameters
-            verts = side.points
-            uvs = [side.getUV(p, matSizes[material]) for p in verts]
+            # Fit UVs to get proper CoD brush UV parameters.
+            # UVs are calculated from the original Source positions, but they're fitted against
+            # the transformed positions so the textures get scaled together with the geometry
+            uvs = [side.getUV(p, matSizes[material]) for p in side.points]
+            verts = [(p - origin) * scale for p in side.points]
             
             face = cod.Face(p1, p2, p3, material)
-            face.Fit(side.normal(), verts, uvs)
+            # the scale may be non-uniform, so use the normal of the transformed plane
+            face.Fit(cross(p2 - p1, p3 - p1), verts, uvs)
             faces.append(face)
             continue
 
@@ -779,7 +806,7 @@ def createSkyBrushes(AABBmin: vec3, AABBmax: vec3, mapName="", game="WaW"):
 def exportMap(
         vmfString, vpkFiles=[], gameDirs=[], game="WaW",
         skipMats=False, skipModels=False, mapName="",
-        brushConversion=False, scale=1.0, file: TextIOWrapper=None,
+        scale=1.0, file: TextIOWrapper=None,
         outputDir="", progress: Progress=None
     ):
     if progress is None:
@@ -833,6 +860,14 @@ def exportMap(
             mat = matData["vmts"][matName][shader]
             if "$basetexture" in mat:
                 overlayTextures.add(newPath(mat["$basetexture"].strip(), shorten=True))
+
+    # materials using Source's water shader; brushes using them are exported as non-colliding
+    waterMats = set()
+    for matName, vmt in matData["vmts"].items():
+        shader = list(vmt)[0]
+        mat = vmt[shader]
+        if shader == "water" or "%compilewater" in mat or "%compileslime" in mat:
+            waterMats.add(matName)
 
     # create GDT files
     gdtFile = Gdt()
@@ -897,14 +932,16 @@ def exportMap(
     worldSpawnSettings = {}
 
     # store the furthest points for each axis to calculate the bounding box of the whole map
-    AABBmin = vec3(0, 0, 0)
-    AABBmax = vec3(0, 0, 0)
+    # start with an inverted infinite box so the first point initializes it
+    AABBmin = vec3(inf, inf, inf)
+    AABBmax = vec3(-inf, -inf, -inf)
 
     # store brush sides in a dictionary for info_overlay entities
     sideDict: Dict[str, Side] = {}
     
     # store overlay entities to convert after all brush sides are collected
     overlays: List[dict] = []
+    skyOverlays: List[dict] = []
 
     # store decal entities to convert after all brushes are collected
     decals: List[dict] = []
@@ -932,7 +969,7 @@ def exportMap(
     # convert world geo & entities
     for i, brush in enumerate(mapData["worldBrushes"]):
         progress.current(i + 1, total)
-        geo = convertBrush(brush, True, game, mapName, matSizes=matSizes, brushConversion=brushConversion, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax)
+        geo = convertBrush(brush, True, game, mapName, matSizes=matSizes, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax, waterMats=waterMats)
         if geo is not None:
             world.geo.append(geo)
 
@@ -941,7 +978,7 @@ def exportMap(
 
     for i, brush in enumerate(mapData["entityBrushes"], lenWorld):
         progress.current(i + 1, total)
-        geo = convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax)
+        geo = convertBrush(brush, False, game, mapName, matSizes=matSizes, sideDict=sideDict, scale=scale, AABBmin=AABBmin, AABBmax=AABBmax, waterMats=waterMats)
         if geo is not None:
             world.geo.append(geo)
         
@@ -968,7 +1005,7 @@ def exportMap(
                 if game == "CoD4" or game == "CoD2":
                     convertRope(entity, curve=True, ropeDict=ropeDict, scale=scale)
                 else:
-                    res.entities.append(convertRope(entity))
+                    res.entities.append(convertRope(entity, scale=scale))
             elif entity["classname"] == "env_cubemap":
                 if game == "CoD2" or game == "BO3":
                     continue
@@ -1048,30 +1085,35 @@ def exportMap(
     # convert 3d skybox geo & entities
     for i, brush in enumerate(mapData["skyBrushes"], lenWorld + lenEntBrushes + lenEnts):
         progress.current(i + 1, total)
-        geo = convertBrush(brush, True, game, mapName, origin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], sideDict=sideDict, AABBmin=AABBmin, AABBmax=AABBmax)
+        geo = convertBrush(brush, True, game, mapName, origin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], sideDict=sideDict, AABBmin=AABBmin, AABBmax=AABBmax, waterMats=waterMats)
         if geo is not None:
             world.geo.append(geo)
 
     for i, brush in enumerate(mapData["skyEntityBrushes"], lenWorld + lenEntBrushes + lenEnts + lenSky):
         progress.current(i + 1, total)
-        geo = convertBrush(brush, False, game, mapName, origin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], sideDict=sideDict, AABBmin=AABBmin, AABBmax=AABBmax)
+        geo = convertBrush(brush, False, game, mapName, origin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], sideDict=sideDict, AABBmin=AABBmin, AABBmax=AABBmax, waterMats=waterMats)
         if geo is not None:
             world.geo.append(geo)
 
     for i, entity in enumerate(mapData["skyEntities"], lenWorld + lenEntBrushes + lenEnts + lenSky + lenSkyEntBrushes):
         progress.current(i + 1, total)
 
-        origin = (VecFromStr(entity["origin"], 3) - mapData["skyBoxOrigin"]) * mapData["skyBoxScale"] * scale
-        AABBmax.x, AABBmax.y, AABBmax.z = max(AABBmax, origin)
-        AABBmin.x, AABBmin.y, AABBmin.z = min(AABBmin, origin)
+        if "origin" in entity:
+            origin = (VecFromStr(entity["origin"], 3) - mapData["skyBoxOrigin"]) * mapData["skyBoxScale"] * scale
+            AABBmax.x, AABBmax.y, AABBmax.z = max(AABBmax, origin)
+            AABBmin.x, AABBmin.y, AABBmin.z = min(AABBmin, origin)
 
         if entity["classname"].startswith("prop_"):
             res.entities.append(convertProp(entity, game, mapData["skyBoxOrigin"], mdlScale=mapData["skyBoxScale"], scale=scale * mapData["skyBoxScale"]))
         elif entity["classname"] == "move_rope" or entity["classname"] == "keyframe_rope":
-            if game == "CoD4":
+            if game == "CoD4" or game == "CoD2":
                 convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"], curve=True, ropeDict=ropeDict)
             else:
                 res.entities.append(convertRope(entity, skyOrigin=mapData["skyBoxOrigin"], scale=scale * mapData["skyBoxScale"]))
+        elif entity["classname"] == "info_overlay":
+            # overlays placed on 3d skybox brushes (see readMap)
+            if entity["sides"] != "":
+                skyOverlays.append(entity)
 
     # convert ropes to curve patches for cod 4
     if game == "CoD4" or game == "CoD2":
@@ -1084,6 +1126,11 @@ def exportMap(
                     val["width"],
                     game
                 ))
+
+    # nothing extended the bounding box (no geometry or entities), so leave it empty
+    if AABBmin.x > AABBmax.x:
+        AABBmin = vec3(0, 0, 0)
+        AABBmax = vec3(0, 0, 0)
 
     # create sky brushes and other necessary stuff
     skyBrushes, volumes = createSkyBrushes(AABBmin, AABBmax, mapName, game)
@@ -1111,14 +1158,19 @@ def exportMap(
             faceDecals[sid].append((origin, half_w, half_h, maxOffset))
         return maxOffset
 
-    total = len(overlays)
+    allOverlays = [(overlay, False) for overlay in overlays] + [(overlay, True) for overlay in skyOverlays]
+    total = len(allOverlays)
     if total > 0:
         progress.log("Converting overlays...")
         progress.overall(9, 13)
-    for i, overlay in enumerate(overlays):
+    for i, (overlay, isSky) in enumerate(allOverlays):
         progress.current(i + 1, total)
         try:
-            obj = Overlay(overlay, sideDict, matSizes, scale=scale)
+            if isSky:
+                # same transform as the 3d skybox geometry; z-offset stays in world units
+                obj = Overlay(overlay, sideDict, matSizes, scale=scale * mapData["skyBoxScale"], origin=mapData["skyBoxOrigin"], offsetScale=scale)
+            else:
+                obj = Overlay(overlay, sideDict, matSizes, scale=scale)
             zOffset = 0.0
             if not obj.empty:
                 origin = vec3(float(obj.BasisOrigin[0]), float(obj.BasisOrigin[1]), float(obj.BasisOrigin[2]))

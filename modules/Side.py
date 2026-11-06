@@ -84,9 +84,18 @@ class Side:
     def center(self):
         return (self.p1 + self.p2 + self.p3) / 3
 
+    # a side is degenerate if its 3 plane points are collinear or duplicated (common in decompiled maps),
+    # so it doesn't define a plane
+    def isDegenerate(self, epsilon: float = 1e-6):
+        normal: vec3 = self.normal()
+        return sqrt(dot(normal, normal)) < epsilon
+
     def distance(self):
         normal: vec3 = self.normal()
-        return ((self.p1.x * normal.x) + (self.p1.y * normal.y) + (self.p1.z * normal.z)) / sqrt(pow(normal.x, 2) + pow(normal.y, 2) + pow(normal.z, 2))
+        normLen = sqrt(pow(normal.x, 2) + pow(normal.y, 2) + pow(normal.z, 2))
+        if normLen < 1e-6:
+            return 0.0
+        return ((self.p1.x * normal.x) + (self.p1.y * normal.y) + (self.p1.z * normal.z)) / normLen
 
     def pointCenter(self):
         if self._center is not None:

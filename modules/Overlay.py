@@ -111,7 +111,9 @@ def _inverse_bilinear_2d(q: np.ndarray, p0: np.ndarray, p1: np.ndarray,
 
 
 class Overlay:
-    def __init__(self, entity: Dict[str, str], sideDict: Dict[str, Side], matSizes, scale: float = 1.0):
+    def __init__(self, entity: Dict[str, str], sideDict: Dict[str, Side], matSizes, scale: float = 1.0, origin: vec3 = None, offsetScale: float = None):
+        """origin and scale transform the Source positions the same way as the brushes they're placed on
+        (e.g. the 3d skybox's origin and scale). offsetScale is used for the z-offset and defaults to scale."""
         self.id = entity["id"]
         self.BasisNormal = _parse_vec3(entity["BasisNormal"])
         self.BasisOrigin = _parse_vec3(entity["BasisOrigin"])
@@ -121,6 +123,8 @@ class Overlay:
         self.EndV = float(entity["EndV"])
         self.material = entity["material"]
         self.scale = scale
+        self.mapOrigin = vec3(origin) if origin is not None else vec3(0, 0, 0)
+        self.offsetScale = offsetScale if offsetScale is not None else scale
         self.sides = []
         self.empty = False
         self._flat_faces = []
@@ -482,9 +486,9 @@ class Overlay:
             p2 = verts[count - i - 1]
             uv2 = uvs[count - i - 1]
 
-            pos1 = vec3(float(p1[0]), float(p1[1]), float(p1[2])) * self.scale + offset
+            pos1 = self._transform(p1) + offset
             uv1_scaled = vec2(float(uv1[0]), float(uv1[1])) * tex_scale
-            pos2 = vec3(float(p2[0]), float(p2[1]), float(p2[2])) * self.scale + offset
+            pos2 = self._transform(p2) + offset
             uv2_scaled = vec2(float(uv2[0]), float(uv2[1])) * tex_scale
 
             patch.verts.append([
@@ -495,10 +499,14 @@ class Overlay:
         self._fix_patch_winding(patch)
         return patch
 
+    def _transform(self, p) -> vec3:
+        """Convert a Source position to a CoD position."""
+        return (vec3(float(p[0]), float(p[1]), float(p[2])) - self.mapOrigin) * self.scale
+
     def _face_offset(self, face_normal, zOffset):
         """Compute outward offset from a numpy face normal. Negated because side.normal() points inward."""
         n = vec3(float(face_normal[0]), float(face_normal[1]), float(face_normal[2]))
-        return n * -(zOffset) * self.scale
+        return n * -(zOffset) * self.offsetScale
 
     def to_patches(self, zOffset=0.0, maxPatchSize: int = 30) -> List[Patch]:
         """Convert the overlay to a list of CoD patches.
@@ -537,7 +545,7 @@ class Overlay:
                 for j in range(cols):
                     world_pos = sub_grid[i][j]
                     uv = self._compute_uv_from_world(world_pos)
-                    pos = vec3(float(world_pos[0]), float(world_pos[1]), float(world_pos[2])) * self.scale + offset
+                    pos = self._transform(world_pos) + offset
                     uv_scaled = vec2(float(uv[0]), float(uv[1])) * tex_scale
                     row.append(PatchVert(pos, uv_scaled, vec2(0, 0)))
                 patch.verts.append(row)
