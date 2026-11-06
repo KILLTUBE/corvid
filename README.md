@@ -10,7 +10,8 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
 - Call of Duty Black Ops 3
 
 ## What gets converted
-- Brushes (converted as patch meshes to have accurate UVs)
+- Brushes (with texture alignment fitted to match the original)
+- Water brushes (converted to water clip brushes, with the water surface as a patch)
 - Displacements and their vertex colors for accurate texture blending
 - Rope entities
 - Prop entities
@@ -22,22 +23,23 @@ Corvid is a tool that converts Source Engine maps and their assets to be used in
 - Sun color & sun angles (doesn't always produce perfect results)
 - Materials
    - Color maps
-   - Normal maps (excluding ssbump textures)
+   - Normal maps (SSBUMP textures are converted to regular normal maps)
    - Gloss maps
    - Blend maps
    - Color tints
    - Patch materials (material inheritence)
-- 2d skyboxes (converted to equirectangular images for Bo3)
+   - Water materials
+   - Infected shaders (partially, only the first variation of L4D2's infected materials)
+- 2d skyboxes (converted to equirectangular images for Bo3, HDR skies are exported as EXR images and the others as TIF)
 - 3d skyboxes / vistas (requires user to add everything in the 3d skybox in a specific visgroup)
+- Decals (infodecal entities)
+- Overlays (info_overlay entities)
 
 ## Work-in-progress features
 - Spot lights
-- Proper brush conversion for plain brushes
-- Overlays (advanced decal entities)
 
 ## Currently not supported
-- Infected shaders
-- Decals (infodecal entities)
+- Infected shader variations other than the first one
 
 # Screenshots
 <details>
@@ -76,7 +78,9 @@ git clone https://github.com/KILLTUBE/corvid.git --recurse-submodules
 python -m pip install -r requirements.txt
 ```
 
-To run Corvid, launch `app.py`. Choose your Steam director and the game of the map you want to convert, use the VMF file of the map (you can use [BSP Source](https://github.com/ata4/bspsrc/releases) to decompile maps). Once the conversion is done, the map will be ready to be used with its assets properly converted for Call of Duty's mod tools.
+Alternatively, you can run `python create_venv.py` to create a virtual environment (`corvid_venv_win` on Windows, `corvid_venv_linux` on Linux) with the dependencies installed, and then use `activate_venv.bat` or `activate_venv.sh` to activate it.
+
+To run Corvid, launch `app.py`. Choose your Steam directory and the game of the map you want to convert, use the VMF file of the map (you can use [BSP Source](https://github.com/ata4/bspsrc/releases) to decompile maps). Once the conversion is done, the map will be ready to be used with its assets properly converted for Call of Duty's mod tools.
 
 ## Issues and known bugs
 - Some models get converted, but they don't look as they are supposed to (They either have bad normals or look really messed up) and some models cannot get converted at all. This is because of the model converter I wrote. Updating it or using SourceIO's model loader will probably fix that issue.
