@@ -1,4 +1,5 @@
 import os
+import struct
 import numpy as np
 
 os.environ["NO_BPY"] = "1"
@@ -50,7 +51,18 @@ def merge_meshes(model, vtx_model):
 
     return vtx_vertices, np.hstack(indices_array), np.hstack(mat_arrays)
 
-def convertModel(modelData, writePath, materialNames, tint="", skin=0, scale=1.0, game="WaW"):
+def readSkinFamilies(mdl, mdlBytes):
+    """Read the full skin family table (texture indices per skin) from the raw MDL bytes.
+    SourceIO truncates skin_groups to the first differing slot, which can leave them empty."""
+    header = mdl.header
+    families = []
+    for family in range(header.skin_family_count):
+        offset = header.skin_family_offset + family * header.skin_reference_count * 2
+        indices = struct.unpack_from(f"<{header.skin_reference_count}H", mdlBytes, offset)
+        families.append([i if i < len(mdl.materials) else 0 for i in indices])
+    return families
+
+def convertModel(modelData,writePath, materialNames, tint="", skin=0, scale=1.0, game="WaW"):
     modelName = modelData["name"]
     mdl = MdlV49.from_buffer(MemoryBuffer(modelData["mdl"]))
 
@@ -62,32 +74,28 @@ def convertModel(modelData, writePath, materialNames, tint="", skin=0, scale=1.0
     vtx = open_vtx(MemoryBuffer(vtx_data))
     vvd = Vvd.from_buffer(MemoryBuffer(modelData["vvd"]))
 
+    # material names per mdl material index (copied as strings so the mdl's own objects aren't renamed)
+    matNames = [mat.name for mat in mdl.materials]
+
     # replace the material names when they have different skins
-    if skin != 0 and skin < len(mdl.skin_groups):
-        for i in range(len(mdl.skin_groups[skin])):
-            mdl.materials[i].name = mdl.skin_groups[skin][i].name
+    if skin != 0:
+        families = readSkinFamilies(mdl, modelData["mdl"])
+        if skin < len(families):
+            for i, texIndex in enumerate(families[skin]):
+                if i < len(matNames):
+                    matNames[i] = mdl.materials[texIndex].name
 
     materials = []
-    # check for the following and add if a material file exists with that name
-    for mat in mdl.materials:
-        # if the model contains the full path
-        name = newPath(mat.name)
-        if name in materialNames:
-            materials.append(name)
-            continue
-
+    # exactly one entry per material index: use the first name that has a material file,
+    # otherwise the full-path name (loadModelMaterials creates a 404 material for it)
+    for matName in matNames:
+        candidates = [newPath(matName)] # if the model contains the full path
         for path in mdl.materials_paths:
             # if path/materialname exists
-            name = newPath(f"{path}/{mat.name}")
-            if name in materialNames:
-                materials.append(name)
-                continue
-
+            candidates.append(newPath(f"{path}/{matName}"))
             # sometimes a material might contain both. we don't really need this but it won't hurt to have extra measures.
-            name = newPath(f"{path}/{basename(mat.name.replace(chr(92), '/'))}")
-            if name in materialNames:
-                materials.append(name)
-                continue
+            candidates.append(newPath(f"{path}/{basename(matName.replace(chr(92), '/'))}"))
+        materials.append(next((name for name in candidates if name in materialNames), candidates[0]))
 
     if tint != "" and game == "BO3":
         materials = [mat + f"_{tint}" for mat in materials]

@@ -214,7 +214,18 @@ def convertImages(images, outDir, ext="tga", overlayTextures=None, progress: Pro
                         pixels[i+di,j+dj] = col2
 
     draw = ImageDraw.Draw(img)
-    draw.text((62, 206), "TEXTURE NOT FOUND", (255, 255, 255), font=ImageFont.truetype("impact.ttf", 50))
+    try:
+        font = ImageFont.truetype("impact.ttf", 50)
+    except OSError:
+        # Impact isn't available everywhere (e.g. Linux); fall back to Pillow's default font
+        try:
+            font = ImageFont.load_default(size=50)
+        except TypeError:
+            font = ImageFont.load_default()
+    try:
+        draw.text((62, 206), "TEXTURE NOT FOUND", (255, 255, 255), font=font)
+    except Exception:
+        pass
     img.save(f"{outDir}/404.{ext}")
 
     # Older CoD asset converters require texture_assets/case/case64blue.tga to exist
@@ -258,8 +269,12 @@ def convertModels(models, modelData, modelTints, modelSkins, skinTints, material
         convertModel(data, convertDir, materialNames, scale=scale, game=game)
 
         # convert models with skins
-        if model in modelSkins:
-            for skin in modelSkins[model]:
+        # tints are only supported in BO3, so older games use the plain skin model for skin + tint props
+        skins = set(modelSkins.get(model, []))
+        if game != "BO3":
+            skins |= set(skinTints.get(model, {}).keys())
+        if skins:
+            for skin in sorted(skins):
                 convertModel(data, convertDir, materialNames, skin=skin, scale=scale, game=game)
 
         if game == "BO3" and model in skinTints:

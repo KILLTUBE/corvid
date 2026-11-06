@@ -1,4 +1,5 @@
 import os
+import re
 os.environ["NO_BPY"] = "1"
 from PIL import Image
 from glm import vec2, vec3
@@ -15,7 +16,12 @@ from SourceIO.library.utils import MemoryBuffer
 from pathlib import Path
 from .SourceDir import SourceDir
 from .Progress import Progress
+from .ModelConverter import readSkinFamilies
 
+def textureKey(texturePath: str):
+    """Normalize a VMT texture path into the asset name used as the vtfData / image key."""
+    texturePath = texturePath.strip().removeprefix("materials/")
+    return newPath(splitext(texturePath)[0], True)
 
 def loadMaterials(mats, dir: SourceDir, progress: Progress=None):
     if progress is None:
@@ -55,7 +61,7 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False, progress: Progress=N
     def loadVtf(texturePath):
         # strip any leading materials/ prefix some VMTs include
         texturePath = texturePath.removeprefix("materials/")
-        name = newPath(splitext(texturePath)[0], True)
+        name = textureKey(texturePath)
         if name not in vtfData:
             data = dir.read_bytes(f"materials/{texturePath}.vtf", silent=True)
             if data is not None:
@@ -170,14 +176,14 @@ def loadTextures(mats, vmtCache, dir: SourceDir, mdl=False, progress: Progress=N
         if "$envmapmask2" in mat:
             name = loadVtf(mat["$envmapmask2"].strip())
             res["envMaps"].append(name)
-        if "$basealphaenvmapmask" in mat:
-            res["envMapsAlpha"].append(newPath(splitext(mat["$basetexture"])[0], True))
-        if "$basealphaenvmapmask2" in mat:
-            res["envMapsAlpha"].append(newPath(splitext(mat["$basetexture2"])[0], True))
+        if "$basealphaenvmapmask" in mat and "$basetexture" in mat:
+            res["envMapsAlpha"].append(textureKey(mat["$basetexture"]))
+        if "$basealphaenvmapmask2" in mat and "$basetexture2" in mat:
+            res["envMapsAlpha"].append(textureKey(mat["$basetexture2"]))
         if "$normalmapalphaenvmapmask" in mat and "$bumpmap" in mat:
-            res["envMapsAlpha"].append(newPath(splitext(mat["$bumpmap"])[0], True))
+            res["envMapsAlpha"].append(textureKey(mat["$bumpmap"]))
         if "$normalmapalphaenvmapmask2" in mat and "$bumpmap2" in mat:
-            res["envMapsAlpha"].append(newPath(splitext(mat["$bumpmap2"])[0], True))
+            res["envMapsAlpha"].append(textureKey(mat["$bumpmap2"]))
     return res
 
 def loadModels(models, dir: SourceDir, progress: Progress=None):
@@ -206,6 +212,7 @@ def loadModelMaterials(models, modelData, dir: SourceDir, modelTints, modelSkins
     if progress is None:
         progress = Progress()
     materials = []
+    fallbacks = []
     res = []
     vmtCache = {}
     total = len(models)
@@ -213,7 +220,7 @@ def loadModelMaterials(models, modelData, dir: SourceDir, modelTints, modelSkins
     for i, model in enumerate(models):
         progress.current(i + 1, total)
         mdlName = splitext(newPath(model))[0]
-        tints = modelTints[mdlName] if mdlName in modelTints else []
+        tints = list(modelTints.get(mdlName, []))
 
         if mdlName in skinTints:
             for _, _tints in skinTints[mdlName].items():
@@ -224,37 +231,41 @@ def loadModelMaterials(models, modelData, dir: SourceDir, modelTints, modelSkins
         mdl = MdlV49.from_buffer(MemoryBuffer(modelData[mdlName]["mdl"]))
 
         # collect all materials: base skin + alternate skins
+        # (uses the raw skin table; SourceIO truncates skin_groups and can leave them empty)
         all_materials = list(mdl.materials)
-        if mdlName in modelSkins:
-            for skin in modelSkins[mdlName]:
-                if skin < len(mdl.skin_groups):
-                    for mat in mdl.skin_groups[skin]:
+        # skins used together with a tint are only listed in skinTints, but they need their materials too
+        skins = set(modelSkins.get(mdlName, [])) | set(skinTints.get(mdlName, {}).keys())
+        if skins:
+            families = readSkinFamilies(mdl, modelData[mdlName]["mdl"])
+            for skin in sorted(skins):
+                if skin < len(families):
+                    for texIndex in families[skin]:
+                        mat = mdl.materials[texIndex]
                         if mat not in all_materials:
                             all_materials.append(mat)
 
         for material in all_materials:
+            candidates = []
             for path in mdl.materials_paths:
                 path = Path(path.replace("\\", "/")).as_posix()
                 name = basename(material.name.replace("\\", "/"))
                 name = f"{path}/{name}".lower()
                 if name not in materials:
                     materials.append((name, mdl.header.surface_prop, tints))
+                candidates.append(name)
 
                 name = Path(material.name.replace("\\", "/")).as_posix().lower()
                 if name not in materials:
                     materials.append((name, mdl.header.surface_prop, tints))
+                candidates.append(name)
 
-    total = len(materials)
-    for i, (mat, surface_prop, tints) in enumerate(materials):
-        progress.current(i + 1, total)
-        name = newPath(mat)
-        vmtText = dir.read_text(f"materials/{mat}.vmt", silent=True)
-        if vmtText is None:
-            continue
+            # ModelConverter falls back to this name when no candidate has a VMT
+            fallbacks.append((Path(material.name.replace("\\", "/")).as_posix().lower(), candidates, mdl.header.surface_prop, tints))
 
+    def addMaterial(name, vmtText, surface_prop, tints):
         # unlike CoD, the surface type of a model isn't defined in the material so we have to copy that value
         # from the model and paste it in the materials it uses
-        vmtText = vmtText.replace("{\n", f'{{\n"$surfaceprop" "{surface_prop}"\n', 1)
+        vmtText = re.sub(r"\{[ \t]*\r?\n", lambda m: f'{{\n"$surfaceprop" "{surface_prop}"\n', vmtText, count=1)
         vmtCache[name] = vmtText
         res.append(name)
 
@@ -263,10 +274,29 @@ def loadModelMaterials(models, modelData, dir: SourceDir, modelTints, modelSkins
             for tint in tints:
                 _tint = VecFromStr(tint, 3)
                 hex = Vec2Hex(_tint)
-                tint = vec3(round(_tint.x, 3), round(_tint.y, 3), round(_tint.z, 3))
-                tintedVmt = vmtText.replace("{\n", f'{{\n"$colortint" "{tint} 1"\n', 1)
+                # rendercolor is 0-255; store a normalized Source-style color for colorTint
+                tint = Vec2Str(vec3(round(_tint.x / 255, 3), round(_tint.y / 255, 3), round(_tint.z / 255, 3)))
+                tintedVmt = re.sub(r"\{[ \t]*\r?\n", lambda m: f'{{\n"$colortint" "[{tint}]"\n', vmtText, count=1)
                 vmtCache[f"{name}_{hex}"] = tintedVmt
                 res.append(f"{name}_{hex}")
+
+    total = len(materials)
+    for i, (mat, surface_prop, tints) in enumerate(materials):
+        progress.current(i + 1, total)
+        name = newPath(mat)
+        vmtText = dir.read_text(f"materials/{mat}.vmt", silent=True)
+        if vmtText is None:
+            continue
+        addMaterial(name, vmtText, surface_prop, tints)
+
+    # materials without any VMT still need an entry so the model's material indices stay valid
+    found = set(res)
+    for mat, candidates, surface_prop, tints in fallbacks:
+        if not any(newPath(c) in found for c in candidates + [mat]):
+            name = newPath(mat)
+            progress.log(f"Could not find model material {mat}. Creating an empty material for it...")
+            addMaterial(name, 'vertexlitgeneric\n{\n"$basetexture" "404"\n}', surface_prop, tints)
+            found.update(res)
 
     return sorted(set(res)), vmtCache
 
@@ -445,7 +475,7 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
             if game in ("WaW", "CoD4"):
                 tint = vec3(1.0, 1.0, 1.0)
                 if "$basetexture" in mat:
-                    texName = newPath(mat["$basetexture"], shorten=True)
+                    texName = textureKey(mat["$basetexture"])
                     if texName in vtfData:
                         if texName not in avgColorCache:
                             try:
@@ -503,7 +533,7 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
             data["materialType"] = "world phong"
 
         if "$basetexture" in mat:
-            fileName = newPath(mat["$basetexture"], shorten=True)
+            fileName = textureKey(mat["$basetexture"])
             if fileName  in loadedTextures:
                 data["colorMap"] = textureDir + fileName + ext
             else:
@@ -512,19 +542,19 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
             data["colorMap"] = textureDir + "404" + ext
         
         if "$bumpmap" in mat:
-            fileName = newPath(mat["$bumpmap"], shorten=True)
+            fileName = textureKey(mat["$bumpmap"])
             if fileName  in loadedTextures:
                 data["normalMap"] = textureDir + fileName + ext
         if "$envmapmask" in mat:
-            fileName = newPath(mat["$envmapmask"], shorten=True)
+            fileName = textureKey(mat["$envmapmask"])
             if fileName  in loadedTextures:
                 data["cosinePowerMap"] = textureDir + fileName + ext
-        if "$basealphaenvmapmask" in mat and "$envmapmask" not in mat:
-            fileName = newPath(mat["$basetexture"], shorten=True)
+        if "$basealphaenvmapmask" in mat and "$envmapmask" not in mat and "$basetexture" in mat:
+            fileName = textureKey(mat["$basetexture"])
             if fileName in loadedTextures:
                 data["cosinePowerMap"] = textureDir + fileName + _ext
         if "$normalmapalphaenvmapmask" in mat and "$envmapmask" not in mat and "$bumpmap" in mat:
-            fileName = newPath(mat["$bumpmap"], shorten=True)
+            fileName = textureKey(mat["$bumpmap"])
             if fileName in loadedTextures:
                 data["cosinePowerMap"] = textureDir + fileName + _ext
 
@@ -555,7 +585,7 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
         if "$basetexture2" in mat:
             data2 = {"usage": "exterior wall"}
             data2["materialType"] = "world phong"
-            fileName = newPath(mat["$basetexture2"], shorten=True)
+            fileName = textureKey(mat["$basetexture2"])
             if fileName  in loadedTextures:
                 data2["colorMap"] = textureDir + fileName + ext
             else:
@@ -564,19 +594,19 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
             data2["blendFunc"] = "Blend"
 
             if "$bumpmap2" in mat:
-                fileName = newPath(mat["$bumpmap2"], shorten=True)
+                fileName = textureKey(mat["$bumpmap2"])
                 if fileName  in loadedTextures:
                     data2["normalMap"] = textureDir + fileName + ext
             if "$envmapmask2" in mat:
-                fileName = newPath(mat["$envmapmask2"], shorten=True)
+                fileName = textureKey(mat["$envmapmask2"])
                 if fileName  in loadedTextures:
-                    data["cosinePowerMap"] = textureDir + fileName + ext
+                    data2["cosinePowerMap"] = textureDir + fileName + ext
             if "$basealphaenvmapmask2" in mat and "$envmapmask2" not in mat:
-                fileName = newPath(mat["$basetexture2"], shorten=True)
+                fileName = textureKey(mat["$basetexture2"])
                 if fileName in loadedTextures:
                     data2["cosinePowerMap"] = textureDir + fileName + _ext
             if "$normalmapalphaenvmapmask2" in mat and "$envmapmask2" not in mat and "$bumpmap2" in mat:
-                fileName = newPath(mat["$bumpmap2"], shorten=True)
+                fileName = textureKey(mat["$bumpmap2"])
                 if fileName in loadedTextures:
                     data2["cosinePowerMap"] = textureDir + fileName + _ext
 
@@ -635,18 +665,18 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
                 "glossRangeMax": 0.0,
             }
             if "$basetexture" in mat:
-                fileName = newPath(mat["$basetexture"], shorten=True)
+                fileName = textureKey(mat["$basetexture"])
                 wdata["colorMap"] = ("i_" + fileName) if fileName in loadedTextures else "i_404"
             else:
                 wdata["colorMap"] = "i_404"
             if "$bumpmap" in mat:
-                fileName = newPath(mat["$bumpmap"], shorten=True)
+                fileName = textureKey(mat["$bumpmap"])
                 if fileName in loadedTextures:
                     wdata["normalMap"] = "i_" + fileName
 
             tint = vec3(1.0, 1.0, 1.0)
             if "$basetexture" in mat:
-                texName = newPath(mat["$basetexture"], shorten=True)
+                texName = textureKey(mat["$basetexture"])
                 if texName in vtfData:
                     if texName not in avgColorCache:
                         try:
@@ -671,33 +701,33 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
         data["materialType"] = "lit"
 
         if "$basetexture" in mat:
-            fileName = newPath(mat["$basetexture"], shorten=True)
+            fileName = textureKey(mat["$basetexture"])
             if fileName  in loadedTextures:
-                data["colorMap"] = "i_" + newPath(mat["$basetexture"], shorten=True)
+                data["colorMap"] = "i_" + textureKey(mat["$basetexture"])
             else:
                 data["colorMap"] = "i_404"
         else:
             data["colorMap"] = "i_404"
 
         if "$bumpmap" in mat:
-            fileName = newPath(mat["$bumpmap"], shorten=True)
+            fileName = textureKey(mat["$bumpmap"])
             if fileName  in loadedTextures:
                 data["normalMap"] = "i_" + fileName
         if "$envmapmask" in mat:
-            fileName = newPath(mat["$envmapmask"], shorten=True)
+            fileName = textureKey(mat["$envmapmask"])
             if fileName  in loadedTextures:
                 assetSuffix = "_" if fileName in colorMaps else ""
                 data["cosinePowerMap"] = "i_" + fileName + assetSuffix
                 data["materialCategory"] = "Geometry Plus"
                 data["materialType"] = "lit_plus"
-        if "$basealphaenvmapmask" in mat and "$envmapmask" not in mat:
-            fileName = newPath(mat["$basetexture"], shorten=True)
+        if "$basealphaenvmapmask" in mat and "$envmapmask" not in mat and "$basetexture" in mat:
+            fileName = textureKey(mat["$basetexture"])
             if fileName in loadedTextures:
                 data["cosinePowerMap"] = "i_" + fileName + "_"
                 data["materialCategory"] = "Geometry Plus"
                 data["materialType"] = "lit_plus"
         if "$normalmapalphaenvmapmask" in mat and "$envmapmask" not in mat and "$bumpmap" in mat:
-            fileName = newPath(mat["$bumpmap"], shorten=True)
+            fileName = textureKey(mat["$bumpmap"])
             if fileName in loadedTextures:
                 data["cosinePowerMap"] = "i_" + fileName + "_"
                 data["materialCategory"] = "Geometry Plus"
@@ -757,23 +787,13 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
         #         data["materialType"] = "lit_emissive"
 
         if "$color" in mat:
-            tint = VecFromStr(mat["$color"], 3)
-
-            if tint.x >= 1.0 or tint.y >= 1.0 or tint.z >= 1.0:
-                tint = vec3([round(i, 3) for i in tint / 255])
-
-            data["colorTint"] = tint
+            data["colorTint"] = f"{Vec2Str(_parseSourceColor(mat['$color']))} 1"
 
         if "$colortint" in mat:
-            data["colorTint"] = mat["$colortint"]
+            data["colorTint"] = f"{Vec2Str(_parseSourceColor(mat['$colortint']))} 1"
 
         if "$layertint1" in mat:
-            tint = VecFromStr(mat["$layertint1"], 3)
-
-            if tint.x >= 1.0 or tint.y >= 1.0 or tint.z >= 1.0:
-                tint = vec3([round(i, 3) for i in tint / 255])
-
-            data["colorTint"] = tint
+            data["colorTint"] = f"{Vec2Str(_parseSourceColor(mat['$layertint1']))} 1"
 
         if "$basetexture2" in mat:
             data2 = {"usage": "exterior wall"}
@@ -781,35 +801,35 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
             data2["materialType"] = "lit_decal_reveal"
             data2["layerSortDecal"] = "Asphalt (bottom)"
 
-            fileName = newPath(mat["$basetexture2"], shorten=True)
+            fileName = textureKey(mat["$basetexture2"])
             if fileName  in loadedTextures:
                 data2["colorMap"] = "i_" + fileName
             else:
-                data2["colorMap"] = "404"
+                data2["colorMap"] = "i_404"
 
             if "$bumpmap2" in mat:
-                fileName = newPath(mat["$bumpmap2"], shorten=True)
+                fileName = textureKey(mat["$bumpmap2"])
                 if fileName  in loadedTextures:
-                    data2["normalMap"] = "i_" + newPath(mat["$bumpmap2"], shorten=True)
+                    data2["normalMap"] = "i_" + textureKey(mat["$bumpmap2"])
             if "$blendmodulatetexture" in mat:
-                fileName = newPath(mat["$blendmodulatetexture"], shorten=True)
+                fileName = textureKey(mat["$blendmodulatetexture"])
                 if fileName  in loadedTextures:
-                    data2["alphaRevealMap"] = "i_" + newPath(mat["$blendmodulatetexture"], shorten=True)
+                    data2["alphaRevealMap"] = "i_" + textureKey(mat["$blendmodulatetexture"])
             if "$envmapmask2" in mat:
-                fileName = newPath(mat["$envmapmask2"], shorten=True)
+                fileName = textureKey(mat["$envmapmask2"])
                 if fileName  in loadedTextures:
                     assetSuffix = "_" if fileName in colorMaps else ""
                     data2["cosinePowerMap"] = "i_" + fileName + assetSuffix
                     data2["materialType"] = "lit_decal_reveal_plus"
             if "$basealphaenvmapmask2" in mat and "$envmapmask2" not in mat:
-                fileName = newPath(mat["$basetexture2"], shorten=True)
+                fileName = textureKey(mat["$basetexture2"])
                 if fileName in loadedTextures:
-                    data2["cosinePowerMap"] = "i_" + newPath(mat["$basetexture2"], shorten=True) + "_"
+                    data2["cosinePowerMap"] = "i_" + textureKey(mat["$basetexture2"]) + "_"
                     data2["materialType"] = "lit_decal_reveal_plus"
             if "$normalmapalphaenvmapmask2" in mat and "$envmapmask2" not in mat and "$bumpmap2" in mat:
-                fileName = newPath(mat["$bumpmap2"], shorten=True)
+                fileName = textureKey(mat["$bumpmap2"])
                 if fileName in loadedTextures:
-                    data2["cosinePowerMap"] = "i_" + newPath(mat["$bumpmap2"], shorten=True) + "_"
+                    data2["cosinePowerMap"] = "i_" + textureKey(mat["$bumpmap2"]) + "_"
                     data2["materialType"] = "lit_decal_reveal_plus"
 
             if "$surfaceprop2" in mat:
@@ -829,12 +849,7 @@ def createMaterialGdtBo3(vmts: dict, loadedTextures=set(), colorMaps=set(), over
                 data2["glossRangeMax"] = 0.0
 
             if "$layertint2" in mat:
-                tint = VecFromStr(mat["$layertint2"], 3)
-
-                if tint.x >= 1.0 or tint.y >= 1.0 or tint.z >= 1.0:
-                    tint = vec3([round(i, 3) for i in tint / 255])
-
-                data2["colorTint"] = tint           
+                data2["colorTint"] = f"{Vec2Str(_parseSourceColor(mat['$layertint2']))} 1"
 
             gdt.add(assetName + "_blend", "material", data2)
         
@@ -867,8 +882,12 @@ def createModelGdt(models, game="WaW", modelTints={}, modelSkins={}, skinTints={
                     "type": "rigid"
                 })
 
-        if name in modelSkins:
-            for skin in modelSkins[name]:
+        # tints are only supported in BO3, so older games use the plain skin model for skin + tint props
+        skins = set(modelSkins.get(name, []))
+        if game != "BO3":
+            skins |= set(skinTints.get(name, {}).keys())
+        if skins:
+            for skin in sorted(skins):
                 gdt.add(f"m_{name}_skin{skin}", "xmodel", {
                     "collisionLOD" if game != "BO3" else "BulletCollisionLOD": "High",
                     "filename": f"corvid\\\\{name}_skin{skin}." + ("xmodel_export" if game != "BO3" else "xmodel_bin"),
@@ -1034,12 +1053,19 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             paramOrder = ["$hdrcompressedtexture", "$hdrbasetexture", "$basetexture"]
         else:
             paramOrder = ["$basetexture", "$hdrcompressedtexture", "$hdrbasetexture"]
+        texParam = None
         for param in paramOrder:
             if param in mat:
                 texParam = param
                 break
+        if texParam is None:
+            print(f"Skybox material {skyName}{face} has no texture. Skipping skybox...")
+            return gdt
         texName = splitext(basename(mat[texParam]))[0]
         vtfData = dir.read_bytes(f"materials/skybox/{texName}.vtf", silent=True)
+        if vtfData is None:
+            print(f"Could not find skybox texture {texName}.vtf. Skipping skybox...")
+            return gdt
 
         # Format-aware HDR decode, matching Source's sky_hdr_dx9.cpp:
         #   RGBA16161616F   → linear absolute, no scale
@@ -1062,7 +1088,7 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
         else:
             pixel_data, width, height, is_float = load_vtf_texture(vtfData)
             if is_float:
-                arr = np.frombuffer(pixel_data, dtype=np.float32).reshape(height, width, 4)
+                arr = np.frombuffer(pixel_data, dtype=np.float32).reshape(height, width, 4).copy()
             else:
                 arr = np.frombuffer(pixel_data, dtype=np.uint8).reshape(height, width, 4).astype(np.float32) / 255.0
         if texParam == "$hdrcompressedtexture":
@@ -1100,6 +1126,10 @@ def exportSkybox(skyName: str, mapName: str, worldSpawnSettings, dir: SourceDir,
             canvas[:h] = arr
             canvas[h:] = arr[-1:, :, :]
             skyImages[face] = canvas
+        elif game == "BO3" and isHDR:
+            # resize each channel as 32-bit float so HDR values above 1.0 survive
+            channels = [np.array(Image.fromarray(np.ascontiguousarray(arr[:, :, c]), "F").resize((maxDim, maxDim), Image.LANCZOS)) for c in range(4)]
+            skyImages[face] = np.maximum(np.stack(channels, axis=-1), 0.0).astype(np.float32)
         else:
             pil = Image.fromarray((np.clip(arr, 0, 1) * 255).astype(np.uint8), "RGBA")
             pil = pil.resize((maxDim, maxDim), Image.LANCZOS)
@@ -1279,10 +1309,12 @@ def exportMinimap(mapName: str, dir: SourceDir, game="WaW", outDir=""):
         if vmtText is not None:
             mat = parse_vdf(fixVmt(vmtText))
             mat = mat[list(mat)[0]]
-            if "$basetexture" in mat:
-                vtfData = dir.read_bytes("materials/" + mat["$basetexture"] + ".vtf", silent=True)
-                if vtfData is None:
-                    return None, None, None, None, None
+            if "$basetexture" not in mat:
+                print(f"Radar material {data['material']}_radar has no $basetexture. Skipping minimap...")
+                return None, None, None, None, None
+            vtfData = dir.read_bytes("materials/" + mat["$basetexture"] + ".vtf", silent=True)
+            if vtfData is None:
+                return None, None, None, None, None
             convertImage(vtfData, f"{outDir}/texture_assets/corvid/{mapName}_radar.{ext}", "rgb")
             image = Image.open(f"{outDir}/texture_assets/corvid/{mapName}_radar.{ext}")
         else:
