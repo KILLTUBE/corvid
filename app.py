@@ -37,11 +37,11 @@ from glm import vec3
 from modules.vdfutils import parse_vdf
 
 # global settings
-with open("res/settings.json") as f:
+with open("res/settings.json", encoding="utf-8") as f:
     settings = json.loads(f.read())
-with open("res/gameDef.json") as f:
+with open("res/gameDef.json", encoding="utf-8") as f:
     gameDef = json.loads(f.read())
-with open("res/version.txt") as f:
+with open("res/version.txt", encoding="utf-8") as f:
     version = f.read().split("\n")[0]
 steamAppsDirs = []
 
@@ -100,7 +100,7 @@ def load_library_folders_data(steam_dir: str | None) -> List[str] | None:
         return None
 
     try:
-        with open(library_folders_path, "r") as file:
+        with open(library_folders_path, "r", encoding="utf-8", errors="replace") as file:
             data = parse_vdf(file.read(), allowRepeats=True)
         
         if data is None or "libraryfolders" not in data:
@@ -184,6 +184,8 @@ class App:
         
         self.root = root
         self._abort = threading.Event()
+        self.conversionThread = None
+        self._conversionResult = None
         width=800
         height=620
         screenwidth = root.winfo_screenwidth()
@@ -218,13 +220,7 @@ class App:
             else:
                 currentGameMenu.add_radiobutton(label=gameDef[game]["gameName"], variable=self.currentGame, value=game, command=self.setCurrentGame)
 
-        self.convertBrush = tk.BooleanVar(value=settings["convertBrush"])
-        brushConversionMenu = tk.Menu(self.menuBar, tearoff=0)
-        brushConversionMenu.add_radiobutton(label="Terrain patches (default)", variable=self.convertBrush, value=False, command=lambda: self.changeSetting("convertBrush", False))
-        brushConversionMenu.add_radiobutton(label="Plain brushes (experimental)", variable=self.convertBrush, value=True, command=lambda: self.changeSetting("convertBrush", True))
-
         settingsMenu.add_cascade(label="Select game profile", menu=currentGameMenu)
-        settingsMenu.add_cascade(label="Brush conversion method", menu=brushConversionMenu)
         settingsMenu.add_command(label="Change export scale", command=self.popup)
         settingsMenu.add_separator()
         settingsMenu.add_command(label="Set Steam directory", command=self.setSteamDir)
@@ -506,26 +502,48 @@ class App:
     
     def changeSetting(self, key, value):
         settings[key] = value
-        with open("res/settings.json", "w") as f:
+        with open("res/settings.json", "w", encoding="utf-8") as f:
             f.write(json.dumps(settings, indent=4))
 
     def popup(self):
         self.popupWindow=popupWindow(self)
 
-    def setSteamDir(self, _dir=""):
+    def setSteamDir(self, _dir="", refresh=True):
+        """Set the Steam directory. Returns True if a directory was set."""
         if _dir == "":
             dir = filedialog.askdirectory(title="Set your Steam directory")
         else:
             dir = _dir
-        
-        if dir is not None and dir != "":
-            self.changeSetting("steamDir", dir)
-            self.steamDirLabel["text"] = dir
+
+        if not dir:
+            return False
+
+        self.changeSetting("steamDir", dir)
+        self.steamDirLabel["text"] = dir
+        if refresh:
+            self.refreshSteamLibraries()
+        return True
 
     def detectSteamDir(self):
         steamDir = get_steam_dir()
-        self.changeSetting("steamDir", steamDir)
-        self.steamDirLabel["text"] = steamDir
+        if not steamDir:
+            alert.showwarning(
+                title="Warning",
+                message="Could not detect the Steam directory.\n\nPlease set it manually from Settings > Set Steam directory."
+            )
+            return
+        self.setSteamDir(steamDir)
+
+    def refreshSteamLibraries(self):
+        """Re-read the Steam library folders for the current Steam directory."""
+        library_paths = load_library_folders_data(settings["steamDir"])
+        steamAppsDirs.clear()
+        if library_paths:
+            for path in library_paths:
+                if path not in steamAppsDirs:
+                    steamAppsDirs.append(path)
+        else:
+            print("Cannot detect Steam libraries. Make sure your Steam directory is correct.")
 
     def setCurrentGame(self):
         self.changeSetting("currentGame", self.currentGame.get())
@@ -547,7 +565,8 @@ class App:
 
     def addGameDirButton_command(self):
         dir = filedialog.askdirectory()
-        if dir is not None:
+        # askdirectory returns "" (or an empty tuple) when canceled
+        if dir:
             self.gameDirList.insert(tk.END, dir)
 
     def deleteVpkButton_command(self):
@@ -577,22 +596,96 @@ class App:
         savePath = filedialog.asksaveasfilename(title="Save console log as", initialfile="Corvid-log-" + datetime.now().strftime("%d.%m.%Y_(%H.%M.%S)"), filetypes=[('Text files', '*.txt')], defaultextension='.txt')
         if not savePath:
             return
-        with open(savePath, "w") as f:
+        with open(savePath, "w", encoding="utf-8") as f:
             f.write(consoleLog)
 
-    def convertButton_command(self):
-        # set the export directory
-        outputDir = filedialog.askdirectory(title="Select a directory to export the converted map and its assets")
-        if outputDir == "":
-            alert.showwarning(title="Warning", message="Please select a directory to export the map!")
-            return
+    def _prepareConversion(self):
+        """Validate the user's input and collect everything the conversion needs.
 
+        Runs on the main thread (shows dialogs). Returns None if the conversion should not start.
+        """
         _game = self.currentGame.get()
-        currentGame = gameDef[_game]
+        if _game not in gameDef:
+            alert.showerror(title="Error", message="Please select a game profile from Settings > Select game profile.")
+            return None
+
+        vmfPath = self.vmfPath.get()
+        # check if the selected file is a valid VMF file
+        if len(vmfPath) == 0:
+            alert.showerror(title="Error", message="Please select a VMF file!")
+            return None
+        if not os.path.exists(vmfPath):
+            alert.showerror(title="Error", message="VMF file does not exist.")
+            return None
+        if not os.path.isfile(vmfPath):
+            alert.showerror(title="Error", message="Please select a valid file!")
+            return None
+        if os.path.splitext(vmfPath)[1].lower() != ".vmf":
+            alert.showerror(title="Error", message="Please choose a VMF file")
+            return None
 
         # save the extra vpk files and directories in case the user needs them later
         vpkFiles = list(self.vpkList.get(0, self.vpkList.size() - 1))
         gameDirs = list(self.gameDirList.get(0, self.gameDirList.size() - 1))
+
+        # check vpks
+        for vpk in vpkFiles:
+            if not os.path.isfile(vpk):
+                alert.showerror(title="Error", message=f"\"{vpk}\" is not a valid file!")
+                return None
+            if not vpk.lower().endswith((".vpk", ".gma", ".bsp")):
+                alert.showerror(title="Error", message=f"\"{vpk}\" is not a VPK, GMA or BSP file!")
+                return None
+        # check gamedirs
+        for dir in gameDirs:
+            if not os.path.isdir(dir):
+                alert.showerror(title="Error", message=f"{dir} is not a valid directory.")
+                return None
+
+        # set the export directory
+        outputDir = filedialog.askdirectory(title="Select a directory to export the converted map and its assets")
+        if not outputDir:
+            alert.showwarning(title="Warning", message="Please select a directory to export the map!")
+            return None
+
+        return {
+            "profile": _game,
+            "vmfPath": vmfPath,
+            "outputDir": outputDir,
+            "vpkFiles": vpkFiles,
+            "gameDirs": gameDirs,
+            "game": self.game.get(),
+            "skipMats": self.skipMats.get(),
+            "skipModels": self.skipModels.get(),
+            "scale": list(settings["scale"]),
+            "steamAppsDirs": list(steamAppsDirs),
+        }
+
+    def convertButton_command(self, params):
+        """Runs on the worker thread. Must not touch Tk widgets or show dialogs;
+        results are handed back to the main thread through self._conversionResult."""
+        result = {"aborted": False, "error": None, "logPath": None}
+        try:
+            self._convert(params, result)
+        except ConversionAborted:
+            result["aborted"] = True
+        except Exception as e:
+            import traceback
+            result["error"] = (e, traceback.format_exc())
+        finally:
+            self._conversionResult = result
+            self._abort.clear()
+
+    def _convert(self, params, result):
+        _game = params["profile"]
+        currentGame = gameDef[_game]
+        vmfPath = params["vmfPath"]
+        outputDir = params["outputDir"]
+        vpkFiles = params["vpkFiles"]
+        gameDirs = params["gameDirs"]
+        appDirs = params["steamAppsDirs"]
+
+        progress = self._create_progress()
 
         print(f"Corvid v{version}")
         print(f"Steam directory: {settings['steamDir']}")
@@ -616,7 +709,7 @@ class App:
             gameRoot = gameDef[game]["gameRoot"]
             # add the vpk files and the directories of the current game in the list
             for vpk in gameDef[game]["vpkFiles"]:
-                for appDir in steamAppsDirs:
+                for appDir in appDirs:
                     resolved = resolveGameRoot(appDir, gameRoot)
                     vpkPath = appDir + "/steamapps/common/" + resolved + "/" + vpk
                     if os.path.isfile(vpkPath):
@@ -624,7 +717,7 @@ class App:
                         break
 
             for dir in gameDef[game]["gameDirs"]:
-                for appDir in steamAppsDirs:
+                for appDir in appDirs:
                     resolved = resolveGameRoot(appDir, gameRoot)
                     dirPath = appDir + "/steamapps/common/" + resolved + "/" + dir
                     if os.path.isdir(dirPath):
@@ -640,7 +733,7 @@ class App:
             def getMounted():
                 # try finding where Garry's Mod is installed
                 gmodDir = ""
-                for appDir in steamAppsDirs:
+                for appDir in appDirs:
                     if exists(f"{appDir}/steamapps/common/GarrysMod/hl2.exe"):
                         gmodDir = f"{appDir}/steamapps/common/GarrysMod"
                 
@@ -651,7 +744,7 @@ class App:
                 if not exists(f"{gmodDir}/garrysmod/cfg/mountdepots.txt"):
                     return
 
-                with open(f"{gmodDir}/garrysmod/cfg/mountdepots.txt") as f:
+                with open(f"{gmodDir}/garrysmod/cfg/mountdepots.txt", encoding="utf-8", errors="replace") as f:
                     mountData = parse_vdf(f.read())
 
                 if not "gamedepotsystem" in mountData:
@@ -665,78 +758,44 @@ class App:
 
             getMounted()
 
-        vmfPath = self.vmfPath.get()
-        # check if the selected file is a valid VMF file
-        if len(vmfPath) == 0:
-            alert.showerror("Please select a VMF file!")
-            return
-        if not os.path.isfile(vmfPath):
-            alert.showerror(title="Error", message="Please select a valid file!")
-            return
-        if not os.path.exists(vmfPath):
-            alert.showerror(title="Error", message="VMF file does not exist.")
-            return
-        if os.path.splitext(vmfPath)[1].lower() != ".vmf":
-            alert.showerror(title="Error", message="Please choose a VMF file")
-            return
-        
-        # check vpks
-        for vpk in vpkFiles:
-            if not os.path.isfile(vpk):
-                alert.showerror(title="Error", message=f"\"{vpk}\" is not a valid file!")
-                return
-            if not vpk.endswith((".vpk", ".gma", ".bsp")):
-                alert.showerror(title="error", message=f"\"{vpk}\" is not a VPK or a GMA file!")
-                return
-        # check gamedirs
-        for dir in gameDirs:
-            if not os.path.isdir(dir):
-                alert.showerror(title="Error", message=f"{dir} is not a valid directory.")
-                return
+        start = time.time()
+        vmfName = os.path.splitext(os.path.basename(vmfPath))[0].lower()
+        # read the map file and convert everything
+        game = params["game"]
+        outputDir += f"/{vmfName}_{game}"
+        progress.log(f"Opening VMF file \"{vmfPath}\"...")
+        with open(vmfPath, encoding="utf-8", errors="replace") as f:
+            vmfFile = f.read()
+        progress.log("Reading VMF file...")
 
-        progress = self._create_progress()
+        # prepare the necessary stuff to move and write files
+        prefabDir = "prefabs" if game == "CoD4" or game == "CoD2" else "_prefabs"
+        os.makedirs(f"{outputDir}/map_source", exist_ok=True)
+        os.makedirs(f"{outputDir}/model_export/corvid", exist_ok=True)
+        os.makedirs(f"{outputDir}/source_data", exist_ok=True)
+        os.makedirs(f"{outputDir}/texture_assets/corvid", exist_ok=True)
+        if game != "BO3":
+            os.makedirs(f"{outputDir}/bin", exist_ok=True)
+        else:
+            os.makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}", exist_ok=True)
 
-        try:
-            start = time.time()
-            vmfName = os.path.splitext(os.path.basename(vmfPath))[0].lower()
-            # read the map file and convert everything
-            game = self.game.get()
-            outputDir += f"/{vmfName}_{game}"
-            progress.log(f"Opening VMF file \"{vmfPath}\"...")
-            with open(vmfPath) as f:
-                vmfFile = f.read()
-            progress.log("Reading VMF file...")
+        writePath = f"map_source/{prefabDir}/{vmfName}" if game == "BO3" else "map_source"
+        scale = params["scale"]
 
-            # prepare the necessary stuff to move and write files
-            prefabDir = "prefabs" if game == "CoD4" or game == "CoD2" else "_prefabs"
-            os.makedirs(f"{outputDir}/map_source", exist_ok=True)
-            os.makedirs(f"{outputDir}/model_export/corvid", exist_ok=True)
-            os.makedirs(f"{outputDir}/source_data", exist_ok=True)
-            os.makedirs(f"{outputDir}/texture_assets/corvid", exist_ok=True)
-            if game != "BO3":
-                os.makedirs(f"{outputDir}/bin", exist_ok=True)
-            else:
-                os.makedirs(f"{outputDir}/map_source/{prefabDir}/{vmfName}", exist_ok=True)
+        with open(f"{outputDir}/{writePath}/{vmfName}.map", "w") as file:
+            exportMap(
+                vmfFile, vpkFiles, gameDirs, game,
+                params["skipMats"], params["skipModels"], vmfName,
+            scale=vec3(scale[0], scale[0], scale[1]), file=file,
+            outputDir=outputDir, progress=progress
+            )
 
-            writePath = f"map_source/{prefabDir}/{vmfName}" if game == "BO3" else "map_source"
+        end = time.time()
+        total = ProperTime(round(end - start))
+        progress.log(f"Conversion finished in {total}")
 
-            with open(f"{outputDir}/{writePath}/{vmfName}.map", "w") as file:
-                exportMap(
-                    vmfFile, vpkFiles, gameDirs, game,
-                    self.skipMats.get(), self.skipModels.get(), vmfName, settings["convertBrush"],
-                scale=vec3(settings["scale"][0], settings["scale"][0], settings["scale"][1]), file=file,
-                outputDir=outputDir, progress=progress
-                )
-
-            end = time.time()
-            total = ProperTime(round(end - start))
-            progress.log(f"Conversion finished in {total}")
-
-            with open(f"{outputDir}/log.txt", "w") as f:
-                f.write(self.consoleTextBox.get(1.0, tkinter.constants.END))
-        except ConversionAborted:
-            self._abort.clear()
-            progress.log("Conversion aborted by user.")
+        # the log is written by the main thread once the console has caught up
+        result["logPath"] = f"{outputDir}/log.txt"
 
     def _create_progress(self):
         def on_log(message):
@@ -769,24 +828,57 @@ class App:
         label["text"] = text
 
     def convertButton_thread(self):
+        if self.conversionThread is not None and self.conversionThread.is_alive():
+            return
+
+        # all dialogs and validation happen here, on the main thread, before the worker starts
+        params = self._prepareConversion()
+        if params is None:
+            return
+
         self._abort.clear()
-        self.conversionThread = threading.Thread(target=self.convertButton_command)
+        self._conversionResult = None
+        self.conversionThread = threading.Thread(target=self.convertButton_command, args=(params,))
         self.conversionThread.daemon = True
-        self.conversionThread.start()
         self.convertButton.place_forget()
         self.stopButton.place(x=20,y=360,width=755,height=30)
+        self.conversionThread.start()
         self._pollThread()
 
     def _pollThread(self):
         if self.conversionThread.is_alive():
-            self.root.after(1000, self._pollThread)
+            self.root.after(200, self._pollThread)
         else:
             self.stopButton.place_forget()
             self.convertButton.place(x=20,y=360,width=755,height=30)
             self.convertButton["state"] = "active"
+            # the worker clears the flag too; clear again in case Abort was clicked as it was finishing
+            self._abort.clear()
+            self._conversionFinished(self._conversionResult or {})
+
+    def _conversionFinished(self, result):
+        """Runs on the main thread after the worker has exited."""
+        if result.get("aborted"):
+            self._append_console("Conversion aborted by user.\n")
+        elif result.get("error") is not None:
+            e, tb = result["error"]
+            self._append_console(tb)
+            alert.showerror(title="Conversion failed", message=f"An error occurred during the conversion:\n\n{e}")
+        elif result.get("logPath"):
+            # give console writes still queued by the worker (via after(0)) time to land before saving the log
+            self.root.after(250, self._writeLog, result["logPath"])
+
+    def _writeLog(self, logPath):
+        try:
+            with open(logPath, "w", encoding="utf-8") as f:
+                f.write(self.consoleTextBox.get(1.0, tkinter.constants.END))
+        except OSError as e:
+            self._append_console(f"Could not write log file: {e}\n")
 
     def stopButton_command(self):
-        self._abort.set()
+        # aborting only makes sense while the worker is running
+        if self.conversionThread is not None and self.conversionThread.is_alive():
+            self._abort.set()
 
 class ConsoleWriter(object):
     """Redirects stdout/stderr writes to a Tkinter Text widget (thread-safe)."""
@@ -804,7 +896,9 @@ class ConsoleWriter(object):
         self.widget.see("end")
 
     def write(self, text: str):
-        if self.abort_event is not None and self.abort_event.is_set():
+        # only abort the conversion (worker) thread; prints from the main thread must never raise
+        if (self.abort_event is not None and self.abort_event.is_set()
+                and threading.current_thread() is not threading.main_thread()):
             raise ConversionAborted()
         self.widget.after(0, self._append, text)
 
@@ -816,24 +910,26 @@ if __name__ == "__main__":
     if settings["steamDir"] == "":
         steamDir = get_steam_dir()
         if steamDir:
-            app.setSteamDir(steamDir)
+            app.setSteamDir(steamDir, refresh=False)
 
     # If we can't find where Steam is installed, ask the user to locate it
-    while settings["steamDir"] == "":
+    if settings["steamDir"] == "":
         alert.showwarning(
-            "Warning",
+            title="Warning",
             message="It appears that this is your first time using Corvid.\n\n"
                         + "Please set your Steam directory in the next dialogue."
         )
-        app.setSteamDir()
-    
-    library_paths = load_library_folders_data(settings["steamDir"])
-    if library_paths:
-        for path in library_paths:
-            if path not in steamAppsDirs:
-                steamAppsDirs.append(path)
-    else:
-        print("Cannot detect Steam libraries. Make sure your Steam directory is correct.")
+        while not app.setSteamDir(refresh=False):
+            retry = alert.askretrycancel(
+                title="Steam directory not set",
+                message="No Steam directory was selected.\n\n"
+                        + "Press Retry to choose it again, or Cancel to continue without it. "
+                        + "You can set it later from Settings > Set Steam directory."
+            )
+            if not retry:
+                break
+
+    app.refreshSteamLibraries()
 
     # If temp folder already exists, delete it before we proceed as it causes issues
     temp_path = os.path.join(gettempdir(), 'corvid')
