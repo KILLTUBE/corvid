@@ -464,9 +464,8 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
                         pass
 
             if game == "WaW":
-                # CoDWaW is the only target that supports water normal maps
-                if "$bumpmap" in mat:
-                    data["normalMap"] = newPath(mat["$bumpmap"], shorten=True)
+                # CoDWaW is the only target that supports water normal maps;
+                # normalMap itself is set by the generic $bumpmap block below.
                 if "$fogcolor" in mat:
                     data["waterColor"] = f"{Vec2Str(_parseSourceColor(mat['$fogcolor']))} 0"
                 if "$refracttint" in mat:
@@ -509,7 +508,7 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
                 data["colorMap"] = textureDir + fileName + ext
             else:
                 data["colorMap"] = textureDir + "404" + ext
-        elif data["materialType"] == "water":
+        else:
             data["colorMap"] = textureDir + "404" + ext
         
         if "$bumpmap" in mat:
@@ -599,6 +598,11 @@ def createMaterialGdt(vmts: dict, game="WaW", loadedTextures=set(), overlayMats=
 
         if data.get("blendFunc") == "Blend":
             data.pop("alphaTest", None)
+
+        # CoD 4 / CoD 2 water materials take no texture maps at all
+        if data["materialType"] == "water" and game in ("CoD4", "CoD2"):
+            for key in ("colorMap", "normalMap", "cosinePowerMap"):
+                data.pop(key, None)
 
         gdt.add(assetName.strip(), "material", data)
     return gdt
