@@ -130,33 +130,40 @@ class popupWindow:
         top.focus_force()
         top.transient(app.root)
 
-        width=175
-        height=105
-        screenwidth = app.root.winfo_screenwidth()
-        screenheight = app.root.winfo_screenheight()
-        alignstr = '%dx%d+%d+%d' % (width, height, (screenwidth - width) / 2, (screenheight - height) / 2 - 30)
-        top.geometry(alignstr)
+        ft = app.font
+        top.columnconfigure(1, weight=1)
+        top["padx"] = 10
+        top["pady"] = 10
 
-        self.text=tk.Label(top, text="Please enter the scale value", justify="center")
-        self.text.place(x=0, y=0, height=30, width=175)
-        
-        self.textXY = tk.Label(top, text="X/Y")
-        self.textXY.place(x=5, y=25)
-        self.scaleXY = tk.Entry(top)
+        self.text = tk.Label(top, text="Please enter the scale value", font=ft)
+        self.text.grid(row=0, column=0, columnspan=2, pady=(0, 8))
+
+        self.textXY = tk.Label(top, text="X/Y", font=ft, anchor="w")
+        self.textXY.grid(row=1, column=0, sticky="w", padx=(0, 8), pady=(0, 4))
+        self.scaleXY = tk.Entry(top, font=ft, width=16)
         self.scaleXY.focus_force()
         self.scaleXY.insert(0, settings["scale"][0])
-        self.scaleXY.place(x=30, y=25, width=140)
-        
-        self.textZ = tk.Label(top, text="Z")
-        self.textZ.place(x=5, y=50)
-        self.scaleZ = tk.Entry(top)
-        self.scaleZ.insert(0, settings["scale"][1])
-        self.scaleZ.place(x=30, y=50, width=140)
+        self.scaleXY.grid(row=1, column=1, sticky="ew", pady=(0, 4))
 
-        self.ok=tk.Button(top,text='OK', command=self.okCommand)
-        self.ok.place(x=5, y=75, width=83)
-        self.cancel=tk.Button(top,text='Cancel', command=top.destroy)
-        self.cancel.place(x=90, y=75, width=80)
+        self.textZ = tk.Label(top, text="Z", font=ft, anchor="w")
+        self.textZ.grid(row=2, column=0, sticky="w", padx=(0, 8), pady=(0, 8))
+        self.scaleZ = tk.Entry(top, font=ft, width=16)
+        self.scaleZ.insert(0, settings["scale"][1])
+        self.scaleZ.grid(row=2, column=1, sticky="ew", pady=(0, 8))
+
+        buttons = tk.Frame(top)
+        buttons.grid(row=3, column=0, columnspan=2, sticky="ew")
+        buttons.columnconfigure((0, 1), weight=1, uniform="buttons")
+        self.ok = tk.Button(buttons, text="OK", font=ft, command=self.okCommand)
+        self.ok.grid(row=0, column=0, sticky="ew", padx=(0, 3))
+        self.cancel = tk.Button(buttons, text="Cancel", font=ft, command=top.destroy)
+        self.cancel.grid(row=0, column=1, sticky="ew", padx=(3, 0))
+
+        # center over the main window
+        top.update_idletasks()
+        x = app.root.winfo_rootx() + (app.root.winfo_width() - top.winfo_reqwidth()) // 2
+        y = app.root.winfo_rooty() + (app.root.winfo_height() - top.winfo_reqheight()) // 2
+        top.geometry(f"+{x}+{y}")
 
     def okCommand(self):
         xy = z = None
@@ -187,13 +194,12 @@ class App:
         self.conversionThread = None
         self._conversionResult = None
         width=800
-        height=620
+        height=640
         screenwidth = root.winfo_screenwidth()
         screenheight = root.winfo_screenheight()
         alignstr = '%dx%d+%d+%d' % (width, height, (screenwidth - width) / 2, (screenheight - height) / 2 - 30)
         root.geometry(alignstr)
-        root.resizable(width=False, height=False)
-        ft = tkFont.Font(family='Verdana',size=8)
+        ft = self.font = tkFont.Font(family='Verdana',size=8)
 
         # menu bar
         self.menuBar = tk.Menu(root)
@@ -227,7 +233,7 @@ class App:
         settingsMenu.add_command(label="Detect Steam directory", command=self.detectSteamDir)
 
         helpMenu = tk.Menu(self.menuBar, tearoff=0)
-        helpMenu.add_command(label="Corvid on Github", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid"))
+        helpMenu.add_command(label="Corvid on GitHub", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid"))
         helpMenu.add_command(label="Corvid wiki", command=lambda: webbrowser.open("https://github.com/KILLTUBE/corvid/wiki"))
         helpMenu.add_command(label="Video tutorial", command=lambda: webbrowser.open("https://www.youtube.com/watch?v=izALMNZjgkA"))
         #helpMenu.add_command(label="Check for new versions", command=lambda: print("Checking for new versions..."))
@@ -238,268 +244,136 @@ class App:
 
         root.config(menu=self.menuBar)
 
-        vmfLabel=tk.Label(root)
-        vmfLabel["font"] = ft
-        vmfLabel["fg"] = "#333333"
-        vmfLabel["justify"] = "left"
-        vmfLabel["text"] = "VMF File"
-        vmfLabel["anchor"] = "w"
-        vmfLabel.place(x=20,y=10,width=50,height=30)
+        # Everything below is laid out with grid so it stays aligned at any font size and window size.
+        # Columns 1-3 of the main frame hold the Browse/Add/Remove/Clear buttons.
+        textColor = "#333333"
 
-        self.vmfPath=tk.Entry(root)
-        self.vmfPath["borderwidth"] = "1px"
-        self.vmfPath["font"] = ft
-        self.vmfPath["fg"] = "#333333"
-        self.vmfPath["justify"] = "left"
-        self.vmfPath.place(x=80,y=10,width=570,height=30)
+        def makeLabel(parent, text="", **kwargs):
+            return tk.Label(parent, text=text, font=ft, fg=textColor, anchor="w", **kwargs)
 
-        chooseVmfButton=tk.Button(root)
-        chooseVmfButton["bg"] = "#f0f0f0"
-        chooseVmfButton["font"] = ft
-        chooseVmfButton["fg"] = "#000000"
-        chooseVmfButton["justify"] = "center"
-        chooseVmfButton["text"] = "Browse"
-        chooseVmfButton.place(x=660,y=10,width=114,height=30)
-        chooseVmfButton["command"] = self.chooseVmfDialog_command
+        def makeButton(parent, text, command, **kwargs):
+            return tk.Button(parent, text=text, command=command, font=ft, fg="#000000", **kwargs)
 
-        vpkLabel=tk.Label(root)
-        vpkLabel["font"] = ft
-        vpkLabel["fg"] = "#333333"
-        vpkLabel["justify"] = "left"
-        vpkLabel["text"] = "Additional resoruce files (VPK, BSP, GMAD)"
-        vpkLabel["anchor"] = "w"
-        vpkLabel.place(x=20,y=50,width=300,height=30)
+        def makeRow(parent, row, pady=(0, 10), weight=0):
+            """Creates a frame that spans the whole width of the main frame."""
+            frame = tk.Frame(parent)
+            frame.grid(row=row, column=0, columnspan=4, sticky="nsew", pady=pady)
+            frame.columnconfigure(0, weight=1)
+            parent.rowconfigure(row, weight=weight)
+            return frame
 
-        self.vpkList=tk.Listbox(root)
-        self.vpkList["selectmode"] = tk.EXTENDED
-        self.vpkList["borderwidth"] = "1px"
-        self.vpkList["font"] = ft
-        self.vpkList["fg"] = "#333333"
-        self.vpkList["justify"] = "left"
-        self.vpkList.place(x=20,y=90,width=755,height=60)
-        vpkScrollbar = tk.Scrollbar(self.vpkList)
-        vpkScrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
-        self.vpkList["yscrollcommand"] = vpkScrollbar.set
+        def makeList(parent, row):
+            """Creates a listbox with its scrollbars next to it, so they don't cover long paths."""
+            frame = makeRow(parent, row, weight=1)
+            frame.rowconfigure(0, weight=1)
+            listbox = tk.Listbox(frame, selectmode=tk.EXTENDED, borderwidth=1, font=ft, fg=textColor, width=1, height=3)
+            listbox.grid(row=0, column=0, sticky="nsew")
+            scrollY = tk.Scrollbar(frame, orient=tk.VERTICAL, command=listbox.yview)
+            scrollY.grid(row=0, column=1, sticky="ns")
+            scrollX = tk.Scrollbar(frame, orient=tk.HORIZONTAL, command=listbox.xview)
+            scrollX.grid(row=1, column=0, sticky="ew")
+            listbox["yscrollcommand"] = scrollY.set
+            listbox["xscrollcommand"] = scrollX.set
+            return listbox
 
-        gameDirLabel=tk.Label(root)
-        gameDirLabel["font"] = ft
-        gameDirLabel["fg"] = "#333333"
-        gameDirLabel["justify"] = "left"
-        gameDirLabel["anchor"] = "w"
-        gameDirLabel["text"] = "Asset directories"
-        gameDirLabel.place(x=20,y=160,width=99,height=30)
+        def makeListHeader(parent, row, text, addCommand, removeCommand, clearCommand):
+            makeLabel(parent, text).grid(row=row, column=0, sticky="w", pady=(0, 10))
+            buttons = (("Add", addCommand), ("Remove", removeCommand), ("Clear", clearCommand))
+            for column, (buttonText, command) in enumerate(buttons, 1):
+                makeButton(parent, buttonText, command).grid(row=row, column=column, sticky="ew", padx=(10, 0), pady=(0, 10))
 
-        self.gameDirList=tk.Listbox(root)
-        self.gameDirList["selectmode"] = tk.EXTENDED
-        self.gameDirList["borderwidth"] = "1px"
-        self.gameDirList["font"] = ft
-        self.gameDirList["fg"] = "#333333"
-        self.gameDirList["justify"] = "left"
-        self.gameDirList.place(x=20,y=200,width=755,height=60)
-        gameDirScrollbar = tk.Scrollbar(self.gameDirList)
-        gameDirScrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
-        self.gameDirList["yscrollcommand"] = gameDirScrollbar.set
+        root.columnconfigure(0, weight=1)
+        root.rowconfigure(0, weight=1)
+        main = tk.Frame(root, padx=20, pady=15)
+        main.grid(row=0, column=0, sticky="nsew")
+        main.columnconfigure(0, weight=1)
+        for column in (1, 2, 3):
+            main.columnconfigure(column, uniform="buttons", minsize=115)
 
-        deleteVpkButton=tk.Button(root)
-        deleteVpkButton["bg"] = "#f0f0f0"
-        deleteVpkButton["font"] = ft
-        deleteVpkButton["fg"] = "#000000"
-        deleteVpkButton["justify"] = "center"
-        deleteVpkButton["text"] = "Remove"
-        deleteVpkButton.place(x=540,y=50,width=114,height=30)
-        deleteVpkButton["command"] = self.deleteVpkButton_command
+        # VMF file
+        vmfFrame = tk.Frame(main)
+        vmfFrame.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 10))
+        vmfFrame.columnconfigure(1, weight=1)
+        makeLabel(vmfFrame, "VMF file").grid(row=0, column=0, sticky="w", padx=(0, 10))
+        self.vmfPath = tk.Entry(vmfFrame, borderwidth=1, font=ft, fg=textColor, width=1)
+        self.vmfPath.grid(row=0, column=1, sticky="ew", ipady=4)
+        makeButton(main, "Browse", self.chooseVmfDialog_command).grid(row=0, column=3, sticky="ew", padx=(10, 0), pady=(0, 10))
 
-        deleteDirButton=tk.Button(root)
-        deleteDirButton["bg"] = "#f0f0f0"
-        deleteDirButton["font"] = ft
-        deleteDirButton["fg"] = "#000000"
-        deleteDirButton["justify"] = "center"
-        deleteDirButton["text"] = "Remove"
-        deleteDirButton.place(x=540,y=160,width=115,height=30)
-        deleteDirButton["command"] = self.deleteDirButton_command
+        # resource files and asset directories
+        makeListHeader(main, 1, "Additional resource files (VPK, BSP, GMAD)", self.addVpkButton_command, self.deleteVpkButton_command, lambda: self.vpkList.delete(0, tk.END))
+        self.vpkList = makeList(main, 2)
+        makeListHeader(main, 3, "Asset directories", self.addGameDirButton_command, self.deleteDirButton_command, lambda: self.gameDirList.delete(0, tk.END))
+        self.gameDirList = makeList(main, 4)
 
-        addVpkButton=tk.Button(root)
-        addVpkButton["bg"] = "#f0f0f0"
-        addVpkButton["font"] = ft
-        addVpkButton["fg"] = "#000000"
-        addVpkButton["justify"] = "center"
-        addVpkButton["text"] = "Add"
-        addVpkButton.place(x=420,y=50,width=115,height=30)
-        addVpkButton["command"] = self.addVpkButton_command
-
-        addGameDirButton=tk.Button(root)
-        addGameDirButton["bg"] = "#f0f0f0"
-        addGameDirButton["font"] = ft
-        addGameDirButton["fg"] = "#000000"
-        addGameDirButton["justify"] = "center"
-        addGameDirButton["text"] = "Add"
-        addGameDirButton.place(x=420,y=160,width=115,height=30)
-        addGameDirButton["command"] = self.addGameDirButton_command
-
-        clearVpkButton=tk.Button(root)
-        clearVpkButton["bg"] = "#f0f0f0"
-        clearVpkButton["font"] = ft
-        clearVpkButton["fg"] = "#000000"
-        clearVpkButton["justify"] = "center"
-        clearVpkButton["text"] = "Clear"
-        clearVpkButton.place(x=660,y=50,width=115,height=30)
-        clearVpkButton["command"] = lambda: self.vpkList.delete(0, tk.END)
-
-        clearGameDirButton=tk.Button(root)
-        clearGameDirButton["bg"] = "#f0f0f0"
-        clearGameDirButton["font"] = ft
-        clearGameDirButton["fg"] = "#000000"
-        clearGameDirButton["justify"] = "center"
-        clearGameDirButton["text"] = "Clear"
-        clearGameDirButton.place(x=660,y=160,width=115,height=30)
-        clearGameDirButton["command"] = lambda: self.gameDirList.delete(0, tk.END)
+        # target game and things to skip share the same columns
+        options = tk.Frame(main)
+        options.grid(row=5, column=0, columnspan=4, sticky="ew", pady=(0, 10))
+        for column in range(1, 5):
+            options.columnconfigure(column, weight=1, uniform="options")
 
         # decide what game the map is going to be converted for
         self.game = tk.StringVar()
         self.game.set(settings["game"])
+        makeLabel(options, "Target game").grid(row=0, column=0, sticky="w", padx=(0, 20), pady=(0, 5))
+        targets = (("Black Ops 3", "BO3"), ("WaW / Black Ops", "WaW"), ("CoD 4", "CoD4"), ("CoD 2", "CoD2"))
+        for column, (text, value) in enumerate(targets, 1):
+            tk.Radiobutton(
+                options, text=text, value=value, variable=self.game, font=ft, fg=textColor,
+                command=lambda value=value: self.changeSetting("game", value)
+            ).grid(row=0, column=column, sticky="w", pady=(0, 5))
 
-        radioBO3=tk.Radiobutton(root, variable=self.game)
-        radioBO3["font"] = ft
-        radioBO3["fg"] = "#333333"
-        radioBO3["justify"] = "left"
-        radioBO3["text"] = "Black Ops 3"
-        radioBO3.place(x=134,y=270,width=88,height=30)
-        radioBO3["value"] = "BO3"
-        radioBO3["command"] = lambda: self.changeSetting("game", "BO3")
+        makeLabel(options, "Skip converting").grid(row=1, column=0, sticky="w", padx=(0, 20))
+        self.skipMats = tk.BooleanVar()
+        tk.Checkbutton(options, text="Materials", variable=self.skipMats, onvalue=True, offvalue=False, font=ft, fg=textColor).grid(row=1, column=1, sticky="w")
+        self.skipModels = tk.BooleanVar()
+        tk.Checkbutton(options, text="Models", variable=self.skipModels, onvalue=True, offvalue=False, font=ft, fg=textColor).grid(row=1, column=2, sticky="w")
 
-        radioWaW=tk.Radiobutton(root, variable=self.game)
-        radioWaW["font"] = ft
-        radioWaW["fg"] = "#333333"
-        radioWaW["justify"] = "left"
-        radioWaW["text"] = "WaW / Black Ops"
-        radioWaW.place(x=270,y=270,width=120,height=30)
-        radioWaW["value"] = "WaW"
-        radioWaW["command"] = lambda: self.changeSetting("game", "WaW")
+        # the convert and abort buttons take turns in the same cell
+        self.convertButton = makeButton(main, "Convert", self.convertButton_thread)
+        self.convertButton.grid(row=6, column=0, columnspan=4, sticky="ew", pady=(0, 10), ipady=3)
+        self.stopButton = makeButton(main, "Abort conversion", self.stopButton_command)
+        self.stopButton.grid(row=6, column=0, columnspan=4, sticky="ew", pady=(0, 10), ipady=3)
+        self.stopButton.grid_remove()
 
-        radioCoD4=tk.Radiobutton(root, variable=self.game)
-        radioCoD4["font"] = ft
-        radioCoD4["fg"] = "#333333"
-        radioCoD4["justify"] = "left"
-        radioCoD4["text"] = "CoD 4"
-        radioCoD4.place(x=425,y=270,width=75,height=30)
-        radioCoD4["value"] = "CoD4"
-        radioCoD4["command"] = lambda: self.changeSetting("game", "CoD4")
-
-        radioCoD2=tk.Radiobutton(root, variable=self.game)
-        radioCoD2["font"] = ft
-        radioCoD2["fg"] = "#333333"
-        radioCoD2["justify"] = "left"
-        radioCoD2["text"] = "CoD 2"
-        radioCoD2.place(x=515,y=270,width=100,height=30)
-        radioCoD2["value"] = "CoD2"
-        radioCoD2["command"] = lambda: self.changeSetting("game", "CoD2")
-
-        gameLabel=tk.Label(root)
-        gameLabel["font"] = ft
-        gameLabel["fg"] = "#333333"
-        gameLabel["justify"] = "left"
-        gameLabel["anchor"] = "w"
-        gameLabel["text"] = "Game"
-        gameLabel.place(x=20,y=270,width=50,height=30)
-
-        self.currentGameLabel=tk.Label(root)
-        self.currentGameLabel["font"] = ft
-        self.currentGameLabel["justify"] = "right"
-        self.currentGameLabel["anchor"] = "e"
-        self.currentGameLabel["fg"] = "#333333"
-        self.currentGameLabel["text"] = gameDef[settings["currentGame"]]["gameName"] if settings["currentGame"] in gameDef else "<none>"
-        self.currentGameLabel.place(x=390,y=570,width=390,height=30)
-
-        self.steamDirLabel=tk.Label(root)
-        self.steamDirLabel["font"] = ft
-        self.steamDirLabel["justify"] = "left"
-        self.steamDirLabel["anchor"] = "w"
-        self.steamDirLabel["fg"] = "#333333"
-        self.steamDirLabel["text"] = settings["steamDir"] if settings["steamDir"] != "" else "Steam directory not found!"
-        self.steamDirLabel.place(x=20,y=570,width=390,height=30)
-
-        self.progressOverall = Progressbar()
-        self.progressOverall.place(x=20,y=400,width=615,height=13)
+        # progress bars
+        progress = makeRow(main, 7, pady=(0, 5))
+        progress.columnconfigure(0, weight=0, minsize=150)
+        progress.columnconfigure(1, weight=1)
+        self.overallLabel = makeLabel(progress, "Total: n/a")
+        self.overallLabel.grid(row=0, column=0, sticky="w")
+        self.progressOverall = Progressbar(progress)
+        self.progressOverall.grid(row=0, column=1, sticky="ew", pady=(0, 3))
         self.progressOverall["value"] = 0
-
-        self.overallLabel = tk.Label()
-        self.overallLabel["font"] = ft
-        self.overallLabel["justify"] = "left"
-        self.overallLabel["anchor"] = "w"
-        self.overallLabel["fg"] = "#333333"
-        self.overallLabel["text"] = f"Total: n/a"
-        self.overallLabel.place(x=635,y=398,width=300,height=15)
-
-        self.progressCurrent = Progressbar()
-        self.progressCurrent.place(x=20,y=417,width=615,height=13)
+        self.currentLabel = makeLabel(progress, "Current: n/a")
+        self.currentLabel.grid(row=1, column=0, sticky="w")
+        self.progressCurrent = Progressbar(progress)
+        self.progressCurrent.grid(row=1, column=1, sticky="ew")
         self.progressCurrent["value"] = 0
 
-        self.currentLabel = tk.Label()
-        self.currentLabel["font"] = ft
-        self.currentLabel["justify"] = "left"
-        self.currentLabel["anchor"] = "w"
-        self.currentLabel["fg"] = "#333333"
-        self.currentLabel["text"] = f"Current: n/a"
-        self.currentLabel.place(x=635,y=416,width=300,height=15)
-
-        self.consoleTextBox=tk.Text(root)
-        self.consoleTextBox["borderwidth"] = "1px"
-        self.consoleTextBox["font"] = ft
-        self.consoleTextBox["fg"] = "#333333"
-        self.consoleTextBox.place(x=20,y=440,width=755,height=132)
+        # console
+        consoleFrame = makeRow(main, 8, pady=(0, 5), weight=3)
+        consoleFrame.rowconfigure(0, weight=1)
+        self.consoleTextBox = tk.Text(consoleFrame, borderwidth=1, font=ft, fg=textColor, width=1, height=6)
+        self.consoleTextBox.grid(row=0, column=0, sticky="nsew")
         sys.stdout = ConsoleWriter(self.consoleTextBox, self._abort, stdout)
         sys.stderr = ConsoleWriter(self.consoleTextBox, self._abort, stderr)
-        self.consoleScrollbar = tk.Scrollbar(self.consoleTextBox)
-        self.consoleScrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
+        self.consoleScrollbar = tk.Scrollbar(consoleFrame, orient=tk.VERTICAL, command=self.consoleTextBox.yview)
+        self.consoleScrollbar.grid(row=0, column=1, sticky="ns")
         self.consoleTextBox["yscrollcommand"] = self.consoleScrollbar.set
 
-        self.convertButton=tk.Button(root)
-        self.convertButton["bg"] = "#f0f0f0"
-        self.convertButton["font"] = ft
-        self.convertButton["fg"] = "#000000"
-        self.convertButton["justify"] = "center"
-        self.convertButton["text"] = "Convert"
-        self.convertButton.place(x=20,y=360,width=755,height=30)
-        self.convertButton["command"] = self.convertButton_thread
-        
-        self.stopButton=tk.Button(root)
-        self.stopButton["bg"] = "#f0f0f0"
-        self.stopButton["font"] = ft
-        self.stopButton["fg"] = "#000000"
-        self.stopButton["justify"] = "center"
-        self.stopButton["text"] = "Abort conversion"
-        self.stopButton["command"] = self.stopButton_command
+        # status row; a width of 1 makes a long Steam path get cut off instead of pushing the game out
+        status = makeRow(main, 9, pady=0)
+        self.steamDirLabel = makeLabel(status, settings["steamDir"] if settings["steamDir"] != "" else "Steam directory not found!", width=1)
+        self.steamDirLabel.grid(row=0, column=0, sticky="ew", padx=(0, 20))
+        self.currentGameLabel = makeLabel(status, self._sourceGameText(gameDef[settings["currentGame"]]["gameName"] if settings["currentGame"] in gameDef else "<none>"))
+        self.currentGameLabel.grid(row=0, column=1, sticky="e")
 
-        skipLabel=tk.Label(root)
-        skipLabel["font"] = ft
-        skipLabel["fg"] = "#333333"
-        skipLabel["justify"] = "left"
-        skipLabel["text"] = "Skip converting"
-        skipLabel["anchor"] = "w"
-        skipLabel.place(x=20,y=310,width=93,height=30)
+        root.update_idletasks()
+        root.minsize(root.winfo_reqwidth(), root.winfo_reqheight())
 
-        self.skipMats = tk.BooleanVar()
-        checkSkipMaterials=tk.Checkbutton(root)
-        checkSkipMaterials["font"] = ft
-        checkSkipMaterials["fg"] = "#333333"
-        checkSkipMaterials["justify"] = "left"
-        checkSkipMaterials["text"] = "Materials"
-        checkSkipMaterials["variable"] = self.skipMats
-        checkSkipMaterials.place(x=130,y=310,width=76,height=30)
-        checkSkipMaterials["offvalue"] = False
-        checkSkipMaterials["onvalue"] = True
+    def _sourceGameText(self, gameName):
+        return f"Source game: {gameName}"
 
-        self.skipModels = tk.BooleanVar()
-        checkSkipModels=tk.Checkbutton(root)
-        checkSkipModels["font"] = ft
-        checkSkipModels["fg"] = "#333333"
-        checkSkipModels["justify"] = "center"
-        checkSkipModels["text"] = "Models"
-        checkSkipModels["variable"] = self.skipModels
-        checkSkipModels.place(x=262,y=310,width=78,height=30)
-        checkSkipModels["offvalue"] = False
-        checkSkipModels["onvalue"] = True
-    
     def changeSetting(self, key, value):
         settings[key] = value
         with open("res/settings.json", "w", encoding="utf-8") as f:
@@ -548,9 +422,9 @@ class App:
     def setCurrentGame(self):
         self.changeSetting("currentGame", self.currentGame.get())
         gameName = gameDef[self.currentGame.get()]['gameName']
-        self.currentGameLabel["text"] = gameName
+        self.currentGameLabel["text"] = self._sourceGameText(gameName)
         if gameName == "<none>":
-            print("Warning: If you going to convert a map from a game that isn't included in the list, make sure you add all the VPK files and the directories of the game to the lists above.")
+            print("Warning: If you are going to convert a map from a game that isn't included in the list, make sure you add all the VPK files and the directories of the game to the lists above.")
 
     def chooseVmfDialog_command(self):
         file = filedialog.askopenfilename(filetypes=[("Source Engine map file", "*.vmf")])
@@ -585,7 +459,7 @@ class App:
             title="About Corvid",
             message=f"Version: {version}\n\n"
             + "Author: Mehmet Yüce\n"
-            + "Github: @myuce\n"
+            + "GitHub: @myuce\n"
             + "Twitter: @myuce153\n\n"
             + "Icon file created by Freepik\n"
             + "https://www.flaticon.com/authors/freepik",
@@ -840,8 +714,8 @@ class App:
         self._conversionResult = None
         self.conversionThread = threading.Thread(target=self.convertButton_command, args=(params,))
         self.conversionThread.daemon = True
-        self.convertButton.place_forget()
-        self.stopButton.place(x=20,y=360,width=755,height=30)
+        self.convertButton.grid_remove()
+        self.stopButton.grid()
         self.conversionThread.start()
         self._pollThread()
 
@@ -849,9 +723,8 @@ class App:
         if self.conversionThread.is_alive():
             self.root.after(200, self._pollThread)
         else:
-            self.stopButton.place_forget()
-            self.convertButton.place(x=20,y=360,width=755,height=30)
-            self.convertButton["state"] = "active"
+            self.stopButton.grid_remove()
+            self.convertButton.grid()
             # the worker clears the flag too; clear again in case Abort was clicked as it was finishing
             self._abort.clear()
             self._conversionFinished(self._conversionResult or {})
@@ -917,7 +790,7 @@ if __name__ == "__main__":
         alert.showwarning(
             title="Warning",
             message="It appears that this is your first time using Corvid.\n\n"
-                        + "Please set your Steam directory in the next dialogue."
+                        + "Please set your Steam directory in the next dialog."
         )
         while not app.setSteamDir(refresh=False):
             retry = alert.askretrycancel(
