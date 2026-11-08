@@ -3,14 +3,15 @@
 		"gameName": "Black Mesa",
 		"gameRoot": "Black Mesa",
 		"vpkFiles": [
-			"bms/bms_materials_dir.vpk",
-			"bms/bms_misc_dir.vpk",
-			"bms/bms_models_dir.vpk",
 			"bms/bms_textures_dir.vpk",
-			"hl2/hl2_materials_dir.vpk",
+			"bms/bms_materials_dir.vpk",
+			"bms/bms_models_dir.vpk",
+			"bms/bms_misc_dir.vpk",
+			"bms/bms_maps_dir.vpk",
 			"hl2/hl2_misc_dir.vpk",
-			"hl2/hl2_models_dir.vpk",
 			"hl2/hl2_textures_dir.vpk",
+			"hl2/hl2_materials_dir.vpk",
+			"hl2/hl2_models_dir.vpk",
 			"platform/platform_misc_dir.vpk"
 		],
 		"gameDirs": [
@@ -25,16 +26,18 @@
 		"vpkFiles": [
 			"cstrike/cstrike_pak_dir.vpk",
 			"hl2/hl2_textures_dir.vpk",
-			"hl2/hl2_misc_dir.vpk"
+			"hl2/hl2_misc_dir.vpk",
+			"platform/platform_misc_dir.vpk"
 		],
 		"gameDirs": [
 			"cstrike",
-			"hl2"
+			"hl2",
+			"platform"
 		]
 	},
 	"csgo": {
 		"gameName": "Counter-Strike: Global Offensive",
-		"gameRoot": "Counter-Strike Global Offensive",
+		"gameRoot": "csgo legacy",
 		"vpkFiles": [
 			"csgo/pak01_dir.vpk"
 		],
@@ -48,11 +51,13 @@
 		"vpkFiles": [
 			"dod/dod_pak_dir.vpk",
 			"hl2/hl2_textures_dir.vpk",
-			"hl2/hl2_misc_dir.vpk"
+			"hl2/hl2_misc_dir.vpk",
+			"platform/platform_misc_dir.vpk"
 		],
 		"gameDirs": [
 			"dod",
-			"hl2"
+			"hl2",
+			"platform"
 		]
 	},
 	"doi": {
@@ -80,11 +85,13 @@
 			"garrysmod/garrysmod_dir.vpk",
 			"garrysmod/fallbacks_dir.vpk",
 			"sourceengine/hl2_textures_dir.vpk",
-			"sourceengine/hl2_misc_dir.vpk"
+			"sourceengine/hl2_misc_dir.vpk",
+			"platform/platform_misc_dir.vpk"
 		],
 		"gameDirs": [
 			"garrysmod",
-			"sourceengine"
+			"sourceengine",
+			"platform"
 		]
 	},
 	"hl2": {
@@ -128,13 +135,18 @@
 		"gameName": "Half-Life 2: Deathmatch",
 		"gameRoot": "Half-Life 2 Deathmatch",
 		"vpkFiles": [
+			"hl2mp/hl2mp_pak_dir.vpk",
+			"hl2_complete/hl2_complete_textures_dir.vpk",
+			"hl2_complete/hl2_complete_misc_dir.vpk",
 			"hl2/hl2_textures_dir.vpk",
 			"hl2/hl2_misc_dir.vpk",
-			"hl2mp/hl2mp_pak_dir.vpk"
+			"platform/platform_misc_dir.vpk"
 		],
 		"gameDirs": [
+			"hl2mp",
+			"hl2_complete",
 			"hl2",
-			"hl2mp"
+			"platform"
 		]
 	},
 	"hl1mp": {
@@ -183,16 +195,18 @@
 		"gameName": "Left 4 Dead 2",
 		"gameRoot": "left 4 dead 2",
 		"vpkFiles": [
-			"left4dead2/pak01_dir.vpk",
-			"left4dead2_dlc1/pak01_dir.vpk",
+			"update/pak01_dir.vpk",
+			"left4dead2_dlc3/pak01_dir.vpk",
 			"left4dead2_dlc2/pak01_dir.vpk",
-			"left4dead2_dlc3/pak01_dir.vpk"
+			"left4dead2_dlc1/pak01_dir.vpk",
+			"left4dead2/pak01_dir.vpk"
 		],
 		"gameDirs": [
-			"left4dead2",
-			"left4dead2_dlc1",
+			"update",
+			"left4dead2_dlc3",
 			"left4dead2_dlc2",
-			"left4dead2_dlc3"
+			"left4dead2_dlc1",
+			"left4dead2"
 		]
 	},
 	"portal": {
@@ -212,30 +226,32 @@
 		"gameName": "Portal 2",
 		"gameRoot": "Portal 2",
 		"vpkFiles": [
-			"portal2/pak01_dir.vpk",
-			"portal2_dlc1/pak01_dir.vpk",
+			"update/pak01_dir.vpk",
 			"portal2_dlc2/pak01_dir.vpk",
-			"update/pak01_dir.vpk"
+			"portal2_dlc1/pak01_dir.vpk",
+			"portal2/pak01_dir.vpk"
 		],
 		"gameDirs": [
-			"portal2",
-			"portal2_dlc1",
+			"update",
 			"portal2_dlc2",
-			"update"
+			"portal2_dlc1",
+			"portal2"
 		]
 	},
 	"tf": {
 		"gameName": "Team Fortress 2",
 		"gameRoot": "Team Fortress 2",
 		"vpkFiles": [
+			"tf/tf2_textures_dir.vpk",
+			"tf/tf2_misc_dir.vpk",
 			"hl2/hl2_textures_dir.vpk",
 			"hl2/hl2_misc_dir.vpk",
-			"tf/tf2_misc_dir.vpk",
-			"tf/tf2_textures_dir.vpk"
+			"platform/platform_misc_dir.vpk"
 		],
 		"gameDirs": [
+			"tf",
 			"hl2",
-			"tf"
+			"platform"
 		]
 	},
 	"_s": {
@@ -283,15 +299,15 @@
 		"gameName": "No More Room in Hell",
 		"gameRoot": "nmrih",
 		"vpkFiles": [
-			"hl2/hl2_misc_dir.vpk",
+			"nmrih/nmrih_dir.vpk",
 			"hl2/hl2_textures_dir.vpk",
-			"hl2mp/hl2mp_pak_dir.vpk",
-			"nmrih/nmrih_dir.vpk"
+			"hl2/hl2_misc_dir.vpk",
+			"platform/platform_misc_dir.vpk"
 		],
 		"gameDirs": [
+			"nmrih",
 			"hl2",
-			"hl2mp",
-			"nmrih"
+			"platform"
 		]
 	},
 	"_s2": {
