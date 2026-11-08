@@ -55,6 +55,20 @@ class _BspPak:
         key = f"materials/maps/{self.map_name}/{material}_wvt_patch.vmt"
         return self.read(key)
 
+def _open_vpk(path):
+    """
+    Open a VPK and read its index right away. Some official VPKs have names that aren't valid
+    UTF-8 (L4D2's dlc3 has one in Latin-1). The vpk library stops at that entry and only keeps
+    the files before it, so those VPKs have to be read with an encoding that can't fail.
+    """
+    pak = vpk.open(path)
+    try:
+        pak.read_index()
+    except UnicodeDecodeError:
+        pak = vpk.open(path, path_enc="latin-1")
+        pak.read_index()
+    return pak
+
 class SourceDir:
     def __init__(self):
         self.dirs = []
@@ -69,7 +83,7 @@ class SourceDir:
                 print(f"\"{path}\" is not a valid file.")
                 return
             if path.endswith(".vpk"):
-                self.paks.append(vpk.open(path))
+                self.paks.append(_open_vpk(path))
             elif path.endswith(".gma"):
                 self.addons.append(loadGma(path))
             elif path.endswith(".bsp"):
